@@ -116,7 +116,10 @@ CONSCIOUSLY VARY YOUR OUTPUT — anti-monotony rules:
 - Do NOT default to "white" header bgType every time. Use "primary" for proof/retro brands, "gradient" for playful launches, and "transparent" overlay for restaurants/galleries with full-image heroes.
 - Vary the palette across sites. If a template has 3 palettes, do not always pick the first one — match the palette to the prompt's mood (e.g. for a juice bar pick the warmest/brightest, for a law firm pick the most muted).
 - Use a DIFFERENT mix of blocks each time. Sites should not all look like hero → services → testimonials → cta. Mix in: featuredQuote, carousel, stats, logoCloud, aboutImageText, tabBar, deliveryLinks, gallery, etc. depending on what the brand actually needs.
+- Do NOT leave every card-capable block on its default cardStyle. Pick presets from the card style guide that match the visual treatment, and vary surfaceStyle, spacingDensity, markerStyle, and textAlign deliberately.
+- Use eyebrow labels (pretext + pretextEnabled + pretextStyle) on a few key sections, and responsive columns (sectionSettings.layout.columns) when the item count suits a non-default grid.
 - Tailor copy to the SPECIFIC business — don't write generic "Welcome to our business" headlines. Reference the niche.
+${CONTENT_DEPTH_RULES}
 
 NO CUSTOM CSS:
 - AI-generated Custom CSS is disabled for onboarding and edits. Do not output "__customCss" or "headerCustomCss"; the server deletes those keys.
@@ -216,6 +219,9 @@ export interface CreativeSeed {
   blockFlavor: string;
   copyTone: string;
   fontPairingHint: string;
+  cardPresetDirection: string;
+  sectionRhythm: string;
+  eyebrowUsage: string;
 }
 
 const PALETTE_MOODS = [
@@ -297,6 +303,38 @@ const FONT_PAIRINGS = [
   'If you do change fonts, pair Crimson Text (heading) with Inter (body)',
 ];
 
+// Card preset families. IDs must exist in CARD_STYLE_OPTIONS
+// (lib/block-style-options.ts) or the sanitizer falls back to "soft".
+const CARD_PRESET_DIRECTIONS = [
+  'Card design: lean on the "offset" (Retro) and "playful" presets — bold borders and hard color shadows. Set cardStyle explicitly on every card-capable block.',
+  'Card design: lean on the "minimal" and "editorial" presets — no card shells, strong horizontal rules. Set cardStyle explicitly on every card-capable block.',
+  'Card design: lean on the "glass" and "elevated" presets — soft premium depth. Set cardStyle explicitly on every card-capable block.',
+  'Card design: lean on the "bordered" and "utility" presets — crisp, structured, information-dense. Set cardStyle explicitly on every card-capable block.',
+  'Card design: lean on the "accent" (Accent Rail) and "slab" (Ledger) presets — confident side rails. Set cardStyle explicitly on every card-capable block.',
+  'Card design: lean on the "solid" (Solid Brand) and "glow" presets — saturated, high-energy surfaces. Set cardStyle explicitly on every card-capable block.',
+  'Card design: lean on the "luxe" (Luxe Hairline) and "inset" presets — fine rules and quiet depth. Set cardStyle explicitly on every card-capable block.',
+  'Card design: lean on the "poster" and "splitMedia" (Showcase) presets — media-led cards. Set cardStyle explicitly on every card-capable block.',
+  'Card design: lean on the "gradient" (Gradient Wash) and "soft" presets — washed, friendly surfaces. Set cardStyle explicitly on every card-capable block.',
+  'Card design: lean on the "outline" and "clipped" presets — modular layouts with a distinctive corner detail. Set cardStyle explicitly on every card-capable block.',
+];
+
+const SECTION_RHYTHMS = [
+  'Section rhythm: alternate white and "palette:accent" section backgrounds so adjacent sections never share a background, and close with a "palette:secondary" CTA.',
+  'Section rhythm: keep nearly everything white, with ONE bold "palette:primary" banner-stats moment mid-page and a "palette:secondary" CTA at the end.',
+  'Section rhythm: generous and airy — prefer spacingDensity:"spacious", mostly white backgrounds, one "palette:accent" section as a rest point.',
+  'Section rhythm: compact and businesslike — prefer spacingDensity:"compact" or "standard", accent backgrounds on proof sections (stats, testimonials).',
+  'Section rhythm: open the page on "palette:accent" right after the hero, then alternate; vary spacingDensity between adjacent sections.',
+  'Section rhythm: bookend the page — accent background on the first content section and on the section right before the CTA; white in between.',
+];
+
+const EYEBROW_USAGE = [
+  'Eyebrows: use pretextEnabled with pretextStyle:"pill" labels on the 2-3 most important sections (e.g. "What we do", "Results").',
+  'Eyebrows: use pretextEnabled with pretextStyle:"underline" labels, uppercase-feel 1-2 word labels, on key sections only.',
+  'Eyebrows: use pretextEnabled with pretextStyle:"outline" labels on services/pricing-type sections; skip them elsewhere.',
+  'Eyebrows: use plain pretextStyle:"text" labels in "palette:secondary" color on 2-3 sections for an editorial feel.',
+  'Eyebrows: skip eyebrow labels entirely this time — let headings stand alone for a minimal look.',
+];
+
 function pickFrom<T>(pool: readonly T[], rng: () => number): T {
   return pool[Math.floor(rng() * pool.length)];
 }
@@ -314,6 +352,9 @@ export function generateCreativeSeed(rng: () => number = Math.random): CreativeS
     blockFlavor: pickFrom(BLOCK_FLAVORS, rng),
     copyTone: pickFrom(COPY_TONES, rng),
     fontPairingHint: pickFrom(FONT_PAIRINGS, rng),
+    cardPresetDirection: pickFrom(CARD_PRESET_DIRECTIONS, rng),
+    sectionRhythm: pickFrom(SECTION_RHYTHMS, rng),
+    eyebrowUsage: pickFrom(EYEBROW_USAGE, rng),
   };
 }
 
@@ -327,6 +368,9 @@ CREATIVE DIRECTION FOR THIS REQUEST (treat these as tie-breakers — the user's 
 - Block flavor: ${seed.blockFlavor}
 - ${seed.copyTone}
 - ${seed.fontPairingHint}
+- ${seed.cardPresetDirection}
+- ${seed.sectionRhythm}
+- ${seed.eyebrowUsage}
 Do NOT mention this creative direction in your "message" field. Just apply it.
 
 `;
@@ -405,6 +449,21 @@ COPY ANTI-PATTERNS — these are forbidden. Every block's copy MUST reference th
 - ❌ "Our services" / "Explore what we offer" / "Learn more" — banned as standalone phrases.
 - ❌ Empty title/subtitle/description fields — every block field that exists in the schema must have content tailored to the brand.
 - ❌ Generic Lorem-ipsum-style filler — write specific, plausible copy using the brief.
+`;
+
+const CONTENT_DEPTH_RULES = `
+CONTENT DEPTH — a thin site reads as unfinished. Treat these as minimums, not targets to undercut:
+- servicesGrid: 4-6 items. Each description is 1-2 full sentences naming the concrete work, not a fragment ("Drain cleaning for slow or clogged kitchen, bath, and main lines — cleared the same day." not "Drain cleaning services").
+- featuresList: 4-6 items, each a specific differentiator (years, response time, guarantees, materials, certifications), not generic adjectives.
+- faq: 5-8 questions a real customer would actually ask this specific business (pricing, timing, service area, process, policies). Answers are 2-3 sentences.
+- testimonials: 3-5 quotes with first-name + role/context, each mentioning a specific job, dish, project, or result.
+- stats: 3-4 numbers tied to the niche (years in business, projects completed, clients served, response time).
+- pricing: 3 tiers (unless the brief says otherwise), each with a description and 4-6 features. Mark exactly one tier highlighted.
+- timeline: 4-6 entries with believable dates and 1-2 sentence descriptions.
+- team: 3-4 members with role-appropriate one-sentence bios when the brief doesn't name real people.
+- carousel: 4-6 items with a title and 1-2 sentences each.
+- Subtitles: when a block schema has a subtitle field, write one real sentence — do not omit or echo the title.
+- Hero: subtitle is 1-2 full sentences that say what the business does, for whom, and where (when location is known).
 `;
 
 /**
@@ -500,6 +559,8 @@ ${renderCreativeSeed(seed)}
 
 ${ANTI_PATTERNS}
 
+${CONTENT_DEPTH_RULES}
+
 RULES:
 - Produce exactly the approved Home blocks above, in that order. Do not add, remove, rename, or substitute block types.
 - Use the full block capabilities below. For Hero, prefer card-based data. For Menu, use menuTitle/menuSubtitle and visible menu design settings. For product/gallery/blog/admin-backed blocks, configure visible layout and display settings instead of leaving template defaults untouched.
@@ -546,6 +607,8 @@ ${renderPageArchitectureForAi(page as ArchitecturePage)}
 ${renderCreativeSeed(seed)}
 
 ${ANTI_PATTERNS}
+
+${CONTENT_DEPTH_RULES}
 
 RULES:
 - Produce exactly the approved blocks for this page, in that order. Do not add, remove, rename, or substitute block types.

@@ -168,6 +168,15 @@ export default function LeadDetailPage() {
   const [templateSiteId, setTemplateSiteId] = useState('');
   const [building, setBuilding] = useState(false);
 
+  // One-click AI site generation + autopilot enrollment
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [generating, setGenerating] = useState(false);
+  const [genProgress, setGenProgress] = useState<string | null>(null);
+  const [genResult, setGenResult] = useState<{ siteId: string; siteTitle: string } | null>(null);
+  const [genError, setGenError] = useState<string | null>(null);
+  const [enrolling, setEnrolling] = useState(false);
+  const [enrolled, setEnrolled] = useState(false);
+
   const refresh = useCallback(async () => {
     try {
       const res = await fetch(`/api/ops/leads/${id}`);
@@ -274,6 +283,81 @@ export default function LeadDetailPage() {
       setError(e instanceof Error ? e.message : 'Build failed');
     } finally {
       setBuilding(false);
+    }
+  }
+
+  async function generateSiteWithAi() {
+    if (!lead || generating) return;
+    setGenerating(true);
+    setGenError(null);
+    setGenResult(null);
+    setGenProgress('Starting…');
+    try {
+      const res = await fetch(`/api/ops/leads/${lead.id}/generate-site`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: aiPrompt.trim() || undefined }),
+      });
+      if (!res.ok || !res.body) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? 'Generation failed');
+      }
+
+      // NDJSON progress stream — same shape as the user-facing AI builder.
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+      let sawResult = false;
+      let streamError: string | null = null;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        let nl;
+        while ((nl = buf.indexOf('\n')) !== -1) {
+          const line = buf.slice(0, nl).trim();
+          buf = buf.slice(nl + 1);
+          if (!line) continue;
+          try {
+            const evt = JSON.parse(line);
+            if (evt.type === 'progress' && typeof evt.message === 'string') {
+              setGenProgress(evt.message);
+            } else if (evt.type === 'result') {
+              setGenResult({ siteId: evt.siteId, siteTitle: evt.siteTitle ?? lead.business_name ?? 'site' });
+              sawResult = true;
+            } else if (evt.type === 'error' && typeof evt.message === 'string') {
+              streamError = evt.message;
+            }
+          } catch { /* ignore malformed line */ }
+        }
+      }
+      if (!sawResult) throw new Error(streamError ?? 'Generation did not complete. Please try again.');
+      // Refetch so the lead moves to "building" and the launch request appears.
+      await refresh();
+    } catch (e) {
+      setGenError(e instanceof Error ? e.message : 'Generation failed');
+    } finally {
+      setGenerating(false);
+      setGenProgress(null);
+    }
+  }
+
+  async function enrollInAutopilot() {
+    if (!lead || enrolling) return;
+    setEnrolling(true);
+    try {
+      const res = await fetch('/api/ops/autopilot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadId: lead.id, action: 'enroll' }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? 'Enrollment failed');
+      setEnrolled(true);
+    } catch (e) {
+      setGenError(e instanceof Error ? e.message : 'Enrollment failed');
+    } finally {
+      setEnrolling(false);
     }
   }
 
@@ -483,6 +567,74 @@ export default function LeadDetailPage() {
 
         {/* Right column — pipeline */}
         <div className="space-y-4">
+          <Card title="Generate site with AI">
+            <p className="text-xs leading-5 text-gray-500">
+              One click: researches {lead.business_name || 'the business'} on Google (contact info,
+              hours, reviews, Business Profile photos), derives branding from their real photos, and
+              builds a full multi-page site with the AI builder. A prompt is optional.
+            </p>
+            <textarea
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+              disabled={generating}
+              rows={2}
+              placeholder="Optional: extra build instructions (style, pages, angle)…"
+              className={`${INPUT} mt-2 resize-y`}
+            />
+            {!lead.business_name && (
+              <p className="mt-2 text-[11px] text-amber-400">
+                Add a business name above before generating.
+              </p>
+            )}
+            <button
+              onClick={generateSiteWithAi}
+              disabled={generating || !lead.business_name}
+              className="mt-2 w-full rounded-md bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-3 py-2 text-xs font-medium text-white transition-colors"
+            >
+              {generating ? (genProgress ?? 'Generating…') : 'Generate site'}
+            </button>
+            {genError && <p className="mt-2 text-[11px] text-red-400">{genError}</p>}
+            {genResult && (
+              <div className="mt-3 space-y-1.5 rounded-md border border-emerald-400/30 bg-emerald-400/5 p-2.5">
+                <p className="text-xs font-medium text-emerald-300">{genResult.siteTitle} is ready.</p>
+                <div className="flex gap-3 text-xs">
+                  <a
+                    href={`https://keystoneweb.ca/preview?siteId=${genResult.siteId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-emerald-400 hover:underline"
+                  >
+                    Preview
+                  </a>
+                  <a
+                    href={`https://keystoneweb.ca/editor?siteId=${genResult.siteId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-gray-400 hover:text-white"
+                  >
+                    Open in editor
+                  </a>
+                </div>
+                {(lead.email || lead.phone) && (
+                  enrolled ? (
+                    <p className="text-[11px] text-gray-400">
+                      Enrolled in autopilot — track it on the{' '}
+                      <Link href={`${opsBasePath}/autopilot`} className="text-emerald-400 hover:underline">Autopilot dashboard</Link>.
+                    </p>
+                  ) : (
+                    <button
+                      onClick={enrollInAutopilot}
+                      disabled={enrolling}
+                      className="w-full rounded-md border border-emerald-400/40 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-medium text-emerald-300 hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+                    >
+                      {enrolling ? 'Enrolling…' : 'Enroll in autopilot follow-ups'}
+                    </button>
+                  )
+                )}
+              </div>
+            )}
+          </Card>
+
           {lead.launch_request ? (
             <Card title="Launch service request">
               <p className="text-xs leading-5 text-gray-500">

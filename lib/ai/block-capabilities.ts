@@ -125,6 +125,22 @@ const AI_DISALLOWED_CUSTOM_CSS_KEYS = new Set(['__customCss', 'headerCustomCss']
 const UNIVERSAL_ALLOWED_TOP_LEVEL_KEYS = ['sectionSettings', 'backgroundColor'] as const;
 const CARD_STYLE_VALUE_SET = CARD_STYLE_OPTIONS;
 const AI_SURFACE_STYLE_VALUE_SET = ['white', 'accent', 'transparent', 'primary', 'secondary'] as const;
+const PRETEXT_STYLE_OPTIONS = ['text', 'pill', 'outline', 'underline'] as const;
+const PRETEXT_ALIGN_OPTIONS = ['left', 'center'] as const;
+
+// Eyebrow/pretext controls — the same fields the Style tab's "Label" control
+// writes for schema blocks (BlockPretext reads them at render time).
+const PRETEXT_CAPABILITY_FIELDS: readonly FieldCapability[] = [
+  { name: 'pretext', type: 'string', notes: 'Short eyebrow text shown above the section heading when pretextEnabled is true (1-4 words, e.g. "Our services", "Since 1998").' },
+  { name: 'pretextEnabled', type: 'boolean', notes: 'Turns the eyebrow label on. Use on 1-3 key sections per page, not all of them.' },
+  { name: 'pretextStyle', type: 'string', options: PRETEXT_STYLE_OPTIONS, defaultValue: 'text' },
+  { name: 'pretextColor', type: 'string', notes: 'Hex or palette token.' },
+  { name: 'pretextAlignment', type: 'string', options: PRETEXT_ALIGN_OPTIONS, defaultValue: 'left' },
+];
+
+// Responsive grid columns — same data the editor's Columns control writes
+// (sectionSettings.layout.columns) for blocks that support column counts.
+const RESPONSIVE_COLUMNS_FIELD: FieldCapability = { name: 'sectionSettings', type: '{ layout: { columns: { desktop?: number, tablet?: number, mobile?: number } } }', notes: 'Responsive grid columns. Desktop 2-4, tablet 2-3, mobile 1-2. Set intentionally when the item count suits a non-default grid (e.g. 2 wide editorial columns vs a dense 4-up grid).' };
 const CARD_PRESET_AI_GUIDE = CARD_STYLE_DEFINITIONS
   .map((style) => `- "${style.id}" (${style.label}): ${style.description} Good fit for ${style.recommendedTemplates.join(', ')} style cues.`)
   .join('\n');
@@ -133,10 +149,42 @@ export function sanitizeAiBlockData(blockType: string, rawData: unknown): Record
   const data = filterAiBlockDataToAllowedSettings(blockType, clonePlainObject(rawData));
   normalizeAiPresetFields(blockType, data);
   normalizeSectionBackground(blockType, data);
+  normalizeAiSectionSettings(data);
   normalizeHeroBackgrounds(data);
   sanitizeCustomCssFields(data);
   sanitizeAiCustomHtmlBlock(blockType, data);
   return data;
+}
+
+// AI may only use sectionSettings for responsive grid columns. Padding,
+// margins, min-heights, and ordering stay human-only — generated values there
+// routinely break layouts in ways users can't easily diagnose.
+function normalizeAiSectionSettings(data: Record<string, unknown>) {
+  if (!('sectionSettings' in data)) return;
+  const raw = data.sectionSettings;
+  const layout = raw && typeof raw === 'object' && !Array.isArray(raw)
+    ? (raw as Record<string, unknown>).layout
+    : null;
+  const columns = layout && typeof layout === 'object' && !Array.isArray(layout)
+    ? (layout as Record<string, unknown>).columns
+    : null;
+
+  const sanitizedColumns: Record<string, number> = {};
+  if (columns && typeof columns === 'object' && !Array.isArray(columns)) {
+    for (const breakpoint of ['desktop', 'tablet', 'mobile'] as const) {
+      const value = (columns as Record<string, unknown>)[breakpoint];
+      const parsed = typeof value === 'number' ? value : typeof value === 'string' ? parseInt(value, 10) : NaN;
+      if (Number.isInteger(parsed) && parsed >= 1 && parsed <= 6) {
+        sanitizedColumns[breakpoint] = parsed;
+      }
+    }
+  }
+
+  if (Object.keys(sanitizedColumns).length > 0) {
+    data.sectionSettings = { layout: { columns: sanitizedColumns } };
+  } else {
+    delete data.sectionSettings;
+  }
 }
 
 function filterAiBlockDataToAllowedSettings(blockType: string, data: Record<string, unknown>): Record<string, unknown> {
@@ -162,6 +210,8 @@ function normalizeAiPresetFields(blockType: string, data: Record<string, unknown
   normalizeAiStringOption(blockType, data, 'mediaTreatment', MEDIA_TREATMENT_OPTIONS, 'contained');
   normalizeAiStringOption(blockType, data, 'textAlign', TEXT_ALIGN_OPTIONS, 'left');
   normalizeAiStringOption(blockType, data, 'frameStyle', GALLERY_FRAME_OPTIONS, 'clean');
+  normalizeAiStringOption(blockType, data, 'pretextStyle', PRETEXT_STYLE_OPTIONS, 'text');
+  normalizeAiStringOption(blockType, data, 'pretextAlignment', PRETEXT_ALIGN_OPTIONS, 'left');
 
   if ('cardSettings' in data) {
     const settings = readCardSettings(data.cardSettings);
@@ -444,6 +494,7 @@ export const AI_BLOCK_CAPABILITIES: readonly BlockCapability[] = [
       { name: 'markerStyle', type: 'string', options: ['plain', 'numbered', 'badge', 'framed', 'accentLine', 'none'], defaultValue: 'numbered' },
       { name: 'spacingDensity', type: 'string', options: ['compact', 'standard', 'spacious'], defaultValue: 'standard' },
       { name: 'textAlign', type: 'string', options: ['left', 'center'], defaultValue: 'left' },
+      ...PRETEXT_CAPABILITY_FIELDS,
       { name: 'backgroundColor', type: 'string', notes: 'Hex or palette token.' },
       { name: 'foregroundColor', type: 'string', notes: 'Hex or palette token.' },
       { name: '__customCss', type: 'string' },
@@ -462,6 +513,7 @@ export const AI_BLOCK_CAPABILITIES: readonly BlockCapability[] = [
       { name: 'markerStyle', type: 'string', options: ['plain', 'numbered', 'badge', 'framed', 'accentLine', 'none'], defaultValue: 'framed' },
       { name: 'spacingDensity', type: 'string', options: ['compact', 'standard', 'spacious'], defaultValue: 'standard' },
       { name: 'textAlign', type: 'string', options: ['left', 'center'], defaultValue: 'left' },
+      ...PRETEXT_CAPABILITY_FIELDS,
       { name: 'backgroundColor', type: 'string', notes: 'Hex or palette token.' },
       { name: 'foregroundColor', type: 'string', notes: 'Hex or palette token.' },
       { name: '__customCss', type: 'string' },
@@ -511,6 +563,7 @@ export const AI_BLOCK_CAPABILITIES: readonly BlockCapability[] = [
       { name: 'surfaceStyle', type: 'string', options: AI_SURFACE_STYLE_VALUE_SET, defaultValue: 'white' },
       { name: 'spacingDensity', type: 'string', options: ['compact', 'standard', 'spacious'], defaultValue: 'standard' },
       { name: 'items', type: 'Array<{ name:string, role:string, quote:string, rating:number }>', notes: 'Use plausible but not fake-specific claims. Rating should be 1-5.' },
+      ...PRETEXT_CAPABILITY_FIELDS,
       { name: 'backgroundColor', type: 'string', notes: 'Hex or palette token.' },
       { name: 'foregroundColor', type: 'string', notes: 'Hex or palette token.' },
       { name: '__customCss', type: 'string' },
@@ -529,6 +582,7 @@ export const AI_BLOCK_CAPABILITIES: readonly BlockCapability[] = [
       { name: 'spacingDensity', type: 'string', options: ['compact', 'standard', 'spacious'], defaultValue: 'standard' },
       { name: 'textAlign', type: 'string', options: ['left', 'center'], defaultValue: 'center' },
       { name: 'items', type: 'Array<{ value:string, label:string }>', notes: 'For variant "progress", value should include a percentage (e.g. "95%") that drives bar width; label is the skill or metric name.' },
+      ...PRETEXT_CAPABILITY_FIELDS,
       { name: 'backgroundColor', type: 'string', notes: 'Hex or palette token.' },
       { name: 'foregroundColor', type: 'string', notes: 'Hex or palette token.' },
       { name: '__customCss', type: 'string' },
@@ -554,6 +608,8 @@ export const AI_BLOCK_CAPABILITIES: readonly BlockCapability[] = [
       { name: 'seeMoreIcon', type: 'string' },
       { name: 'autoScroll', type: 'boolean' },
       { name: 'autoScrollRows', type: 'number' },
+      ...PRETEXT_CAPABILITY_FIELDS,
+      RESPONSIVE_COLUMNS_FIELD,
       { name: 'backgroundColor', type: 'string', notes: 'Hex or palette token.' },
       { name: 'foregroundColor', type: 'string', notes: 'Hex or palette token.' },
       { name: '__customCss', type: 'string' },
@@ -574,6 +630,7 @@ export const AI_BLOCK_CAPABILITIES: readonly BlockCapability[] = [
       { name: 'cardSettings', type: 'object', notes: 'Optional universal card settings for contact cards. Prefer cardStyle/surfaceStyle unless intentionally customizing radius, border, shadow, padding, textAlign, iconStyle, or surface.' },
       { name: 'surfaceStyle', type: 'string', options: AI_SURFACE_STYLE_VALUE_SET, defaultValue: 'white' },
       { name: 'spacingDensity', type: 'string', options: ['compact', 'standard', 'spacious'], defaultValue: 'standard' },
+      ...PRETEXT_CAPABILITY_FIELDS,
       { name: 'backgroundColor', type: 'string', notes: 'Hex or palette token.' },
       { name: '__customCss', type: 'string' },
     ],
@@ -586,6 +643,7 @@ export const AI_BLOCK_CAPABILITIES: readonly BlockCapability[] = [
       { name: 'title', type: 'string' },
       { name: 'subtitle', type: 'string' },
       { name: 'items', type: 'Array<{ question:string, answer:string }>', notes: 'Use 2-8 common questions tailored to the prompt.' },
+      ...PRETEXT_CAPABILITY_FIELDS,
       { name: 'cardStyle', type: 'string', options: CARD_STYLE_VALUE_SET, defaultValue: 'soft' },
       { name: 'cardSettings', type: 'object', notes: 'Optional universal card settings for FAQ accordion items. Prefer cardStyle/surfaceStyle unless intentionally customizing radius, border, shadow, padding, or surface.' },
       { name: 'surfaceStyle', type: 'string', options: AI_SURFACE_STYLE_VALUE_SET, defaultValue: 'white' },
@@ -605,7 +663,9 @@ export const AI_BLOCK_CAPABILITIES: readonly BlockCapability[] = [
       { name: 'buttonTextLink', type: 'Link' },
       { name: 'buttonTextIcon', type: 'string' },
       { name: 'showPattern', type: 'boolean' },
+      ...PRETEXT_CAPABILITY_FIELDS,
       { name: 'backgroundColor', type: 'string', notes: 'Hex or palette token.' },
+      { name: 'foregroundColor', type: 'string', notes: 'Hex or palette token.' },
       { name: '__customCss', type: 'string' },
     ],
   },
@@ -621,6 +681,8 @@ export const AI_BLOCK_CAPABILITIES: readonly BlockCapability[] = [
       { name: 'cardStyle', type: 'string', options: CARD_STYLE_VALUE_SET, defaultValue: 'soft' },
       { name: 'cardSettings', type: 'object', notes: 'Optional universal card settings for the contact form shell. Prefer cardStyle/surfaceStyle unless intentionally customizing radius, border, shadow, padding, or surface. Media-supporting fields are ignored by form shells.' },
       { name: 'surfaceStyle', type: 'string', options: AI_SURFACE_STYLE_VALUE_SET, defaultValue: 'white' },
+      { name: 'backgroundColor', type: 'string', notes: 'Hex or palette token.' },
+      { name: 'foregroundColor', type: 'string', notes: 'Hex or palette token.' },
       { name: '__customCss', type: 'string' },
     ],
   },
@@ -660,7 +722,10 @@ export const AI_BLOCK_CAPABILITIES: readonly BlockCapability[] = [
       { name: 'cardSettings', type: 'object', notes: 'Optional universal card settings for pricing tier cards. Prefer cardStyle/surfaceStyle unless intentionally customizing radius, border, shadow, padding, textAlign, or surface.' },
       { name: 'surfaceStyle', type: 'string', options: AI_SURFACE_STYLE_VALUE_SET, defaultValue: 'white' },
       { name: 'spacingDensity', type: 'string', options: ['compact', 'standard', 'spacious'], defaultValue: 'standard' },
+      ...PRETEXT_CAPABILITY_FIELDS,
+      RESPONSIVE_COLUMNS_FIELD,
       { name: 'backgroundColor', type: 'string', notes: 'Hex or palette token.' },
+      { name: 'foregroundColor', type: 'string', notes: 'Hex or palette token.' },
       { name: '__customCss', type: 'string' },
     ],
   },
@@ -673,7 +738,9 @@ export const AI_BLOCK_CAPABILITIES: readonly BlockCapability[] = [
       { name: 'title', type: 'string' },
       { name: 'variant', type: 'string', options: ['inline', 'grid', 'marquee'] },
       { name: 'logos', type: 'Array<object|string>' },
+      RESPONSIVE_COLUMNS_FIELD,
       { name: 'backgroundColor', type: 'string', notes: 'Hex or palette token.' },
+      { name: 'foregroundColor', type: 'string', notes: 'Hex or palette token.' },
       { name: '__customCss', type: 'string' },
     ],
   },
@@ -689,7 +756,9 @@ export const AI_BLOCK_CAPABILITIES: readonly BlockCapability[] = [
       { name: 'columns', type: 'number', notes: '0/omitted means auto; otherwise 2, 3, or 4.' },
       { name: 'showBio', type: 'boolean' },
       { name: 'members', type: 'Array<{ name:string, role:string, bio:string, image?:string }>' },
+      ...PRETEXT_CAPABILITY_FIELDS,
       { name: 'backgroundColor', type: 'string', notes: 'Hex or palette token.' },
+      { name: 'foregroundColor', type: 'string', notes: 'Hex or palette token.' },
       { name: '__customCss', type: 'string' },
     ],
   },
@@ -703,6 +772,7 @@ export const AI_BLOCK_CAPABILITIES: readonly BlockCapability[] = [
       { name: 'subtitle', type: 'string' },
       { name: 'variant', type: 'string', options: ['cards', 'centered', 'compact'] },
       { name: 'items', type: 'Array<{ title:string, organization:string, dateRange:string, description:string, tags:string[] }>' },
+      ...PRETEXT_CAPABILITY_FIELDS,
       { name: 'cardStyle', type: 'string', options: CARD_STYLE_VALUE_SET, defaultValue: 'soft' },
       { name: 'cardSettings', type: 'object', notes: 'Optional universal card settings for timeline entry cards. Prefer cardStyle/surfaceStyle unless intentionally customizing radius, border, shadow, padding, or surface.' },
       { name: 'surfaceStyle', type: 'string', options: AI_SURFACE_STYLE_VALUE_SET, defaultValue: 'white' },
@@ -726,6 +796,7 @@ export const AI_BLOCK_CAPABILITIES: readonly BlockCapability[] = [
       { name: 'showExcerpt', type: 'boolean' },
       { name: 'postsPerPage', type: 'number' },
       { name: 'fallbackPosts', type: 'Array<{ id,title,slug,excerpt,cover_image,author,tags,is_published,published_at,created_at }>', notes: 'Optional placeholder posts for brand-new templates.' },
+      RESPONSIVE_COLUMNS_FIELD,
       { name: '__customCss', type: 'string' },
     ],
   },
@@ -763,7 +834,10 @@ export const AI_BLOCK_CAPABILITIES: readonly BlockCapability[] = [
       { name: 'subtitle', type: 'string' },
       { name: 'variant', type: 'string', options: ['grid', 'list'] },
       { name: 'items', type: 'Array<{ id,type,title,description,fileUrl?,fileName?,fileType?,body?,url?,openInNewTab? }>', notes: 'type is file, text, or link. fileType is pdf or image.' },
+      ...PRETEXT_CAPABILITY_FIELDS,
+      RESPONSIVE_COLUMNS_FIELD,
       { name: 'backgroundColor', type: 'string', notes: 'Hex or palette token.' },
+      { name: 'foregroundColor', type: 'string', notes: 'Hex or palette token.' },
       { name: '__customCss', type: 'string' },
     ],
   },
@@ -794,10 +868,13 @@ export const AI_BLOCK_CAPABILITIES: readonly BlockCapability[] = [
       { name: 'mediaAspect', type: 'string', options: ['landscape', 'square', 'portrait', 'wide'], defaultValue: 'landscape' },
       { name: 'mediaTreatment', type: 'string', options: ['contained', 'fullBleed', 'framed', 'soft', 'circle'], defaultValue: 'contained' },
       { name: 'iconStyle', type: 'string', options: ['plain', 'badge', 'numbered', 'framed'], defaultValue: 'badge' },
+      { name: 'iconColor', type: 'string', notes: 'Hex or palette token for slide/card icons.' },
       { name: 'spacingDensity', type: 'string', options: ['compact', 'standard', 'spacious'], defaultValue: 'standard' },
       { name: 'textAlign', type: 'string', options: ['left', 'center'], defaultValue: 'left' },
+      ...PRETEXT_CAPABILITY_FIELDS,
       { name: 'backgroundColor', type: 'string', notes: 'Hex or palette token.' },
       { name: 'foregroundColor', type: 'string', notes: 'Hex or palette token.' },
+      { name: 'backgroundGradient', type: '{ from:string, to:string, via?:string }', notes: 'Optional section gradient. Use palette tokens or hexes; if the gradient is dark, also set foregroundColor to a light readable color.' },
       { name: '__customCss', type: 'string' },
     ],
   },
@@ -821,7 +898,10 @@ export const AI_BLOCK_CAPABILITIES: readonly BlockCapability[] = [
       { name: 'title', type: 'string' },
       { name: 'subtitle', type: 'string' },
       { name: 'backgroundColor', type: 'string', notes: 'Hex or palette token.' },
+      { name: 'foregroundColor', type: 'string', notes: 'Hex or palette token.' },
       { name: 'links', type: 'Array<{ id, platform:"ubereats"|"doordash"|"skipthedishes"|"custom", label, url, enabled }>' },
+      ...PRETEXT_CAPABILITY_FIELDS,
+      RESPONSIVE_COLUMNS_FIELD,
       { name: '__customCss', type: 'string' },
     ],
   },
@@ -876,7 +956,9 @@ export const AI_BLOCK_CAPABILITIES: readonly BlockCapability[] = [
       { name: 'subtitle', type: 'string' },
       { name: 'sortOrder', type: 'string', options: ['desc', 'asc'] },
       { name: 'showPast', type: 'boolean' },
+      RESPONSIVE_COLUMNS_FIELD,
       { name: 'backgroundColor', type: 'string', notes: 'Hex or palette token.' },
+      { name: 'foregroundColor', type: 'string', notes: 'Hex or palette token.' },
       { name: '__customCss', type: 'string' },
     ],
   },
@@ -908,6 +990,7 @@ export const AI_BLOCK_CAPABILITIES: readonly BlockCapability[] = [
       { name: 'imagePosition', type: 'string', options: ['left', 'right'] },
       { name: 'people', type: 'Array<{ name:string, title:string, quote:string }>', notes: 'Used by multiGrid variant.' },
       { name: 'backgroundColor', type: 'string', notes: 'Hex or palette token.' },
+      { name: 'foregroundColor', type: 'string', notes: 'Hex or palette token.' },
       { name: '__customCss', type: 'string' },
     ],
   },
@@ -949,6 +1032,7 @@ export const AI_BLOCK_CAPABILITIES: readonly BlockCapability[] = [
       { name: 'variant', type: 'string', options: ['grid', 'single'] },
       { name: 'columns', type: 'number', options: ['1', '2', '3', '4'] },
       { name: 'items', type: 'Array<{ id, url, instagramView?, instagramPostCount? }>', notes: 'Public YouTube videos/playlists, Instagram posts/reels/profiles, TikTok videos, X/Twitter posts, or Facebook URLs. For Instagram profiles, instagramView can be latestPosts or profile; instagramPostCount supports 1-6 and defaults to 5.' },
+      RESPONSIVE_COLUMNS_FIELD,
       { name: '__customCss', type: 'string' },
     ],
   },
@@ -1004,6 +1088,9 @@ General rules:
 - Do not invent image URLs. For onboarding/new-site builds, image-capable blocks can receive prompt-aware sample media after generation when their image fields are intentionally left empty.
 - Button appearance is controlled by editable Button Settings and supported block/header fields.
 - Use cardStyle for preset-level card design, and cardSettings only when intentionally overriding preset details. Avoid custom text colors to fix card contrast; the preset renderer handles readable text.
+- DESIGN EVERY BLOCK INTENTIONALLY: on every block that lists cardStyle, set cardStyle explicitly (pick from the preset guide to match the site's visual treatment — do not silently leave the "soft" default on every block). Likewise set variant, spacingDensity, markerStyle/iconStyle, and textAlign deliberately where listed.
+- Eyebrow labels: blocks that list "pretext"/"pretextEnabled" support a small eyebrow above the heading. Use them on 1-3 key sections per page (pretextEnabled:true + a 1-4 word pretext + a pretextStyle that fits the brand). Do not add an eyebrow to every section.
+- Responsive columns: blocks that list "sectionSettings" support { sectionSettings: { layout: { columns: { desktop, tablet, mobile } } } }. Choose a column count that matches the item count and design density (e.g. 2 columns for editorial layouts, 4 for dense grids). Do not emit any other sectionSettings keys.
 
 Card style preset guide:
 ${CARD_PRESET_AI_GUIDE}

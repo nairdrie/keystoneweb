@@ -44,6 +44,7 @@ export default function OpsHeader({
     ...(isAdmin ? [{ href: '/users', label: 'Users' }] : []),
     { href: '/support', label: 'Email', count: openSupportCount },
     { href: '/leads', label: 'Leads', count: newLeadsCount },
+    { href: '/autopilot', label: 'Autopilot' },
     ...(isAdmin ? [{ href: '/launch', label: 'Launch', count: newLaunchCount }] : []),
     { href: '/moderation', label: 'Moderation', count: pendingModerationCount },
     ...(isAdmin ? [{ href: '/agents', label: 'Agents' }] : []),
