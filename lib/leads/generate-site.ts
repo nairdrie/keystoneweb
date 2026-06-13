@@ -95,7 +95,17 @@ export async function generateSiteForLead(
     .single();
 
   if (generationError || !generation) {
-    emit({ type: 'error', message: 'Failed to record the generation. Try again.' });
+    // Log the real Postgres error so the cause is diagnosable. The most common
+    // reason is migration 090 not being applied (the table doesn't exist yet).
+    console.error('[leads/generate-site] failed to insert lead_site_generations:', generationError);
+    const tableMissing = generationError?.code === '42P01'
+      || /relation .*lead_site_generations.* does not exist/i.test(generationError?.message ?? '');
+    emit({
+      type: 'error',
+      message: tableMissing
+        ? 'Site generation isn\'t set up yet — the database migration (090_lead_site_generations_and_autopilot.sql) needs to be applied.'
+        : `Failed to record the generation: ${generationError?.message ?? 'unknown error'}. Try again.`,
+    });
     return;
   }
   const generationId = generation.id as string;
