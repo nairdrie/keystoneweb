@@ -511,7 +511,7 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
     const bannerHasItems = bannerItems.length > 0;
     const bannerEl = showBanner && (bannerHasItems || isEditMode) ? (
         <div className="text-white text-xs py-2" style={bannerBgStyle}>
-            <div className={`${containerClass} mx-auto px-4 grid grid-cols-3 items-center gap-x-4 gap-y-1`}>
+            <div className={`${containerClass} mx-auto px-4 grid grid-cols-[1fr_auto_1fr] items-center gap-x-4 gap-y-1`}>
                 {BANNER_SLOTS.map((slot) => {
                     const items = bannerItems.filter((it) => it.slot === slot);
                     return (
