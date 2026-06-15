@@ -320,6 +320,16 @@ export default function FloatingToolbar({
   const [transferError, setTransferError] = useState<string | null>(null);
   const [isRenamingSite, setIsRenamingSite] = useState(false);
   const [siteTitleDraft, setSiteTitleDraft] = useState('');
+  // Browser tab title — mirrors design_data.seoTitle, which drives the
+  // published <title> (browser tab + search results) and the suffix on every
+  // sub-page tab. Editing it here decouples the tab title from the visible
+  // header site title, so it no longer has to be un-hidden, edited, then
+  // re-hidden just to change what shows in the browser tab. Kept as a local
+  // draft so we only push (and track) a change on commit, not per keystroke.
+  const [seoTitleDraft, setSeoTitleDraft] = useState<string>(siteContent.seoTitle || '');
+  useEffect(() => {
+    setSeoTitleDraft(siteContent.seoTitle || '');
+  }, [siteContent.seoTitle]);
   const [showWalkthrough, setShowWalkthrough] = useState(false);
   const [walkthroughStep, setWalkthroughStep] = useState(0);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -1668,6 +1678,33 @@ export default function FloatingToolbar({
                     </div>
                   </>
                 )}
+              </div>
+
+              {/* Browser Tab Title — drives the published <title> (browser tab + search). */}
+              <div>
+                <h3 className="text-[10px] font-bold uppercase text-slate-500 tracking-wide mb-2">Browser Tab Title</h3>
+                <input
+                  type="text"
+                  value={seoTitleDraft}
+                  onChange={(e) => setSeoTitleDraft(e.target.value)}
+                  onBlur={() => onUpdateSiteContent('seoTitle', seoTitleDraft.trim())}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      onUpdateSiteContent('seoTitle', seoTitleDraft.trim());
+                      (e.target as HTMLInputElement).blur();
+                    }
+                    if (e.key === 'Escape') {
+                      setSeoTitleDraft(siteContent.seoTitle || '');
+                      (e.target as HTMLInputElement).blur();
+                    }
+                  }}
+                  placeholder="e.g. Acme Plumbing — Toronto, ON"
+                  maxLength={70}
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-red-400 focus:ring-1 focus:ring-red-400 focus:outline-none text-slate-800"
+                />
+                <p className="mt-1.5 text-[10px] text-slate-400 italic">
+                  Shown in the browser tab and search results — pairs with the favicon (tab icon). Leave blank to use your site name. Keep under 60 characters.
+                </p>
               </div>
             </div>
           )}
