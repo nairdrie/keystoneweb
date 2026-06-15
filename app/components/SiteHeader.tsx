@@ -509,9 +509,17 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
     };
 
     const bannerHasItems = bannerItems.length > 0;
+    // When the center slot has no items we drop the symmetric center column.
+    // With `1fr_auto_1fr` the left slot is capped at half the banner, so its
+    // inline content wraps onto a second line even though the empty center
+    // leaves the space free. Dropping the right `1fr` to `auto` lets the left
+    // slot grow into the freed space (staying on one line when it fits) while
+    // the right slot stays pinned to the edge.
+    const bannerHasCenter = bannerItems.some((it) => it.slot === 'center');
+    const bannerGridCols = bannerHasCenter ? 'grid-cols-[1fr_auto_1fr]' : 'grid-cols-[1fr_auto_auto]';
     const bannerEl = showBanner && (bannerHasItems || isEditMode) ? (
         <div className="text-white text-xs py-2" style={bannerBgStyle}>
-            <div className={`${containerClass} mx-auto px-4 grid grid-cols-[1fr_auto_1fr] items-center gap-x-4 gap-y-1`}>
+            <div className={`${containerClass} mx-auto px-4 grid ${bannerGridCols} items-center gap-x-4 gap-y-1`}>
                 {BANNER_SLOTS.map((slot) => {
                     const items = bannerItems.filter((it) => it.slot === slot);
                     return (
