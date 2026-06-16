@@ -368,7 +368,12 @@ export async function POST(request: NextRequest) {
                 if (site) {
                   const { data: ownerUser } = await supabaseAdmin.auth.admin.getUserById(site.user_id);
                   const customerEmail = ownerUser?.user?.email || 'unknown';
-                  const siteName = (site.design_data as { siteTitle?: string } | null)?.siteTitle
+                  // siteTitle may be a rich-text logo blob — strip to plain text.
+                  const { htmlToPlainText } = await import('@/lib/email/sanitize');
+                  const rawSiteTitle = (site.design_data as { siteTitle?: string } | null)?.siteTitle;
+                  const siteName = htmlToPlainText(typeof rawSiteTitle === 'string' ? rawSiteTitle : '')
+                    .replace(/\s+/g, ' ')
+                    .trim()
                     || site.site_slug
                     || 'Untitled site';
                   const { sendMarketingOpsPendingNotification } = await import('@/lib/marketing/notifications');

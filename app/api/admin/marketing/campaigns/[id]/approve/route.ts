@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { createClient } from '@/lib/db/supabase-server';
-import { computePrepayAmount } from '@/lib/marketing/campaign-budget';
+import { computePrepayAmount, computeDurationDays } from '@/lib/marketing/campaign-budget';
+import { formatCents } from '@/lib/marketing/pricing';
+import { htmlToPlainText } from '@/lib/email/sanitize';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -10,15 +12,29 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 });
 
 /**
+ * Some sites store a rich-text (TipTap) logo blob as their siteTitle. Dropping
+ * that raw HTML into a Stripe line item renders a wall of <span style=…> markup.
+ * Strip it to plain text and cap the length so the line item reads cleanly.
+ */
+function plainBusinessName(siteTitle: unknown, fallback: string | null | undefined): string {
+  const raw = typeof siteTitle === 'string' ? siteTitle : '';
+  const plain = htmlToPlainText(raw).replace(/\s+/g, ' ').trim();
+  return (plain || fallback || 'your business').slice(0, 60);
+}
+
+/**
  * POST /api/admin/marketing/campaigns/[id]/approve
  *
- * Customer's approval. Validates the campaign, provisions the Google Ads
- * sub-account (so ops can set up billing on it), and creates a Stripe
- * Checkout session for the prepaid amount (daily budget × duration × 1.05).
+ * Customer's approval. Validates the campaign and creates a durable Stripe
+ * Payment Link for the prepaid amount (daily budget × duration × 1.05). The
+ * link is single-use and never expires, so the operator can either pay now or
+ * copy it and send it to the client to pay later.
  *
- * Returns { checkoutUrl } — the wizard redirects the customer to Stripe.
+ * Returns { paymentUrl, prepayCents, durationDays }. The campaign moves to
+ * 'awaiting_payment'; the UI then offers "Continue to payment" / "Copy link".
  *
- * When Stripe payment succeeds, the webhook flips the campaign to
+ * When payment succeeds, the Stripe webhook (checkout.session.completed —
+ * Payment Link metadata is copied onto the session) flips the campaign to
  * 'pending_launch' and notifies ops to set up billing + launch.
  */
 export async function POST(request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -46,12 +62,11 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     return NextResponse.json({ error: 'Campaign has no daily budget set' }, { status: 400 });
   }
 
-  // Compute campaign duration. If no end_date, default to 30 days from today.
+  // Duration must match exactly what the wizard quoted (exclusive end − start;
+  // see computeDurationDays). If no end_date, default to 30 days.
   const startDate = campaign.start_date ? new Date(campaign.start_date) : new Date();
   const endDate = campaign.end_date ? new Date(campaign.end_date) : null;
-  const durationDays = endDate
-    ? Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / 86_400_000) + 1)
-    : 30;
+  const durationDays = computeDurationDays(startDate, endDate);
 
   const prepay = computePrepayAmount({
     dailyBudgetCents: campaign.daily_budget_cents,
@@ -93,8 +108,8 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     })
     .eq('id', id);
   if (statusErr) {
-    // Bail before sending the customer to Stripe — otherwise they could pay for
-    // a campaign whose status never advances out of 'draft'.
+    // Bail before creating the payment link — otherwise the customer could pay
+    // for a campaign whose status never advances out of 'draft'.
     console.error('[approve] failed to set campaign to awaiting_payment:', statusErr);
     return NextResponse.json(
       { error: 'Could not start payment for this campaign. ' + statusErr.message },
@@ -102,30 +117,64 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     );
   }
 
-  // Create the Stripe Checkout session.
   const origin = request.nextUrl.origin;
-  const siteName = (campaign.sites.design_data as { siteTitle?: string } | null)?.siteTitle
-    || campaign.sites.site_slug
-    || 'your site';
+  const businessName = plainBusinessName(
+    (campaign.sites.design_data as { siteTitle?: string } | null)?.siteTitle,
+    campaign.sites.site_slug,
+  );
+  const successUrl = `${origin}/admin/marketing/campaigns/${id}?siteId=${campaign.site_id}&paid=1`;
+
+  // Reuse an existing, still-active payment link if we already minted one for
+  // this campaign (e.g. operator re-opens the page or re-approves). This keeps a
+  // single link the operator can copy, instead of orphaning previous ones.
+  if (campaign.payment_link_id) {
+    try {
+      const existing = await stripe.paymentLinks.retrieve(campaign.payment_link_id);
+      if (existing.active && existing.url) {
+        if (existing.url !== campaign.payment_link_url) {
+          await db.from('marketing_campaigns')
+            .update({ payment_link_url: existing.url, updated_at: new Date().toISOString() })
+            .eq('id', id);
+        }
+        return NextResponse.json({
+          paymentUrl: existing.url,
+          prepayCents: prepay.totalCents,
+          durationDays,
+        });
+      }
+    } catch (err) {
+      // Link was deleted or unreadable — fall through and create a fresh one.
+      console.warn('[approve] could not reuse existing payment link, creating new:', err);
+    }
+  }
+
+  const dayWord = durationDays === 1 ? 'day' : 'days';
+  const description =
+    `${durationDays} ${dayWord} of Google Ads at ${formatCents(campaign.daily_budget_cents)}/day` +
+    ` = ${formatCents(prepay.rawCents)} ad spend + ${formatCents(prepay.serviceFeeCents)} service fee (5%).` +
+    ` Advertising for ${businessName}.`;
 
   try {
-    const session = await stripe.checkout.sessions.create({
-      mode: 'payment',
-      payment_method_types: ['card'],
-      customer_email: user.email || undefined,
+    const paymentLink = await stripe.paymentLinks.create({
       line_items: [{
         price_data: {
           currency: 'cad',
           product_data: {
-            name: `${campaign.name} — ${durationDays} days`,
-            description: `$${(campaign.daily_budget_cents / 100).toFixed(2)}/day Google Ads for ${siteName}. Includes 5% service fee.`,
+            name: `${campaign.name} — ${durationDays} ${dayWord}`,
+            description,
           },
           unit_amount: prepay.totalCents,
         },
         quantity: 1,
       }],
-      success_url: `${origin}/admin/marketing/campaigns/${id}?siteId=${campaign.site_id}&paid=1`,
-      cancel_url: `${origin}/admin/marketing/campaigns/${id}?siteId=${campaign.site_id}&paid=0`,
+      // Single completed payment, then the link deactivates itself.
+      restrictions: { completed_sessions: { limit: 1 } },
+      after_completion: {
+        type: 'redirect',
+        redirect: { url: successUrl },
+      },
+      // Payment Link metadata is automatically copied onto the Checkout Session
+      // created when the link is paid, so the existing webhook reads it as usual.
       metadata: {
         type: 'marketing_campaign_prepay',
         campaignId: id,
@@ -143,6 +192,14 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
       },
     });
 
+    await db.from('marketing_campaigns')
+      .update({
+        payment_link_id: paymentLink.id,
+        payment_link_url: paymentLink.url,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id);
+
     await db.from('marketing_campaign_log').insert({
       campaign_id: id,
       action: 'awaiting_payment',
@@ -150,18 +207,18 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
       details: {
         prepay_cents: prepay.totalCents,
         duration_days: durationDays,
-        checkout_session_id: session.id,
+        payment_link_id: paymentLink.id,
       },
     });
 
     return NextResponse.json({
-      checkoutUrl: session.url,
+      paymentUrl: paymentLink.url,
       prepayCents: prepay.totalCents,
       durationDays,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error('[approve] Stripe checkout creation failed:', err);
-    return NextResponse.json({ error: 'Failed to create payment session. ' + message }, { status: 500 });
+    console.error('[approve] Stripe payment link creation failed:', err);
+    return NextResponse.json({ error: 'Failed to create payment link. ' + message }, { status: 500 });
   }
 }
