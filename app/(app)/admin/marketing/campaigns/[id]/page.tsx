@@ -7,7 +7,7 @@ import {
   ArrowLeft, Pause, Play, Trash2, CheckCircle2,
   TrendingUp, MousePointerClick, Eye, DollarSign, Loader2,
   Activity, ExternalLink, ShoppingBag, Calendar, Mail, Users,
-  Sparkles, AlertCircle, Wallet,
+  Sparkles, AlertCircle, Wallet, Copy, Check, Link2, X,
 } from 'lucide-react';
 import { useAdminContext } from '../../../admin-context';
 import { STATUS_LABELS, STATUS_COLORS, CHANNEL_LABELS, CAMPAIGN_TYPE_LABELS } from '@/lib/marketing/types';
@@ -90,6 +90,14 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
     setActing(false);
   }
 
+  async function refetchCampaign() {
+    const res = await fetch(`/api/admin/marketing/campaigns/${id}?siteId=${siteId}`, { credentials: 'include' });
+    if (res.ok) {
+      const d = await res.json();
+      setCampaign(d.campaign);
+    }
+  }
+
   async function doApprove() {
     setErr(null);
     setNeedsFunds(null);
@@ -100,27 +108,14 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
     });
     const data = await res.json();
     if (!res.ok) {
-      if (res.status === 402) {
-        setNeedsFunds({
-          balanceCents: typeof data.walletBalanceCents === 'number' ? data.walletBalanceCents : (walletBalanceCents ?? 0),
-          requiredCents: typeof data.requiredCents === 'number' ? data.requiredCents : (campaign?.daily_budget_cents ?? 0),
-        });
-      } else {
-        setErr(data.error || 'Failed to approve campaign');
-      }
+      setErr(data.error || 'Failed to approve campaign');
       setActing(false);
       return;
     }
-    // The approve endpoint creates a Stripe Checkout session and returns its
-    // URL — send the customer there to pay. (Without this redirect the campaign
-    // is left in 'awaiting_payment' and the customer never reaches Stripe.)
-    if (data.checkoutUrl) {
-      window.location.href = data.checkoutUrl;
-      return;
-    }
-    if (data.campaign) {
-      setCampaign(data.campaign);
-    }
+    // The approve endpoint moves the campaign to 'awaiting_payment' and mints a
+    // durable Stripe Payment Link. Refetch so the pay/share panel renders the
+    // link — the operator chooses to pay now or copy it to send to the client.
+    await refetchCampaign();
     setActing(false);
   }
 
@@ -149,6 +144,13 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
   }
 
   const ctr = campaign.impressions > 0 ? ((campaign.clicks / campaign.impressions) * 100).toFixed(2) : '0.00';
+
+  // Prepay amount preview — mirrors the server (daily × duration × 1.05). Duration
+  // is the exclusive day count (end − start), matching computeDurationDays.
+  const durationDays = clientDurationDays(campaign.start_date, campaign.end_date);
+  const rawCents = (campaign.daily_budget_cents || 0) * durationDays;
+  const prepayCents = Math.round(rawCents * 1.05);
+  const feeCents = prepayCents - rawCents;
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
@@ -219,16 +221,17 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
       )}
 
       {campaign.status === 'awaiting_payment' && (
-        <div className="rounded-xl border border-orange-200 bg-orange-50 p-4 flex items-start gap-3">
-          <DollarSign className="w-5 h-5 text-orange-600 flex-shrink-0" />
-          <div className="text-sm">
-            <p className="font-bold text-orange-900">Payment required</p>
-            <p className="text-orange-800 mt-0.5">
-              Your Stripe checkout was started but not completed. Reapprove this campaign to restart payment,
-              or cancel it.
-            </p>
-          </div>
-        </div>
+        <AwaitingPaymentPanel
+          paymentUrl={campaign.payment_link_url}
+          amountCents={prepayCents}
+          dailyBudgetCents={campaign.daily_budget_cents || 0}
+          durationDays={durationDays}
+          rawCents={rawCents}
+          feeCents={feeCents}
+          generating={acting}
+          onGenerate={doApprove}
+          onCancel={doDelete}
+        />
       )}
 
       <div className="flex items-start justify-between gap-4">
@@ -244,14 +247,14 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
           <h1 className="text-2xl font-black text-slate-900 mt-2">{campaign.name}</h1>
         </div>
         <div className="flex items-center gap-2">
-          {(campaign.status === 'draft' || campaign.status === 'suggested' || campaign.status === 'failed' || campaign.status === 'awaiting_payment') && (
+          {(campaign.status === 'draft' || campaign.status === 'suggested' || campaign.status === 'failed') && (
             <button
               type="button"
               disabled={acting}
               onClick={doApprove}
               className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-lg text-sm font-bold disabled:opacity-50"
             >
-              {acting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} {campaign.status === 'awaiting_payment' ? 'Resume payment' : 'Approve & launch'}
+              {acting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} Approve &amp; launch
             </button>
           )}
           {campaign.status === 'active' && (
@@ -332,6 +335,133 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
       )}
 
       <ContentPreview campaign={campaign} />
+    </div>
+  );
+}
+
+/** Exclusive day count (end − start), matching the server's computeDurationDays. */
+function clientDurationDays(start: string | null, end: string | null, fallback = 30): number {
+  if (!start || !end) return fallback;
+  const s = new Date(start).getTime();
+  const e = new Date(end).getTime();
+  if (Number.isNaN(s) || Number.isNaN(e)) return fallback;
+  return Math.max(1, Math.round((e - s) / 86_400_000));
+}
+
+function AwaitingPaymentPanel({
+  paymentUrl,
+  amountCents,
+  dailyBudgetCents,
+  durationDays,
+  rawCents,
+  feeCents,
+  generating,
+  onGenerate,
+  onCancel,
+}: {
+  paymentUrl: string | null;
+  amountCents: number;
+  dailyBudgetCents: number;
+  durationDays: number;
+  rawCents: number;
+  feeCents: number;
+  generating: boolean;
+  onGenerate: () => void;
+  onCancel: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  async function copyLink() {
+    if (!paymentUrl) return;
+    try {
+      await navigator.clipboard.writeText(paymentUrl);
+    } catch {
+      // Clipboard API unavailable (e.g. non-secure context) — fall back to a prompt.
+      window.prompt('Copy this payment link:', paymentUrl);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <div className="rounded-xl border border-orange-200 bg-orange-50 p-5 space-y-4">
+      <div className="flex items-start gap-3">
+        <DollarSign className="w-5 h-5 text-orange-600 flex-shrink-0" />
+        <div className="text-sm">
+          <p className="font-bold text-orange-900">Payment required to launch</p>
+          <p className="text-orange-800 mt-0.5">
+            This campaign is approved but not yet paid. Pay now, or copy the payment link and send it to
+            your client — once it&apos;s paid, the campaign moves to setup automatically.
+          </p>
+        </div>
+      </div>
+
+      {/* Amount breakdown */}
+      <div className="rounded-lg bg-white/70 border border-orange-200 px-4 py-3 text-sm">
+        <div className="flex items-center justify-between">
+          <span className="text-slate-600">{durationDays} days × {formatCents(dailyBudgetCents)}/day ad spend</span>
+          <span className="text-slate-900">{formatCents(rawCents)}</span>
+        </div>
+        <div className="flex items-center justify-between mt-1">
+          <span className="text-slate-600">Service fee (5%)</span>
+          <span className="text-slate-900">{formatCents(feeCents)}</span>
+        </div>
+        <div className="border-t border-orange-200 mt-2 pt-2 flex items-center justify-between">
+          <span className="font-bold text-slate-900">Total due</span>
+          <span className="font-black text-lg text-slate-900">{formatCents(amountCents)}</span>
+        </div>
+      </div>
+
+      {paymentUrl ? (
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <a
+              href={paymentUrl}
+              className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-bold"
+            >
+              <ExternalLink className="w-3.5 h-3.5" /> Continue to payment
+            </a>
+            <button
+              type="button"
+              onClick={copyLink}
+              className="inline-flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 px-4 py-2 rounded-lg text-sm font-bold"
+            >
+              {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+              {copied ? 'Copied!' : 'Copy payment link'}
+            </button>
+          </div>
+          {/* Read-only view of the link so the operator can see / select it directly. */}
+          <div className="flex items-center gap-2 rounded-lg bg-white border border-slate-200 px-3 py-2">
+            <Link2 className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+            <input
+              type="text"
+              readOnly
+              value={paymentUrl}
+              onFocus={e => e.currentTarget.select()}
+              className="flex-1 bg-transparent text-xs text-slate-600 font-mono outline-none truncate"
+            />
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          disabled={generating}
+          onClick={onGenerate}
+          className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-bold disabled:opacity-50"
+        >
+          {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+          Generate payment link
+        </button>
+      )}
+
+      <button
+        type="button"
+        disabled={generating}
+        onClick={onCancel}
+        className="inline-flex items-center gap-1.5 text-xs font-bold text-red-700 hover:text-red-800 disabled:opacity-50"
+      >
+        <X className="w-3.5 h-3.5" /> Cancel this campaign
+      </button>
     </div>
   );
 }

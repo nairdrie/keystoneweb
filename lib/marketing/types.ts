@@ -144,6 +144,8 @@ export interface Campaign {
   external_campaign_id: string | null;
   external_ad_group_id: string | null;
   external_ad_id: string | null;
+  payment_link_id: string | null;
+  payment_link_url: string | null;
   impressions: number;
   clicks: number;
   conversions: number;

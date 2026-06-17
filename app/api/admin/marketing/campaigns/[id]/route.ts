@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import Stripe from 'stripe';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { createClient } from '@/lib/db/supabase-server';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  apiVersion: '2026-02-25.clover' as any,
+});
 
 async function authForCampaign(id: string) {
   const supabase = await createClient();
@@ -77,6 +83,17 @@ export async function DELETE(_request: NextRequest, ctx: { params: Promise<{ id:
 
   const db = createAdminClient();
   const status = auth.campaign.status;
+
+  // Deactivate any outstanding Stripe Payment Link first, so a stale link can't
+  // be paid after cancellation (which would otherwise revive the campaign via
+  // the webhook flipping it to pending_launch).
+  if (auth.campaign.payment_link_id) {
+    try {
+      await stripe.paymentLinks.update(auth.campaign.payment_link_id, { active: false });
+    } catch (err) {
+      console.error('[campaign delete] failed to deactivate payment link:', err);
+    }
+  }
 
   // If never launched, hard delete. If launched, mark cancelled to preserve history.
   if (status === 'draft' || status === 'suggested' || status === 'failed') {

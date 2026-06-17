@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createClient } from '@/lib/db/supabase-server';
 import { applyMarkup } from '@/lib/marketing/pricing';
+import { htmlToPlainText } from '@/lib/email/sanitize';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -51,9 +52,14 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
 
   const totalCents = applyMarkup(rawAdSpendCents);
   const origin = request.nextUrl.origin;
-  const siteName = (site.design_data as { siteTitle?: string } | null)?.siteTitle
+  // siteTitle can be a rich-text logo blob — strip to plain text so the Stripe
+  // line item doesn't render raw HTML markup.
+  const rawSiteTitle = (site.design_data as { siteTitle?: string } | null)?.siteTitle;
+  const siteName = (htmlToPlainText(typeof rawSiteTitle === 'string' ? rawSiteTitle : '')
+    .replace(/\s+/g, ' ')
+    .trim()
     || site.site_slug
-    || 'your site';
+    || 'your site').slice(0, 60);
 
   try {
     const session = await stripe.checkout.sessions.create({

@@ -57,6 +57,30 @@ export function computePrepayAmount(opts: {
 }
 
 /**
+ * Canonical campaign duration in days, derived from start/end dates.
+ *
+ * This MUST match the wizard's notion of duration. The wizard sets
+ * `end_date = start_date + N days` and quotes the customer for exactly N days
+ * (daily × N × 1.05). So duration is the *exclusive* day count (end − start),
+ * NOT inclusive.
+ *
+ * The approve route used to add `+ 1` here ("inclusive" days), which charged a
+ * 7-day campaign as 8 days — the customer was quoted $102.90 but charged
+ * $117.60. Keeping this in one helper guarantees the quote and the charge agree.
+ *
+ * Falls back to 30 days when there is no end date (ongoing campaigns).
+ */
+export function computeDurationDays(
+  startDate: Date,
+  endDate: Date | null,
+  fallbackDays = 30,
+): number {
+  if (!endDate) return fallbackDays;
+  const diffDays = Math.round((endDate.getTime() - startDate.getTime()) / 86_400_000);
+  return Math.max(1, diffDays);
+}
+
+/**
  * Aggregate the budget state for a single campaign. Cheap — one query for
  * payments, one for campaign metrics.
  */

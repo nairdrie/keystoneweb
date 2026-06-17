@@ -102,15 +102,14 @@ export default function NewCampaignPage() {
     return { ok: true, id: createData.campaign.id };
   }
 
-  async function approveAndGetCheckoutUrl(campaignId: string): Promise<{ ok: boolean; checkoutUrl?: string; error?: string }> {
+  async function approveCampaign(campaignId: string): Promise<{ ok: boolean; error?: string }> {
     const res = await fetch(`/api/admin/marketing/campaigns/${campaignId}/approve`, {
       method: 'POST',
       credentials: 'include',
     });
     const data = await res.json();
     if (!res.ok) return { ok: false, error: data.error };
-    if (!data.checkoutUrl) return { ok: false, error: 'No checkout URL returned' };
-    return { ok: true, checkoutUrl: data.checkoutUrl };
+    return { ok: true };
   }
 
   async function handleLaunch() {
@@ -165,16 +164,18 @@ export default function NewCampaignPage() {
         });
       }
 
-      // 3. Approve the primary campaign → returns a Stripe Checkout URL.
-      const approve = await approveAndGetCheckoutUrl(draft.id);
-      if (!approve.ok || !approve.checkoutUrl) {
+      // 3. Approve the primary campaign → moves it to awaiting_payment and mints
+      //    a durable Stripe Payment Link.
+      const approve = await approveCampaign(draft.id);
+      if (!approve.ok) {
         setError(approve.error || 'Failed to start payment');
         setSubmitting(false);
         return;
       }
 
-      // 4. Redirect to Stripe.
-      window.location.href = approve.checkoutUrl;
+      // 4. Land on the campaign page, where the operator can pay now or copy the
+      //    payment link to send to the client.
+      router.push(`/admin/marketing/campaigns/${draft.id}?siteId=${siteId}`);
     } catch {
       setError('Network error');
       setSubmitting(false);
@@ -556,7 +557,7 @@ function ReviewForm(p: ReviewFormProps) {
           className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-colors"
         >
           {p.submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-          {p.submitting ? 'Redirecting to payment…' : `Approve & pay ${p.campaignDurationDays ? formatCents(Math.round(p.dailyBudget * p.campaignDurationDays * 1.05)) : ''}`}
+          {p.submitting ? 'Approving…' : `Approve${p.campaignDurationDays ? ` · ${formatCents(Math.round(p.dailyBudget * p.campaignDurationDays * 1.05))}` : ''}`}
         </button>
       </div>
     </div>
