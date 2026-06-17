@@ -10,6 +10,7 @@ import EditorLoadingScreen from '@/app/components/EditorLoadingScreen';
 import WalkthroughModal, { WalkthroughStep } from '@/app/components/WalkthroughModal';
 import AdminSidebar from './admin-sidebar';
 import { AdminContext, AdminSiteData, UsageData, UsagePlan, SiteUsageBreakdown } from './admin-context';
+import { hasPaidAccess } from '@/lib/subscription/access';
 
 interface Site {
   id: string;
@@ -124,7 +125,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       const res = await fetch('/api/user/subscription', { credentials: 'include' });
       if (res.ok) {
         const { subscription } = await res.json();
-        if (subscription && subscription.subscription_status === 'active') {
+        if (hasPaidAccess(subscription)) {
           router.push(`/publish/domain-select?session_id=existing&siteId=${siteId}`);
           return;
         }
@@ -281,7 +282,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     fetch('/api/user/subscription', { credentials: 'include' })
       .then(r => r.ok ? r.json() : null)
       .then(d => {
-        if (d?.subscription?.subscription_status === 'active') {
+        if (hasPaidAccess(d?.subscription)) {
           if (d.subscription.subscription_plan?.toLowerCase().includes('pro')) setIsProUser(true);
         }
       })

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Pencil, Sparkles, Settings, Trash2, Share2, Copy, Check as CheckIcon, History, Paintbrush, LayoutDashboard, X, HelpCircle, BookOpen, Eye, EyeOff, Image as ImageIcon, Tablet, Smartphone, Monitor, Layout, LayoutTemplate, Loader2, Rocket } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
+import { hasPaidAccess } from '@/lib/subscription/access';
 import KeystoneLogo from './KeystoneLogo';
 import { Change } from '@/lib/hooks/useChangeTracking';
 import AlertModal from './ui/AlertModal';
@@ -707,8 +708,8 @@ export default function FloatingToolbar({
       if (res.ok) {
         const { subscription } = await res.json();
 
-        if (subscription && subscription.subscription_status === 'active') {
-          // User already has an active subscription!
+        if (hasPaidAccess(subscription)) {
+          // User already has paid access (active, or in the past_due grace window)!
           if (isPublished && publishedDomain) {
             // Already published and paid - push updates directly
             const publishRes = await fetch('/api/sites/publish', {

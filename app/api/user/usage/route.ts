@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { getPlanByName, calculateOverageCost, PLANS } from '@/lib/plans';
+import { hasPaidAccess } from '@/lib/subscription/access';
 
 /**
  * GET /api/user/usage
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
       .eq('user_id', user.id)
       .single();
 
-    if (!subscription || subscription.subscription_status !== 'active') {
+    if (!subscription || !hasPaidAccess(subscription)) {
       return NextResponse.json({
         hasSubscription: false,
         usage: null,

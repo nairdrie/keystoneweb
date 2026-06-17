@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth/context';
 import { useRouter } from 'next/navigation';
 import KeystoneLogo from '@/app/components/KeystoneLogo';
 import { ArrowLeft, CreditCard, ExternalLink, Loader2, User, History, Globe, Link2, AlertCircle, CheckCircle2, Lock, Puzzle, Zap, Receipt, FileText } from 'lucide-react';
+import { isProEntitled } from '@/lib/subscription/access';
 
 interface SubscriptionData {
     subscription_status: string;
@@ -253,8 +254,7 @@ export default function SettingsPage() {
     const completedDomains = domains.filter((d) => d.status === 'completed');
     const allocatedDomains = completedDomains.filter((d) => d.site_id);
     const unallocatedDomains = completedDomains.filter((d) => !d.site_id);
-    const isPro = subscription?.subscription_status === 'active' &&
-        subscription?.subscription_plan?.toLowerCase().includes('pro');
+    const isPro = isProEntitled(subscription);
 
     return (
         <div className="min-h-screen bg-slate-50 text-slate-900 pb-20">

@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/db/supabase-admin";
 import PlatformJsonLd from "@/app/components/PlatformJsonLd";
 import ImpersonationBanner from "./ImpersonationBanner";
 import AdminManageSiteBanner from "./AdminManageSiteBanner";
+import PaymentFailedBanner from "./PaymentFailedBanner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -53,6 +54,33 @@ export default async function RootLayout({
   const { data: { user } } = await supabase.auth.getUser();
   const isImpersonated = user && (user as any).is_impersonated;
 
+  // Failed-payment banner data. Show a persistent warning when the user's
+  // subscription payment has failed (past_due → grace window) or has lapsed to
+  // Free because we couldn't recover payment. Skipped while impersonating so it
+  // doesn't collide with the impersonation banner.
+  let paymentBanner: { variant: 'past_due' | 'lapsed'; graceEndsAt: string | null } | null = null;
+  if (user && !isImpersonated) {
+    try {
+      const { data: sub } = await supabase
+        .from('user_subscriptions')
+        .select('subscription_status, grace_period_ends_at, cancellation_reason')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (sub?.subscription_status === 'past_due') {
+        paymentBanner = {
+          variant: 'past_due',
+          graceEndsAt: sub.grace_period_ends_at
+            ? new Date(sub.grace_period_ends_at).toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' })
+            : null,
+        };
+      } else if (sub?.subscription_status === 'canceled' && sub.cancellation_reason === 'payment_failed') {
+        paymentBanner = { variant: 'lapsed', graceEndsAt: null };
+      }
+    } catch (err) {
+      console.error('[layout] payment-banner lookup failed:', err);
+    }
+  }
+
   // Manage-site banner data — middleware set this header when an admin is
   // actively managing a non-owned site. Resolve site title + owner email here
   // (server-side) so the banner can render statically.
@@ -97,6 +125,12 @@ export default async function RootLayout({
               siteId={manageInfo.siteId}
               siteSlug={manageInfo.siteSlug}
               ownerEmail={manageInfo.ownerEmail}
+            />
+          )}
+          {paymentBanner && (
+            <PaymentFailedBanner
+              variant={paymentBanner.variant}
+              graceEndsAt={paymentBanner.graceEndsAt}
             />
           )}
 

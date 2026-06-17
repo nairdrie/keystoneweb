@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
-import { sendOrderConfirmation, sendOrderNotification, sendSubscriptionPurchaseEmail, sendSubscriptionCancelledEmail } from '@/lib/email';
+import { sendOrderConfirmation, sendOrderNotification, sendSubscriptionPurchaseEmail, sendSubscriptionCancelledEmail, sendPaymentFailedEmail, sendPaymentRetryReminderEmail, sendSubscriptionLapsedEmail, sendPaymentRecoveredEmail } from '@/lib/email';
 import { buildSiteOrigin } from '@/lib/email/order-tracking-url';
 import { completeDomainPurchase } from '@/app/api/domains/purchase/route';
 import { initiateVercelTransfer } from '@/app/api/domains/transfer/route';
@@ -18,6 +18,17 @@ const getStripeClient = () => {
     apiVersion: '2026-02-25.clover' as any,
   });
 };
+
+// Dunning config: how long a past_due subscription keeps full (Pro) access
+// before we expect Stripe to cancel it. Emails + the in-app banner reference
+// this window. CTAs point at the billing settings page (Stripe portal) and the
+// dashboard.
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://keystoneweb.ca';
+const BILLING_URL = `${APP_URL}/settings`;
+const GRACE_PERIOD_DAYS = 14;
+
+const formatGraceDate = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' });
 
 /**
  * Record a Stripe event as a transaction in our DB.
@@ -728,6 +739,33 @@ export async function POST(request: NextRequest) {
         // Resolve plan config so we can keep storage/visitor limits in sync
         const updatedPlanConfig = getPlanByName(planName);
 
+        // Read existing dunning state so we (a) open the grace window only once
+        // when going past_due, and (b) can tell a payment-failure cancellation
+        // apart from a user-requested one.
+        const { data: priorSub } = await supabase
+          .from('user_subscriptions')
+          .select('subscription_status, grace_period_ends_at')
+          .eq('stripe_subscription_id', subscription.id)
+          .maybeSingle();
+
+        const stripeCancelReason = (subscription as any).cancellation_details?.reason as string | undefined;
+        const cancellationReason = status === 'canceled'
+          ? ((stripeCancelReason === 'payment_failure' || priorSub?.subscription_status === 'past_due')
+              ? 'payment_failed'
+              : 'user_requested')
+          : null;
+
+        const dunningExtra: Record<string, any> = {};
+        if (status === 'past_due' && !priorSub?.grace_period_ends_at) {
+          // Stripe flipped us to past_due without an invoice.payment_failed first
+          // (or it arrived out of order) — open the grace window here too.
+          dunningExtra.payment_failed_at = new Date().toISOString();
+          dunningExtra.grace_period_ends_at = new Date(Date.now() + GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000).toISOString();
+        }
+        if (status === 'canceled') {
+          dunningExtra.cancellation_reason = cancellationReason;
+        }
+
         const { data: userSub, error } = await supabase
           .from('user_subscriptions')
           .update({
@@ -738,6 +776,7 @@ export async function POST(request: NextRequest) {
               visitor_limit: updatedPlanConfig.visitorLimit,
               storage_limit_mb: updatedPlanConfig.storageLimitMb,
             } : {}),
+            ...dunningExtra,
             updated_at: new Date().toISOString(),
           })
           .eq('stripe_subscription_id', subscription.id)
@@ -818,11 +857,21 @@ export async function POST(request: NextRequest) {
               const { data: { user } } = await adminClient.auth.admin.getUserById(subRow.user_id);
               if (user?.email) {
                 const customerName = user.user_metadata?.full_name || user.user_metadata?.name || '';
-                await sendSubscriptionCancelledEmail({
-                  customerEmail: user.email,
-                  customerName: customerName,
-                  planName: planName,
-                });
+                if (cancellationReason === 'payment_failed') {
+                  // Lapsed because we couldn't recover payment — softer, recovery-focused copy.
+                  await sendSubscriptionLapsedEmail({
+                    customerEmail: user.email,
+                    customerName,
+                    planName,
+                    billingUrl: `${APP_URL}/pricing`,
+                  });
+                } else {
+                  await sendSubscriptionCancelledEmail({
+                    customerEmail: user.email,
+                    customerName,
+                    planName,
+                  });
+                }
               }
             } catch (err) {
               console.error('Failed to send subscription cancelled email:', err);
@@ -874,7 +923,7 @@ export async function POST(request: NextRequest) {
         // Look up user_id from stripe_customer_id
         const { data: invoiceSubRow } = await supabase
           .from('user_subscriptions')
-          .select('user_id, subscription_plan')
+          .select('user_id, subscription_plan, payment_failed_at, last_dunning_email_stage')
           .eq('stripe_customer_id', customerId)
           .maybeSingle();
 
@@ -927,6 +976,42 @@ export async function POST(request: NextRequest) {
           },
         });
 
+        // ── Recovery: a previously-failed payment just succeeded ───────────
+        // Clear the dunning state (hides the banner, stops reminder emails) and
+        // confirm to the customer that Pro is restored. The guard ensures normal
+        // renewals / first payments don't trigger this.
+        if (invoiceSubRow?.user_id && (invoiceSubRow.payment_failed_at || invoiceSubRow.last_dunning_email_stage)) {
+          await supabase
+            .from('user_subscriptions')
+            .update({
+              payment_failed_at: null,
+              grace_period_ends_at: null,
+              last_dunning_email_stage: null,
+              last_dunning_email_at: null,
+              cancellation_reason: null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('user_id', invoiceSubRow.user_id);
+
+          try {
+            const adminClient = createAdminClient();
+            const { data: { user } } = await adminClient.auth.admin.getUserById(invoiceSubRow.user_id);
+            if (user?.email) {
+              const customerName = user.user_metadata?.full_name || user.user_metadata?.name || '';
+              await sendPaymentRecoveredEmail({
+                customerEmail: user.email,
+                customerName,
+                planName: invoiceSubRow.subscription_plan || 'Pro',
+                dashboardUrl: `${APP_URL}/admin`,
+              });
+            }
+          } catch (emailErr) {
+            console.error('Failed to send payment recovered email:', emailErr);
+          }
+
+          console.log(`✅ Payment recovered for user ${invoiceSubRow.user_id} — dunning state cleared`);
+        }
+
         console.log(`✅ Invoice ${invoice.id} paid — $${(invoice.amount_paid / 100).toFixed(2)} ${invoice.currency}`);
         break;
       }
@@ -964,6 +1049,72 @@ export async function POST(request: NextRequest) {
             attempt_count: failedInvoice.attempt_count,
           },
         });
+
+        // ── Dunning: open the grace window + notify the customer ───────────
+        // We keep the customer on full Pro access during Stripe's retry window
+        // and warn them via email + an in-app banner. Stripe handles retrying
+        // the card; we handle communicating + tracking the grace deadline.
+        // Subscription invoices only — one-time payment failures don't dun.
+        if (failedSubscriptionId && failedSubRow?.user_id) {
+          const attemptCount: number = failedInvoice.attempt_count ?? 1;
+          const nowIso = new Date().toISOString();
+
+          // Read current dunning state so we open the grace window only once and
+          // never send the same stage twice (Stripe retries fire multiple events).
+          const { data: dunRow } = await supabase
+            .from('user_subscriptions')
+            .select('grace_period_ends_at, last_dunning_email_stage, subscription_plan')
+            .eq('user_id', failedSubRow.user_id)
+            .maybeSingle();
+
+          const planName = dunRow?.subscription_plan || failedSubRow.subscription_plan || 'Pro';
+          const isFirstFailure = !dunRow?.grace_period_ends_at;
+          const graceEndsIso = dunRow?.grace_period_ends_at
+            || new Date(Date.now() + GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000).toISOString();
+
+          // Decide which email this attempt warrants:
+          // first failure → failure notice; later retries → reminder (each once).
+          const currentStage = dunRow?.last_dunning_email_stage || null;
+          let nextStage: 'failure' | 'reminder' | null = null;
+          if (attemptCount <= 1 && currentStage === null) {
+            nextStage = 'failure';
+          } else if (attemptCount >= 2 && currentStage !== 'reminder' && currentStage !== 'final') {
+            nextStage = 'reminder';
+          }
+
+          const updateFields: Record<string, any> = {
+            grace_period_ends_at: graceEndsIso,
+            updated_at: nowIso,
+          };
+          if (isFirstFailure) updateFields.payment_failed_at = nowIso;
+          if (nextStage) {
+            updateFields.last_dunning_email_stage = nextStage;
+            updateFields.last_dunning_email_at = nowIso;
+          }
+
+          await supabase
+            .from('user_subscriptions')
+            .update(updateFields)
+            .eq('user_id', failedSubRow.user_id);
+
+          if (nextStage) {
+            try {
+              const adminClient = createAdminClient();
+              const { data: { user } } = await adminClient.auth.admin.getUserById(failedSubRow.user_id);
+              if (user?.email) {
+                const customerName = user.user_metadata?.full_name || user.user_metadata?.name || '';
+                const graceEndsAt = formatGraceDate(graceEndsIso);
+                if (nextStage === 'failure') {
+                  await sendPaymentFailedEmail({ customerEmail: user.email, customerName, planName, graceEndsAt, billingUrl: BILLING_URL });
+                } else {
+                  await sendPaymentRetryReminderEmail({ customerEmail: user.email, customerName, planName, graceEndsAt, billingUrl: BILLING_URL });
+                }
+              }
+            } catch (emailErr) {
+              console.error('Failed to send dunning email:', emailErr);
+            }
+          }
+        }
 
         console.error(`❌ Invoice ${failedInvoice.id} payment failed — $${(failedInvoice.amount_due / 100).toFixed(2)} ${failedInvoice.currency}`);
         break;

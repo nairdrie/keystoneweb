@@ -20,6 +20,10 @@
       "schedule": "0 8 * * *"
     },
     {
+      "path": "/api/cron/dunning-reminders",
+      "schedule": "0 9 * * *"
+    },
+    {
       "path": "/api/cron/marketing-sync",
       "schedule": "0 */6 * * *"
     },

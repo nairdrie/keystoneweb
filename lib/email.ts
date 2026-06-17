@@ -1556,6 +1556,205 @@ export async function sendSubscriptionCancelledEmail(data: {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// Dunning / Failed-payment Emails
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Shared shell for failed-payment ("dunning") emails. Keeps the Keystone
+ * wordmark + footer consistent with the other transactional emails while
+ * letting each stage set its own accent colour, alert callout, and CTA.
+ */
+function dunningEmailShell(opts: {
+    accent: string;          // hex for the top bar + CTA button
+    heading: string;
+    bodyHtml: string;        // inner paragraph(s)
+    calloutHtml?: string;    // optional highlighted callout box
+    calloutBg?: string;
+    calloutBorder?: string;
+    ctaLabel: string;
+    ctaUrl: string;
+    footnoteHtml?: string;
+}): string {
+    return `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 500px; margin: 0 auto; background: #ffffff;">
+            <div style="background: ${opts.accent}; height: 4px; border-radius: 4px 4px 0 0;"></div>
+            <div style="padding: 40px 32px;">
+                <img style="width:200px; margin-bottom:32px;" src="https://www.keystoneweb.ca/assets/logo/keystone-logo.png" alt="Keystone Web" />
+                <h1 style="margin: 0 0 8px; font-size: 24px; font-weight: 700; color: #171717; letter-spacing: -0.02em;">${opts.heading}</h1>
+                <p style="margin: 0 0 24px; font-size: 15px; color: #6b7280; line-height: 1.6;">${opts.bodyHtml}</p>
+                ${opts.calloutHtml ? `
+                <div style="margin: 0 0 24px; padding: 14px 16px; background: ${opts.calloutBg ?? '#fffbeb'}; border: 1px solid ${opts.calloutBorder ?? '#fde68a'}; border-radius: 8px; font-size: 14px; color: #374151; line-height: 1.55;">
+                    ${opts.calloutHtml}
+                </div>` : ''}
+                <a href="${opts.ctaUrl}" style="display: inline-block; background: ${opts.accent}; color: #ffffff; text-decoration: none; font-size: 15px; font-weight: 600; padding: 13px 28px; border-radius: 8px; letter-spacing: 0.01em;">
+                    ${opts.ctaLabel} →
+                </a>
+                <div style="border-top: 1px solid #f3f4f6; margin: 32px 0;"></div>
+                <p style="margin: 0; font-size: 13px; color: #9ca3af; line-height: 1.6;">
+                    ${opts.footnoteHtml ?? 'Questions? Just reply to this email and our support team will help you out.'}
+                </p>
+            </div>
+            <div style="padding: 16px 32px; background: #f9fafb; border-top: 1px solid #f3f4f6; border-radius: 0 0 4px 4px;">
+                <p style="margin: 0; font-size: 12px; color: #9ca3af; text-align: center;">
+                    Powered by <strong style="color: #6b7280;">Keystone Web Design</strong>
+                </p>
+            </div>
+        </div>
+    `;
+}
+
+/** Email #1 — immediate failure notice (sent on the first failed charge). */
+export async function sendPaymentFailedEmail(data: {
+    customerEmail: string;
+    customerName?: string;
+    planName: string;
+    graceEndsAt: string; // human-readable date, e.g. "June 28, 2026"
+    billingUrl: string;
+    siteName?: string;
+}) {
+    try {
+        await resend.emails.send({
+            from: 'Keystone Web Design <noreply@keystoneweb.ca>',
+            to: data.customerEmail,
+            subject: `Action needed: your Keystone payment didn't go through`,
+            html: dunningEmailShell({
+                accent: '#f59e0b',
+                heading: 'Your payment didn’t go through',
+                bodyHtml: `Hi${data.customerName ? ` ${data.customerName}` : ''}, we couldn’t process the payment for your <strong>${data.planName}</strong> subscription. No need to worry — ${data.siteName ? `your site <strong>${data.siteName}</strong> is` : 'your site is'} still live, and we’ll automatically retry the charge.`,
+                calloutHtml: `To avoid any interruption, please update your card before <strong>${data.graceEndsAt}</strong>. After that, your account moves to the Free plan and your Pro features pause.`,
+                ctaLabel: 'Update payment method',
+                ctaUrl: data.billingUrl,
+            }),
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to send payment failed email:', error);
+        return { success: false, error };
+    }
+}
+
+/** Email #2 — reminder during the retry window. */
+export async function sendPaymentRetryReminderEmail(data: {
+    customerEmail: string;
+    customerName?: string;
+    planName: string;
+    graceEndsAt: string;
+    billingUrl: string;
+}) {
+    try {
+        await resend.emails.send({
+            from: 'Keystone Web Design <noreply@keystoneweb.ca>',
+            to: data.customerEmail,
+            subject: `Reminder: update your card to keep Keystone Pro`,
+            html: dunningEmailShell({
+                accent: '#f59e0b',
+                heading: 'Just a reminder about your payment',
+                bodyHtml: `Hi${data.customerName ? ` ${data.customerName}` : ''}, we’ve tried your payment for <strong>${data.planName}</strong> a couple of times without success. It only takes about a minute to fix.`,
+                calloutHtml: `Your Pro features (custom domain, extra published sites) will pause on <strong>${data.graceEndsAt}</strong> unless your card is updated.`,
+                ctaLabel: 'Fix payment now',
+                ctaUrl: data.billingUrl,
+            }),
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to send payment retry reminder email:', error);
+        return { success: false, error };
+    }
+}
+
+/** Email #3 — final notice (~48h before the grace period ends). */
+export async function sendPaymentFinalNoticeEmail(data: {
+    customerEmail: string;
+    customerName?: string;
+    planName: string;
+    graceEndsAt: string;
+    billingUrl: string;
+}) {
+    try {
+        await resend.emails.send({
+            from: 'Keystone Web Design <noreply@keystoneweb.ca>',
+            to: data.customerEmail,
+            subject: `Final notice: your Keystone Pro features pause soon`,
+            html: dunningEmailShell({
+                accent: '#dc2626',
+                calloutBg: '#fef2f2',
+                calloutBorder: '#fecaca',
+                heading: 'Final notice on your subscription',
+                bodyHtml: `Hi${data.customerName ? ` ${data.customerName}` : ''}, this is the last automatic attempt on your <strong>${data.planName}</strong> payment.`,
+                calloutHtml: `If payment isn’t resolved by <strong>${data.graceEndsAt}</strong>, your account moves to the Free plan: custom-domain auto-renewal stops and you’ll be limited to one published site. Your site stays online, but Pro features turn off.`,
+                ctaLabel: 'Keep my Pro plan',
+                ctaUrl: data.billingUrl,
+            }),
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to send payment final notice email:', error);
+        return { success: false, error };
+    }
+}
+
+/** Email #4 — subscription lapsed to Free after payment couldn't be recovered. */
+export async function sendSubscriptionLapsedEmail(data: {
+    customerEmail: string;
+    customerName?: string;
+    planName: string;
+    billingUrl: string;
+    siteName?: string;
+    domain?: string;
+}) {
+    try {
+        await resend.emails.send({
+            from: 'Keystone Web Design <noreply@keystoneweb.ca>',
+            to: data.customerEmail,
+            subject: `Your Keystone subscription has moved to Free`,
+            html: dunningEmailShell({
+                accent: '#dc2626',
+                calloutBg: '#f9fafb',
+                calloutBorder: '#e5e7eb',
+                heading: 'Your subscription moved to Free',
+                bodyHtml: `Hi${data.customerName ? ` ${data.customerName}` : ''}, your <strong>${data.planName}</strong> subscription was cancelled because we couldn’t process your payment.`,
+                calloutHtml: `Good news: ${data.siteName ? `your site <strong>${data.siteName}</strong> is` : 'your site is'} still online${data.domain ? `, and your domain <strong>${data.domain}</strong> is yours` : ''} — it just won’t auto-renew while you’re on the Free plan. Re-subscribe any time to restore Pro features and domain auto-renewal.`,
+                ctaLabel: 'Re-subscribe to Pro',
+                ctaUrl: data.billingUrl,
+            }),
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to send subscription lapsed email:', error);
+        return { success: false, error };
+    }
+}
+
+/** Sent when a previously-failed payment is recovered and Pro is restored. */
+export async function sendPaymentRecoveredEmail(data: {
+    customerEmail: string;
+    customerName?: string;
+    planName: string;
+    dashboardUrl: string;
+}) {
+    try {
+        await resend.emails.send({
+            from: 'Keystone Web Design <noreply@keystoneweb.ca>',
+            to: data.customerEmail,
+            subject: `You're all set — payment received`,
+            html: dunningEmailShell({
+                accent: '#16a34a',
+                calloutBg: '#f0fdf4',
+                calloutBorder: '#bbf7d0',
+                heading: 'Payment received — you’re all set',
+                bodyHtml: `Hi${data.customerName ? ` ${data.customerName}` : ''}, your payment for <strong>${data.planName}</strong> went through and your Pro plan is fully restored. Thanks for sticking with us!`,
+                ctaLabel: 'Go to Dashboard',
+                ctaUrl: data.dashboardUrl,
+            }),
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to send payment recovered email:', error);
+        return { success: false, error };
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Auth Emails
 // ═══════════════════════════════════════════════════════════════════════════════
 

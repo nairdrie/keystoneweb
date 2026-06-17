@@ -7,6 +7,7 @@ import { migratePaletteTokensInDesignData } from '@/lib/template-palette-migrati
 import { submitIndexNow } from '@/lib/seo/indexnow';
 import { requireSiteAccess, siteAccessErrorResponse } from '@/lib/auth/site-access';
 import { ensureKswdInboxAddress } from '@/lib/email/inbox-addresses';
+import { hasPaidAccess } from '@/lib/subscription/access';
 
 interface PublishRequest {
   siteId: string;
@@ -107,7 +108,9 @@ export async function POST(request: NextRequest) {
       .eq('user_id', targetUserId)
       .single();
 
-    if (!subscription || subscription.subscription_status !== 'active') {
+    // Grace-aware: active subscriptions AND those in the past_due dunning window
+    // can publish. Only fully canceled/inactive accounts are blocked.
+    if (!subscription || !hasPaidAccess(subscription)) {
       return NextResponse.json(
         { error: 'Subscription required to publish' },
         { status: 402 } // Payment Required

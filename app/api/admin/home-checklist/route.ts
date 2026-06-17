@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSiteAccess, siteAccessErrorResponse } from '@/lib/auth/site-access';
+import { hasPaidAccess } from '@/lib/subscription/access';
 
 const HEALTH_FRESH_DAYS = 90;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -132,7 +133,7 @@ export async function GET(request: NextRequest) {
     const healthIsAfterEdit = !!healthCheckedAt && isSameOrAfter(healthCheckedAt, latestEditAt);
     const healthIsCurrent = healthIsFresh && healthIsAfterEdit;
 
-    const isPaid = subscription?.subscription_status === 'active';
+    const isPaid = hasPaidAccess(subscription);
     const liveDomain = site.custom_domain || (site.published_domain ? `${site.published_domain}.kswd.ca` : null);
     const isPublished = Boolean(site.is_published && site.published_domain);
     const healthResults = getHealthResults(latestHealthRun?.results);

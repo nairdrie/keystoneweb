@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useAdminContext } from './admin-context';
 import { useAuth } from '@/lib/auth/context';
+import { hasPaidAccess } from '@/lib/subscription/access';
 
 type Subscription = {
   subscription_plan?: string | null;
@@ -74,16 +75,18 @@ function adminHref(path: string, siteId: string | null) {
 }
 
 function planValue(subscription: Subscription | null) {
-  if (!subscription || subscription.subscription_status !== 'active') return 'Free plan';
-  const plan = subscription.subscription_plan?.trim() || 'Paid';
+  // Grace-aware: past_due keeps showing the paid plan (the banner handles the
+  // "payment failed" messaging). Only canceled/inactive reads as "Free plan".
+  if (!hasPaidAccess(subscription)) return 'Free plan';
+  const plan = subscription!.subscription_plan?.trim() || 'Paid';
   if (plan.toLowerCase().includes('pro')) return 'Keystone Pro';
   if (plan.toLowerCase().includes('basic')) return 'Keystone Basic';
   return `Keystone ${plan.charAt(0).toUpperCase()}${plan.slice(1)}`;
 }
 
 function isProSubscription(subscription: Subscription | null) {
-  return subscription?.subscription_status === 'active' &&
-    !!subscription.subscription_plan?.toLowerCase().includes('pro');
+  return hasPaidAccess(subscription) &&
+    !!subscription?.subscription_plan?.toLowerCase().includes('pro');
 }
 
 function resolvePrimaryInboxAddress(addresses: InboxAddress[]) {
@@ -460,8 +463,8 @@ export default function AdminHomePage() {
             icon={Sparkles}
             label="Current plan"
             value={planValue(subscription)}
-            href="/pricing"
-            action="Compare"
+            href={subscription?.subscription_status === 'past_due' ? '/settings' : '/pricing'}
+            action={subscription?.subscription_status === 'past_due' ? 'Fix payment' : 'Compare'}
             loading={!subscriptionReady}
           />
           <StatusRail

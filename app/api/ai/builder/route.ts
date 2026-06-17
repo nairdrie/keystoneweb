@@ -12,7 +12,8 @@ import { getUserEffectiveLimits } from '@/lib/addons';
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 function getPlan(status: string | undefined, plan: string | undefined): UserPlan {
-  if (status !== 'active') return 'free';
+  // Grace-aware: past_due keeps its paid tier during the dunning window.
+  if (status !== 'active' && status !== 'past_due') return 'free';
   if (plan?.toLowerCase().includes('pro')) return 'pro';
   return 'basic';
 }

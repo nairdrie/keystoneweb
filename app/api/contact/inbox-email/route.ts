@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { requireSiteAccess, siteAccessErrorResponse } from '@/lib/auth/site-access';
+import { isProEntitled } from '@/lib/subscription/access';
 
 const VERCEL_API_BASE = 'https://api.vercel.com';
 const VERCEL_API_TOKEN = process.env.VERCEL_API_TOKEN;
@@ -228,11 +229,8 @@ export async function POST(request: NextRequest) {
     .eq('user_id', targetUserId)
     .maybeSingle();
 
-  const isPro =
-    subscription?.subscription_status === 'active' &&
-    subscription?.subscription_plan?.toLowerCase().includes('pro');
-
-  if (!isPro) {
+  // Grace-aware: keep custom-domain inbox available to past_due Pro owners.
+  if (!isProEntitled(subscription)) {
     return NextResponse.json({ error: 'Pro plan required for custom domain inbox email' }, { status: 403 });
   }
 

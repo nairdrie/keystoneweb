@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
+import { isProEntitled } from '@/lib/subscription/access';
 
 const VERCEL_API_TOKEN = process.env.VERCEL_API_TOKEN;
 const VERCEL_TEAM_ID = process.env.VERCEL_TEAM_ID;
@@ -44,19 +45,43 @@ async function setVercelAutoRenew(domain: string, renew: boolean): Promise<boole
 }
 
 /**
+ * Resolve which of the given owners are entitled to keep domain auto-renewal.
+ * Entitled = active OR past_due (grace window) AND on a Pro plan. Anyone else
+ * (Basic, canceled, lapsed-to-Free, no subscription) loses auto-renewal — they
+ * keep the domain until it expires, but we stop paying to renew it.
+ */
+async function resolveEntitledOwners(
+  supabase: ReturnType<typeof createAdminClient>,
+  ownerIds: string[],
+): Promise<Set<string>> {
+  const entitled = new Set<string>();
+  if (ownerIds.length === 0) return entitled;
+
+  const { data: subs } = await supabase
+    .from('user_subscriptions')
+    .select('user_id, subscription_status, subscription_plan')
+    .in('user_id', ownerIds);
+
+  for (const sub of subs ?? []) {
+    if (isProEntitled(sub)) entitled.add(sub.user_id);
+  }
+  return entitled;
+}
+
+/**
  * GET /api/cron/parked-domain-renewal
  *
  * Invoked daily by Vercel Cron.
  *
- * 1. Finds parked domains (completed, not linked to a published site) whose
- *    owner is NOT on an active Pro plan, that are within 7 days of their
- *    renewal date, and have auto_renew = true.
- *    → Turns off auto-renewal via Vercel API and updates the DB.
- *    Pro users keep their parked domains — only non-Pro parked domains are affected.
+ * 1. Finds completed domains within 7 days of their renewal date whose owner is
+ *    NOT a Pro-entitled (active or in-grace) user, and turns OFF auto-renewal.
+ *    This includes domains on a still-published site whose owner has lapsed to
+ *    Free after a failed payment — we keep their site online but stop paying to
+ *    renew the domain. Pro (and in-grace) owners keep their domains.
  *
- * 2. Finds domains that are back on a published site but still have
- *    auto_renew = false (turned off by this cron, not by the user).
- *    → Re-enables auto-renewal via Vercel API and updates the DB.
+ * 2. Finds domains that are back on a published site, owned by a Pro-entitled
+ *    user, but still have auto_renew = false (e.g. they re-subscribed) and
+ *    re-enables auto-renewal.
  */
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
@@ -67,61 +92,28 @@ export async function GET(request: NextRequest) {
   const supabase = createAdminClient();
   const sevenDaysFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  // ── 1. Disable auto-renewal for parked domains nearing expiry ──────────
-
-  // Parked = completed domain where site_id is null OR the linked site is not published.
-  // We query in two steps: first null site_id, then linked-but-unpublished.
-
-  // 1a. Domains with no site at all
-  const { data: unlinkedDomains, error: unlinkedErr } = await supabase
+  // ── 1. Disable auto-renewal for non-entitled owners' domains nearing expiry ──
+  // We no longer require the domain to be "parked" — a lapsed user's domain can
+  // still be linked to a published site. Entitlement (not publish state) decides.
+  const { data: expiringDomains, error: expiringErr } = await supabase
     .from('domain_purchases')
     .select('id, domain, user_id')
     .eq('status', 'completed')
     .eq('auto_renew', true)
-    .is('site_id', null)
     .lte('expires_at', sevenDaysFromNow);
 
-  if (unlinkedErr) {
-    console.error('Cron parked-renewal: failed to query unlinked domains:', unlinkedErr);
+  if (expiringErr) {
+    console.error('Cron parked-renewal: failed to query expiring domains:', expiringErr);
     return NextResponse.json({ error: 'DB query failed' }, { status: 500 });
   }
 
-  // 1b. Domains linked to a site that is not published
-  const { data: linkedDomains, error: linkedErr } = await supabase
-    .from('domain_purchases')
-    .select('id, domain, user_id, site_id, sites!inner(is_published)')
-    .eq('status', 'completed')
-    .eq('auto_renew', true)
-    .not('site_id', 'is', null)
-    .lte('expires_at', sevenDaysFromNow)
-    .eq('sites.is_published', false);
+  const expiring = expiringDomains ?? [];
+  const entitledOwnerIds = await resolveEntitledOwners(
+    supabase,
+    [...new Set(expiring.map((d) => d.user_id))],
+  );
 
-  if (linkedErr) {
-    console.error('Cron parked-renewal: failed to query linked-unpublished domains:', linkedErr);
-    return NextResponse.json({ error: 'DB query failed' }, { status: 500 });
-  }
-
-  const parkedCandidates = [...(unlinkedDomains ?? []), ...(linkedDomains ?? [])];
-
-  // Filter out owners who are on an active Pro plan — they keep their parked domains.
-  const ownerIds = [...new Set(parkedCandidates.map((d) => d.user_id))];
-  const proOwnerIds = new Set<string>();
-
-  if (ownerIds.length > 0) {
-    const { data: subs } = await supabase
-      .from('user_subscriptions')
-      .select('user_id, subscription_status, subscription_plan')
-      .in('user_id', ownerIds);
-
-    for (const sub of subs ?? []) {
-      const isPro =
-        sub.subscription_status === 'active' &&
-        sub.subscription_plan?.toLowerCase().includes('pro');
-      if (isPro) proOwnerIds.add(sub.user_id);
-    }
-  }
-
-  const toDisable = parkedCandidates.filter((d) => !proOwnerIds.has(d.user_id));
+  const toDisable = expiring.filter((d) => !entitledOwnerIds.has(d.user_id));
   let disabled = 0;
   let disableErrors = 0;
 
@@ -139,18 +131,18 @@ export async function GET(request: NextRequest) {
         .update({ auto_renew: false, updated_at: new Date().toISOString() })
         .eq('id', dp.id);
       disabled++;
-      console.log(`Cron parked-renewal: disabled auto-renew for parked domain ${dp.domain} (non-Pro owner)`);
+      console.log(`Cron parked-renewal: disabled auto-renew for ${dp.domain} (owner not Pro-entitled)`);
     } else {
       disableErrors++;
     }
   }
 
-  // ── 2. Re-enable auto-renewal for domains back on a published site ─────
-
-  // Only re-enable if cancelled_at is null (user didn't manually cancel).
+  // ── 2. Re-enable auto-renewal for entitled owners' domains on a published site ─
+  // Only re-enable if cancelled_at is null (user didn't manually cancel) AND the
+  // owner is Pro-entitled (e.g. they re-subscribed after lapsing).
   const { data: reEnableCandidates, error: reEnableErr } = await supabase
     .from('domain_purchases')
-    .select('id, domain, sites!inner(is_published)')
+    .select('id, domain, user_id, sites!inner(is_published)')
     .eq('status', 'completed')
     .eq('auto_renew', false)
     .is('cancelled_at', null)
@@ -162,7 +154,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'DB query failed' }, { status: 500 });
   }
 
-  const toReEnable = reEnableCandidates ?? [];
+  const reCandidates = reEnableCandidates ?? [];
+  const reEntitledOwnerIds = await resolveEntitledOwners(
+    supabase,
+    [...new Set(reCandidates.map((d) => d.user_id))],
+  );
+
+  const toReEnable = reCandidates.filter((d) => reEntitledOwnerIds.has(d.user_id));
   let reEnabled = 0;
   let reEnableErrors = 0;
 
@@ -187,7 +185,7 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json({
-    parked: { checked: toDisable.length, disabled, errors: disableErrors },
-    active: { checked: toReEnable.length, reEnabled, errors: reEnableErrors },
+    disabled: { checked: toDisable.length, disabled, errors: disableErrors },
+    reEnabled: { checked: toReEnable.length, reEnabled, errors: reEnableErrors },
   });
 }

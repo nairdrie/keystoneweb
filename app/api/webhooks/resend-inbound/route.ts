@@ -8,6 +8,7 @@ import { extractRowIdFromMessageId, normalizeMessageId, parseReferencesHeader, p
 import { stripQuotedText, stripQuotedHtml } from '@/lib/email/quoted-text';
 import { sendComposedEmail } from '@/lib/email';
 import { sanitizeEmailHtml } from '@/lib/email/sanitize';
+import { isProEntitled } from '@/lib/subscription/access';
 import { buildSendFrom, listSiteInboxAddresses, resolvePrimaryAddress } from '@/lib/email/inbox-addresses';
 import { getOpsAdminEmailList } from '@/lib/ops/access';
 
@@ -412,11 +413,8 @@ export async function POST(request: NextRequest) {
       .eq('user_id', site.user_id)
       .maybeSingle();
 
-    const isPro =
-      subscription?.subscription_status === 'active' &&
-      subscription?.subscription_plan?.toLowerCase().includes('pro');
-
-    if (!isPro) {
+    // Grace-aware: keep delivering inbound mail to past_due Pro owners.
+    if (!isProEntitled(subscription)) {
       console.log(`[resend-inbound] Site ${recipientLabel} owner is not on Pro plan, discarding email`);
       return;
     }

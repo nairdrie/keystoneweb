@@ -11,6 +11,7 @@ import { getTemplateMetadata } from '@/lib/db/template-queries';
 import { applyStructuralTemplatePresetPlanToContent, applyStructuralTemplatePresetPlanToNewBlockData, isStructuralTemplateId } from '@/lib/templates/structural-templates';
 import { formatTemplateNameForCategory } from '@/lib/templates/template-category-labels';
 import { useAuth } from '@/lib/auth/context';
+import { hasPaidAccess } from '@/lib/subscription/access';
 import { useImageUpload } from '@/lib/hooks/useImageUpload';
 import { useChangeTracking } from '@/lib/hooks/useChangeTracking';
 import AlertModal from '@/app/components/ui/AlertModal';
@@ -308,7 +309,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
     fetch('/api/user/subscription', { credentials: 'include' })
       .then(res => res.ok ? res.json() : null)
       .then(data => {
-        if (data?.subscription?.subscription_status === 'active') {
+        if (hasPaidAccess(data?.subscription)) {
           const plan = data.subscription.subscription_plan?.toLowerCase() || '';
           if (plan.includes('pro')) {
             setIsProUser(true);
