@@ -407,9 +407,12 @@ function AwaitingPaymentPanel({
           <span className="text-slate-900">{formatCents(feeCents)}</span>
         </div>
         <div className="border-t border-orange-200 mt-2 pt-2 flex items-center justify-between">
-          <span className="font-bold text-slate-900">Total due</span>
+          <span className="font-bold text-slate-900">Subtotal</span>
           <span className="font-black text-lg text-slate-900">{formatCents(amountCents)}</span>
         </div>
+        <p className="text-[11px] text-slate-500 mt-2">
+          Plus applicable GST/HST, calculated from the billing address at checkout.
+        </p>
       </div>
 
       {paymentUrl ? (

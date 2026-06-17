@@ -162,11 +162,20 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
           product_data: {
             name: `${campaign.name} — ${durationDays} ${dayWord}`,
             description,
+            // Website advertising — standard-rated for GST/HST in Canada.
+            tax_code: 'txcd_10701000',
           },
           unit_amount: prepay.totalCents,
+          // Our amount is pre-tax (ad spend + fee); Stripe Tax adds GST/HST on top.
+          tax_behavior: 'exclusive',
         },
         quantity: 1,
       }],
+      // Add GST/HST automatically from the payer's billing address. Requires
+      // Stripe Tax to be enabled with your registrations in the Stripe dashboard;
+      // until then Stripe simply adds $0 tax.
+      automatic_tax: { enabled: true },
+      billing_address_collection: 'required',
       // Single completed payment, then the link deactivates itself.
       restrictions: { completed_sessions: { limit: 1 } },
       after_completion: {

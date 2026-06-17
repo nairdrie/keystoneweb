@@ -300,8 +300,16 @@ export async function POST(request: NextRequest) {
           }
           try {
             const piId = typeof session.payment_intent === 'string' ? session.payment_intent : null;
-            const amountCents = session.amount_total ?? 0;
-            if (!piId || amountCents <= 0) {
+            // The campaign budget is funded by the PRE-TAX amount (ad spend + 5%
+            // fee). amount_total includes GST/HST, which is remitted to the CRA,
+            // not available for ad spend. Use amount_subtotal for the budget and
+            // record the gross (tax-inclusive) amount on the accounting ledger.
+            // For untaxed sessions (no Stripe Tax) subtotal === total, so this is
+            // backward-compatible.
+            const grossCents = session.amount_total ?? 0;
+            const prepayCents = session.amount_subtotal ?? grossCents;
+            const taxCents = session.total_details?.amount_tax ?? Math.max(0, grossCents - prepayCents);
+            if (!piId || prepayCents <= 0) {
               console.error('Missing PI or amount on marketing campaign payment');
               break;
             }
@@ -311,7 +319,7 @@ export async function POST(request: NextRequest) {
               campaignId,
               siteId,
               kind: isTopup ? 'topup' : 'prepay',
-              amountCents,
+              amountCents: prepayCents,
               stripePaymentIntentId: piId,
               stripeCheckoutSessionId: session.id,
               actor: userId ? `user:${userId}` : 'system',
@@ -412,12 +420,12 @@ export async function POST(request: NextRequest) {
               event_type: 'checkout.session.completed',
               transaction_type: isTopup ? 'marketing_campaign_topup' : 'marketing_campaign_prepay',
               description: isTopup ? 'Marketing campaign top-up' : 'Marketing campaign prepay',
-              amount_cents: amountCents,
+              amount_cents: grossCents,
               currency: session.currency ?? 'cad',
               status: 'succeeded',
               invoice_url: checkoutUrls.invoice_url,
               invoice_pdf: checkoutUrls.invoice_pdf,
-              metadata: { campaignId, siteId },
+              metadata: { campaignId, siteId, prepayCents, taxCents },
             });
           } catch (err: any) {
             console.error('Failed to record marketing campaign payment:', err);
