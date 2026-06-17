@@ -534,10 +534,10 @@ function ReviewForm(p: ReviewFormProps) {
               <span className="text-slate-900">{formatCents(Math.round(p.dailyBudget * p.campaignDurationDays * 0.05))}</span>
             </div>
             <div className="border-t border-slate-200 mt-2 pt-2 flex items-center justify-between">
-              <span className="text-sm font-bold text-slate-900">You pay today</span>
+              <span className="text-sm font-bold text-slate-900">Subtotal</span>
               <span className="font-black text-lg text-slate-900">{formatCents(Math.round(p.dailyBudget * p.campaignDurationDays * 1.05))}</span>
             </div>
-            <p className="text-xs text-slate-400 mt-1.5">Charged upfront via Stripe. Any unused budget is refunded if you cancel.</p>
+            <p className="text-xs text-slate-400 mt-1.5">Plus applicable GST/HST at checkout. Charged upfront via Stripe; any unused budget is refunded if you cancel.</p>
           </div>
         )}
       </div>
