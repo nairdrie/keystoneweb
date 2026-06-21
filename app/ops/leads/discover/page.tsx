@@ -5,6 +5,8 @@ import { createAdminClient } from '@/lib/db/supabase-admin';
 import { parseHost } from '@/lib/env/domain';
 import { requireOpsAccess } from '@/lib/ops/access';
 import ProspectActions from './ProspectActions';
+import ProspectFinder from './ProspectFinder';
+import NicheFilter from './NicheFilter';
 
 const REGION_LABELS: Record<string, string> = {
   toronto_core: 'Toronto core',
@@ -32,6 +34,7 @@ type Prospect = {
   phone: string | null;
   website: string | null;
   business_types: string[] | null;
+  niche: string | null;
   rating: number | null;
   review_count: number | null;
   business_status: string | null;
@@ -56,7 +59,7 @@ type Prospect = {
 export default async function DiscoverPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; region?: string; page?: string }>;
+  searchParams: Promise<{ tab?: string; region?: string; niche?: string; page?: string }>;
 }) {
   const access = await requireOpsAccess();
   if (!access) redirect('/');
@@ -68,6 +71,7 @@ export default async function DiscoverPage({
   const sp = await searchParams;
   const tab = (sp.tab ?? 'ready') as (typeof STATUS_TABS)[number]['value'];
   const regionFilter = sp.region ?? 'all';
+  const nicheFilter = sp.niche ?? 'all';
   const page = Math.max(parseInt(sp.page ?? '1', 10) || 1, 1);
   const limit = 50;
   const offset = (page - 1) * limit;
@@ -79,8 +83,10 @@ export default async function DiscoverPage({
 
   // Helper: every count query starts the same way; chain extra filters on top.
   const startCount = () => {
-    const q = db.from('lead_prospects').select('id', { count: 'exact', head: true });
-    return regionFilter !== 'all' ? q.eq('region', regionFilter) : q;
+    let q = db.from('lead_prospects').select('id', { count: 'exact', head: true });
+    if (regionFilter !== 'all') q = q.eq('region', regionFilter);
+    if (nicheFilter !== 'all') q = q.eq('niche', nicheFilter);
+    return q;
   };
 
   const [
@@ -111,7 +117,7 @@ export default async function DiscoverPage({
   let listQuery = db
     .from('lead_prospects')
     .select(
-      'id, name, formatted_address, city, region, phone, website, business_types, rating, review_count, business_status, audit_status, perf_score, seo_score, best_practices_score, accessibility_score, mobile_load_seconds, uses_https, cms, cms_confidence, pitch_angles, pitch_strength, dismissed_at, dismissed_reason, promoted_lead_id, promoted_at, discovered_at',
+      'id, name, formatted_address, city, region, phone, website, business_types, niche, rating, review_count, business_status, audit_status, perf_score, seo_score, best_practices_score, accessibility_score, mobile_load_seconds, uses_https, cms, cms_confidence, pitch_angles, pitch_strength, dismissed_at, dismissed_reason, promoted_lead_id, promoted_at, discovered_at',
       { count: 'exact' },
     )
     // Call list is no-website only, so rank by how established the business is:
@@ -122,6 +128,9 @@ export default async function DiscoverPage({
 
   if (regionFilter !== 'all') {
     listQuery = listQuery.eq('region', regionFilter);
+  }
+  if (nicheFilter !== 'all') {
+    listQuery = listQuery.eq('niche', nicheFilter);
   }
 
   switch (tab) {
@@ -155,19 +164,53 @@ export default async function DiscoverPage({
   const prospects = (prospectsData ?? []) as Prospect[];
   const totalPages = Math.ceil((tabTotal ?? 0) / limit);
 
+  // Category options. The dropdown lists niches that actually have active
+  // (un-promoted, un-dismissed) prospects so there are no dead-end selections;
+  // the finder's datalist offers the full known niche vocabulary.
+  const [{ data: activeNicheRows }, { data: knownNicheRows }] = await Promise.all([
+    db
+      .from('lead_prospects')
+      .select('niche')
+      .not('niche', 'is', null)
+      .is('dismissed_at', null)
+      .is('promoted_lead_id', null),
+    db.from('lead_discovery_queries').select('niche'),
+  ]);
+  const toNiches = (rows: unknown): string[] =>
+    [
+      ...new Set(
+        ((rows ?? []) as Array<{ niche: string | null }>)
+          .map((r) => r.niche)
+          .filter((n): n is string => Boolean(n)),
+      ),
+    ].sort();
+  const activeNiches = toNiches(activeNicheRows);
+  const knownNiches = toNiches(knownNicheRows);
+
   function buildUrl(overrides: Record<string, string>) {
     const p = new URLSearchParams();
-    const merged = { tab, region: regionFilter, page: String(page), ...overrides };
+    const merged = { tab, region: regionFilter, niche: nicheFilter, page: String(page), ...overrides };
     for (const [k, v] of Object.entries(merged)) {
       if (!v) continue;
       if (k === 'page' && v === '1') continue;
       if (k === 'tab' && v === 'ready') continue;
       if (k === 'region' && v === 'all') continue;
+      if (k === 'niche' && v === 'all') continue;
       p.set(k, v);
     }
     const qs = p.toString();
     return `${opsBasePath}/leads/discover${qs ? `?${qs}` : ''}`;
   }
+
+  // Keep the active selection in the list even if it has no active prospects
+  // right now (e.g. you just promoted the last one), so the dropdown stays valid.
+  const nicheValues = nicheFilter !== 'all' && !activeNiches.includes(nicheFilter)
+    ? [nicheFilter, ...activeNiches]
+    : activeNiches;
+  const nicheOptions = [
+    { value: 'all', label: 'All categories', href: buildUrl({ niche: 'all', page: '1' }) },
+    ...nicheValues.map((n) => ({ value: n, label: n, href: buildUrl({ niche: n, page: '1' }) })),
+  ];
 
   const counts: Record<string, number> = {
     ready: readyCount.count ?? 0,
@@ -197,8 +240,11 @@ export default async function DiscoverPage({
         </div>
       </div>
 
-      {/* Region filter row */}
-      <div className="flex gap-2 flex-wrap">
+      {/* On-demand prospect finder */}
+      <ProspectFinder knownNiches={knownNiches} opsBasePath={opsBasePath} />
+
+      {/* Region + category filter row */}
+      <div className="flex gap-2 flex-wrap items-center">
         <RegionPill href={buildUrl({ region: 'all', page: '1' })} active={regionFilter === 'all'} label="All GTA" />
         {Object.entries(REGION_LABELS).map(([value, label]) => (
           <RegionPill
@@ -208,6 +254,9 @@ export default async function DiscoverPage({
             label={label}
           />
         ))}
+        <div className="ml-auto">
+          <NicheFilter current={nicheFilter} options={nicheOptions} />
+        </div>
       </div>
 
       {/* Status tabs */}
@@ -293,7 +342,7 @@ function ProspectCard({ prospect, opsBasePath }: { prospect: Prospect; opsBasePa
   const isDismissed = Boolean(prospect.dismissed_at);
   const noWebsite = prospect.audit_status === 'no_website';
   const niche =
-    prospect.business_types?.[0]?.replace(/_/g, ' ') ?? null;
+    prospect.niche ?? prospect.business_types?.[0]?.replace(/_/g, ' ') ?? null;
 
   return (
     <div className="rounded-lg border border-gray-800 bg-gray-900 p-4 space-y-3">

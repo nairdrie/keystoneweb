@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { requireOpsAccess } from '@/lib/ops/access';
+import { industryForNiche } from '@/lib/ops/leads';
 
 // PATCH /api/ops/lead-prospects/[id]
 // Two operations encoded via { action }:
@@ -101,6 +102,11 @@ export async function PATCH(
       );
     }
 
+    // Prefer the clean discovery niche (e.g. "landscaper") over Google's noisy
+    // business_types, and map it onto the leads industry filter so the promoted
+    // lead is findable by category in the pipeline.
+    const niche = prospect.niche ?? prospect.business_types?.[0]?.replace(/_/g, ' ') ?? null;
+
     const leadInsert = {
       contact_name: null,
       business_name: prospect.name,
@@ -108,7 +114,8 @@ export async function PATCH(
       phone: prospect.phone,
       website: prospect.website,
       has_existing_website: Boolean(prospect.website),
-      business_type: prospect.business_types?.[0]?.replace(/_/g, ' ') ?? null,
+      business_type: niche,
+      industry: industryForNiche(niche),
       address: prospect.formatted_address,
       city: prospect.city,
       region: prospect.region === 'toronto_core' ? 'Ontario' : 'Ontario', // placeholder
