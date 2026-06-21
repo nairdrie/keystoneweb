@@ -15,7 +15,7 @@ const REGION_LABELS: Record<string, string> = {
 };
 
 const STATUS_TABS = [
-  { label: 'Ready', value: 'ready' },        // audited or no_website, not promoted/dismissed
+  { label: 'Call list', value: 'ready' },     // no-website, not promoted/dismissed
   { label: 'No website', value: 'no_website' },
   { label: 'Pending audit', value: 'pending' },
   { label: 'Failed', value: 'failed' },
@@ -32,6 +32,9 @@ type Prospect = {
   phone: string | null;
   website: string | null;
   business_types: string[] | null;
+  rating: number | null;
+  review_count: number | null;
+  business_status: string | null;
   audit_status: string;
   perf_score: number | null;
   seo_score: number | null;
@@ -108,10 +111,12 @@ export default async function DiscoverPage({
   let listQuery = db
     .from('lead_prospects')
     .select(
-      'id, name, formatted_address, city, region, phone, website, business_types, audit_status, perf_score, seo_score, best_practices_score, accessibility_score, mobile_load_seconds, uses_https, cms, cms_confidence, pitch_angles, pitch_strength, dismissed_at, dismissed_reason, promoted_lead_id, promoted_at, discovered_at',
+      'id, name, formatted_address, city, region, phone, website, business_types, rating, review_count, business_status, audit_status, perf_score, seo_score, best_practices_score, accessibility_score, mobile_load_seconds, uses_https, cms, cms_confidence, pitch_angles, pitch_strength, dismissed_at, dismissed_reason, promoted_lead_id, promoted_at, discovered_at',
       { count: 'exact' },
     )
-    .order('pitch_strength', { ascending: false })
+    // Call list is no-website only, so rank by how established the business is:
+    // review volume first, then most recently discovered.
+    .order('review_count', { ascending: false, nullsFirst: false })
     .order('discovered_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
@@ -182,8 +187,8 @@ export default async function DiscoverPage({
           </Link>
           <h1 className="text-2xl font-bold text-white mt-2">Discover prospects</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Auto-discovered GTA businesses from Google Places, audited with Lighthouse.
-            Promote the strongest fits to the leads pipeline.
+            GTA businesses with a Google Business Profile but no website. Sorted by
+            review volume — call the most established first, then promote.
           </p>
         </div>
         <div className="text-right">
@@ -306,9 +311,15 @@ function ProspectCard({ prospect, opsBasePath }: { prospect: Prospect; opsBasePa
                 {niche}
               </span>
             )}
-            {prospect.pitch_strength >= 80 && (
+            {prospect.review_count !== null && (
+              <span className="text-[11px] text-amber-300 bg-amber-400/10 px-1.5 py-0.5 rounded">
+                {prospect.rating !== null ? `${prospect.rating}★ · ` : ''}
+                {prospect.review_count} {prospect.review_count === 1 ? 'review' : 'reviews'}
+              </span>
+            )}
+            {(prospect.review_count ?? 0) >= 20 && (
               <span className="text-[11px] font-medium text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded">
-                strong pitch
+                established
               </span>
             )}
             {isPromoted && (
@@ -325,9 +336,18 @@ function ProspectCard({ prospect, opsBasePath }: { prospect: Prospect; opsBasePa
           {prospect.formatted_address && (
             <p className="mt-1 text-xs text-gray-500">{prospect.formatted_address}</p>
           )}
-          <p className="mt-1 text-xs text-gray-500 flex flex-wrap gap-x-3">
-            {prospect.phone && <span>{prospect.phone}</span>}
-            {prospect.website && (
+          <p className="mt-1 text-xs text-gray-500 flex flex-wrap gap-x-3 items-center">
+            {prospect.phone ? (
+              <a
+                href={`tel:${prospect.phone}`}
+                className="text-emerald-300 font-medium hover:underline"
+              >
+                📞 {prospect.phone}
+              </a>
+            ) : (
+              <span className="text-gray-600">no phone</span>
+            )}
+            {prospect.website ? (
               <a
                 href={prospect.website}
                 target="_blank"
@@ -336,8 +356,9 @@ function ProspectCard({ prospect, opsBasePath }: { prospect: Prospect; opsBasePa
               >
                 {prospect.website}
               </a>
+            ) : (
+              <span className="text-amber-400">no website</span>
             )}
-            {!prospect.website && <span className="text-amber-400">no website</span>}
           </p>
         </div>
         <ProspectActions
