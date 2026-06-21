@@ -257,7 +257,7 @@ export default function SEOPanel({ siteId }: SEOPanelProps) {
             placeholder="Your Business Name — City, Province"
             className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-red-400 focus:ring-1 focus:ring-red-400 focus:outline-none text-slate-800"
           />
-          <p className="text-[10px] text-slate-400 mt-1">Shown in search results. Keep under 60 characters.</p>
+          <p className="text-[10px] text-slate-400 mt-1">Shown in the browser tab and search results. Keep under 60 characters.</p>
         </div>
         <div>
           <label className="block text-[10px] font-bold uppercase text-slate-500 tracking-wide mb-1">Meta Description</label>
