@@ -38,7 +38,10 @@ export async function GET(request: NextRequest) {
     return new NextResponse(buffer, {
       headers: {
         'Content-Type': contentType,
-        'Cache-Control': 'public, max-age=3600, s-maxage=3600',
+        // Safe to cache aggressively: the favicon <link> href carries a `v`
+        // token derived from the favicon URL, so a changed favicon produces a
+        // new request URL and bypasses this cache entirely.
+        'Cache-Control': 'public, max-age=31536000, s-maxage=31536000, immutable',
       },
     });
   } catch (error) {

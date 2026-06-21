@@ -138,10 +138,19 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
     return (
       <CartProvider siteId={publicSiteData?.id || ''}>
         <MemberProvider siteId={publicSiteData?.id || ''}>
-          {/* Dynamic favicon for published site */}
-          {(pubDesign.faviconLogo || pubDesign.siteLogo) && (
-            <link rel="icon" href={`/api/sites/favicon?siteId=${publicSiteData?.id}`} />
-          )}
+          {/* Dynamic favicon for published site.
+              The `v` token is derived from the favicon URL so the <link> href
+              changes whenever the favicon changes, busting browser + CDN cache.
+              Without it, the constant /api/sites/favicon?siteId=X URL keeps
+              serving the old (cached) icon for up to the endpoint's max-age. */}
+          {(() => {
+            const fav = pubDesign.faviconLogo || pubDesign.siteLogo;
+            if (!fav) return null;
+            const v = encodeURIComponent(String(fav).slice(-24));
+            return (
+              <link rel="icon" href={`/api/sites/favicon?siteId=${publicSiteData?.id}&v=${v}`} />
+            );
+          })()}
           <EditorProvider
             value={{
               content: pubDesign,
