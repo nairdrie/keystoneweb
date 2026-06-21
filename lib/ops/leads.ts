@@ -155,6 +155,44 @@ export const CONTACT_EVENT_KIND_LABELS: Record<ContactEventKind, string> = {
   note: 'Note',
 };
 
+// Maps a discovery niche (e.g. "plumber", "hvac contractor") or a raw Google
+// Places business type to a LeadIndustry vertical, so prospects promoted to
+// the leads pipeline land under the right (filterable) industry. Returns null
+// when nothing matches — the lead is left uncategorized rather than guessed.
+const NICHE_INDUSTRY_PATTERNS: Array<[RegExp, LeadIndustry]> = [
+  [/\bplumb/i, 'plumbing'],
+  [/\belectric/i, 'electrical'],
+  [/\bhvac|heating|cooling|air condition/i, 'hvac'],
+  [/\broof/i, 'roofing'],
+  [/\bpaint/i, 'painting'],
+  [/\bpest|exterminat/i, 'pest_control'],
+  [/\blandscap|lawn|gardener/i, 'landscaping'],
+  [/\bhandyman/i, 'handyman'],
+  [/\b(general contractor|contractor|construction|builder|renovat)/i, 'construction'],
+  [/\b(accountant|accounting|bookkeep|tax)/i, 'accounting'],
+  [/\b(law|lawyer|legal|attorney|paralegal)/i, 'legal'],
+  [/\bdent/i, 'dental'],
+  [/\b(chiropract|physio|medical|clinic|doctor|health)/i, 'medical'],
+  [/\b(auto|car|mechanic|tire|body shop|collision)/i, 'automotive'],
+  [/\b(salon|barber|hair|nail|beauty)/i, 'salon'],
+  [/\bspa\b|massage/i, 'spa'],
+  [/\b(gym|fitness|yoga|pilates|crossfit)/i, 'fitness'],
+  [/\b(restaurant|cafe|café|food|bakery|catering|pizz|diner)/i, 'restaurant'],
+  [/\bclean/i, 'cleaning'],
+  [/\b(real estate|realtor|realty)/i, 'real_estate'],
+  [/\bphotograph/i, 'photography'],
+  [/\b(retail|store|shop|boutique)/i, 'retail'],
+];
+
+export function nicheToIndustry(niche: string | null | undefined): LeadIndustry | null {
+  if (!niche) return null;
+  const value = niche.replace(/_/g, ' ').toLowerCase();
+  for (const [pattern, industry] of NICHE_INDUSTRY_PATTERNS) {
+    if (pattern.test(value)) return industry;
+  }
+  return null;
+}
+
 export function formatLabel(value: string | null | undefined): string {
   if (!value) return '—';
   return value.replace(/_/g, ' ');

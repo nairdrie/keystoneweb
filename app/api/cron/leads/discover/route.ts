@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
-import { searchTextGta, type PlaceResult } from '@/lib/leads/places';
+import { runDiscoveryForQuery, type DiscoveryQuery } from '@/lib/leads/discover';
 
 // Weekday → GTA sub-region rotation. Discovery only runs Mon–Fri so weekends
 // just no-op if Vercel happens to fire the cron.
@@ -14,7 +14,6 @@ const WEEKDAY_REGION: Record<number, string> = {
 
 const TARGET_NEW_PROSPECTS = 10;       // soft target per run
 const MAX_QUERY_ATTEMPTS = 4;          // stop after this many query advances
-const COOLDOWN_DAYS = 60;              // cooldown applied after every visit
 const STALE_POOL_SIZE = 25;            // top-N stalest queries we randomize within
 
 export const runtime = 'nodejs';
@@ -64,7 +63,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(summary);
   }
 
-  const shuffled = shuffle([...pool]);
+  const shuffled = shuffle([...pool]) as DiscoveryQuery[];
 
   for (let attempt = 0; attempt < MAX_QUERY_ATTEMPTS && attempt < shuffled.length; attempt++) {
     if (summary.new_prospects >= TARGET_NEW_PROSPECTS) break;
@@ -72,101 +71,29 @@ export async function GET(request: NextRequest) {
     const query = shuffled[attempt];
     summary.queries_attempted.push({ id: query.id, niche: query.niche, city: query.city });
 
-    // ----- Skip page 1: low-ranked businesses are who needs help -----
-    // pageTokens expire in minutes, so we do the page-1 throwaway in the
-    // same invocation as the page-2 fetch we actually want.
-    let firstPage;
-    try {
-      firstPage = await searchTextGta({ niche: query.niche, city: query.city, pageToken: null });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      summary.errors.push(`Page 1 ${query.niche}/${query.city}: ${msg}`);
-      await markRun(db, query.id, msg);
-      continue;
+    const result = await runDiscoveryForQuery(db, query);
+
+    summary.raw_results += result.scanned;
+    summary.new_prospects += result.inserted;
+    summary.duplicates += result.duplicates;
+    if (result.error) {
+      summary.errors.push(`${query.niche}/${query.city}: ${result.error}`);
     }
 
-    if (!firstPage.nextPageToken) {
-      // Fewer than 20 results total — query too narrow. Skip and cooldown
-      // so we don't waste a Places call on it tomorrow.
+    if (result.tooNarrow) {
       console.log(
         `[cron/leads/discover] ${query.niche} / ${query.city}: ` +
-          `only ${firstPage.places.length} total results, no page 2 — skipping`,
+          `only ${result.scanned} total results, no page 2 — skipping`,
       );
-      await markRun(db, query.id, null);
-      continue;
+    } else {
+      console.log(
+        `[cron/leads/discover] ${query.niche} / ${query.city}: ` +
+          `+${result.inserted} new, ${result.duplicates} dupes (page 2)`,
+      );
     }
-
-    let pageResult;
-    try {
-      pageResult = await searchTextGta({
-        niche: query.niche,
-        city: query.city,
-        pageToken: firstPage.nextPageToken,
-      });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      summary.errors.push(`Page 2 ${query.niche}/${query.city}: ${msg}`);
-      await markRun(db, query.id, msg);
-      continue;
-    }
-
-    summary.raw_results += pageResult.places.length;
-
-    let inserted = 0;
-    if (pageResult.places.length > 0) {
-      const placeIds = pageResult.places.map((p) => p.placeId);
-      const { data: existing } = await db
-        .from('lead_prospects')
-        .select('place_id')
-        .in('place_id', placeIds);
-      const existingSet = new Set((existing ?? []).map((r) => r.place_id));
-
-      const fresh = pageResult.places.filter((p) => !existingSet.has(p.placeId));
-      summary.duplicates += pageResult.places.length - fresh.length;
-
-      if (fresh.length > 0) {
-        const rows = fresh.map((p) => toProspectRow(p, query));
-        const { error: insertErr, count } = await db
-          .from('lead_prospects')
-          .insert(rows, { count: 'exact' });
-        if (insertErr) {
-          summary.errors.push(
-            `Insert for ${query.niche}/${query.city}: ${insertErr.message}`,
-          );
-        } else {
-          inserted = count ?? rows.length;
-          summary.new_prospects += inserted;
-        }
-      }
-    }
-
-    await markRun(db, query.id, null);
-
-    console.log(
-      `[cron/leads/discover] ${query.niche} / ${query.city}: ` +
-        `+${inserted} new, ${pageResult.places.length - inserted} dupes (page 2)`,
-    );
   }
 
   return NextResponse.json(summary);
-}
-
-async function markRun(
-  db: ReturnType<typeof createAdminClient>,
-  id: string,
-  error: string | null,
-) {
-  await db
-    .from('lead_discovery_queries')
-    .update({
-      last_run_at: new Date().toISOString(),
-      last_error: error,
-      cooldown_until: new Date(Date.now() + COOLDOWN_DAYS * 86_400_000).toISOString(),
-      // Pagination columns are vestigial under skip-page-1 logic but kept on
-      // the table to avoid a destructive migration.
-      next_page_token: null,
-    })
-    .eq('id', id);
 }
 
 function shuffle<T>(arr: T[]): T[] {
@@ -175,24 +102,4 @@ function shuffle<T>(arr: T[]): T[] {
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
-}
-
-function toProspectRow(
-  p: PlaceResult,
-  query: { id: string; region: string; city: string },
-) {
-  return {
-    place_id: p.placeId,
-    name: p.name,
-    formatted_address: p.formattedAddress,
-    city: p.city ?? query.city,
-    region: query.region,
-    phone: p.phone,
-    website: p.website,
-    business_types: p.types,
-    discovered_via_query_id: query.id,
-    audit_status: p.website ? 'pending' : 'no_website',
-    pitch_angles: p.website ? [] : ['No website — only Google Business Profile'],
-    pitch_strength: p.website ? 0 : 100,
-  };
 }

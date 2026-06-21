@@ -4,15 +4,9 @@ import Link from 'next/link';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { parseHost } from '@/lib/env/domain';
 import { requireOpsAccess } from '@/lib/ops/access';
+import { LEAD_REGION_LABELS as REGION_LABELS } from '@/lib/leads/regions';
 import ProspectActions from './ProspectActions';
-
-const REGION_LABELS: Record<string, string> = {
-  toronto_core: 'Toronto core',
-  york: 'York Region',
-  peel: 'Peel Region',
-  halton: 'Halton Region',
-  durham: 'Durham Region',
-};
+import RunDiscovery from './RunDiscovery';
 
 const STATUS_TABS = [
   { label: 'Ready', value: 'ready' },        // audited or no_website, not promoted/dismissed
@@ -29,6 +23,7 @@ type Prospect = {
   formatted_address: string | null;
   city: string | null;
   region: string | null;
+  niche: string | null;
   phone: string | null;
   website: string | null;
   business_types: string[] | null;
@@ -53,7 +48,7 @@ type Prospect = {
 export default async function DiscoverPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; region?: string; page?: string }>;
+  searchParams: Promise<{ tab?: string; region?: string; niche?: string; page?: string }>;
 }) {
   const access = await requireOpsAccess();
   if (!access) redirect('/');
@@ -65,6 +60,7 @@ export default async function DiscoverPage({
   const sp = await searchParams;
   const tab = (sp.tab ?? 'ready') as (typeof STATUS_TABS)[number]['value'];
   const regionFilter = sp.region ?? 'all';
+  const nicheFilter = sp.niche ?? 'all';
   const page = Math.max(parseInt(sp.page ?? '1', 10) || 1, 1);
   const limit = 50;
   const offset = (page - 1) * limit;
@@ -74,10 +70,22 @@ export default async function DiscoverPage({
   // eslint-disable-next-line react-hooks/purity
   const last24hCutoff = new Date(Date.now() - 86_400_000).toISOString();
 
+  // Distinct niches we've discovered, for the niche filter dropdown. Sourced
+  // from the discovery query matrix (small, complete, includes manual runs).
+  const { data: nicheRows } = await db
+    .from('lead_discovery_queries')
+    .select('niche')
+    .order('niche', { ascending: true });
+  const nicheOptions = Array.from(
+    new Set((nicheRows ?? []).map((r) => r.niche).filter((n): n is string => Boolean(n))),
+  );
+
   // Helper: every count query starts the same way; chain extra filters on top.
   const startCount = () => {
-    const q = db.from('lead_prospects').select('id', { count: 'exact', head: true });
-    return regionFilter !== 'all' ? q.eq('region', regionFilter) : q;
+    let q = db.from('lead_prospects').select('id', { count: 'exact', head: true });
+    if (regionFilter !== 'all') q = q.eq('region', regionFilter);
+    if (nicheFilter !== 'all') q = q.eq('niche', nicheFilter);
+    return q;
   };
 
   const [
@@ -108,7 +116,7 @@ export default async function DiscoverPage({
   let listQuery = db
     .from('lead_prospects')
     .select(
-      'id, name, formatted_address, city, region, phone, website, business_types, audit_status, perf_score, seo_score, best_practices_score, accessibility_score, mobile_load_seconds, uses_https, cms, cms_confidence, pitch_angles, pitch_strength, dismissed_at, dismissed_reason, promoted_lead_id, promoted_at, discovered_at',
+      'id, name, formatted_address, city, region, niche, phone, website, business_types, audit_status, perf_score, seo_score, best_practices_score, accessibility_score, mobile_load_seconds, uses_https, cms, cms_confidence, pitch_angles, pitch_strength, dismissed_at, dismissed_reason, promoted_lead_id, promoted_at, discovered_at',
       { count: 'exact' },
     )
     .order('pitch_strength', { ascending: false })
@@ -117,6 +125,9 @@ export default async function DiscoverPage({
 
   if (regionFilter !== 'all') {
     listQuery = listQuery.eq('region', regionFilter);
+  }
+  if (nicheFilter !== 'all') {
+    listQuery = listQuery.eq('niche', nicheFilter);
   }
 
   switch (tab) {
@@ -152,12 +163,12 @@ export default async function DiscoverPage({
 
   function buildUrl(overrides: Record<string, string>) {
     const p = new URLSearchParams();
-    const merged = { tab, region: regionFilter, page: String(page), ...overrides };
+    const merged = { tab, region: regionFilter, niche: nicheFilter, page: String(page), ...overrides };
     for (const [k, v] of Object.entries(merged)) {
       if (!v) continue;
       if (k === 'page' && v === '1') continue;
       if (k === 'tab' && v === 'ready') continue;
-      if (k === 'region' && v === 'all') continue;
+      if ((k === 'region' || k === 'niche') && v === 'all') continue;
       p.set(k, v);
     }
     const qs = p.toString();
@@ -192,8 +203,11 @@ export default async function DiscoverPage({
         </div>
       </div>
 
+      {/* Manual prospect finder */}
+      <RunDiscovery />
+
       {/* Region filter row */}
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex gap-2 flex-wrap items-center">
         <RegionPill href={buildUrl({ region: 'all', page: '1' })} active={regionFilter === 'all'} label="All GTA" />
         {Object.entries(REGION_LABELS).map(([value, label]) => (
           <RegionPill
@@ -203,6 +217,40 @@ export default async function DiscoverPage({
             label={label}
           />
         ))}
+
+        {/* Niche filter */}
+        {nicheOptions.length > 0 && (
+          <form method="GET" action={`${opsBasePath}/leads/discover`} className="ml-auto flex items-center gap-2">
+            {tab !== 'ready' && <input type="hidden" name="tab" value={tab} />}
+            {regionFilter !== 'all' && <input type="hidden" name="region" value={regionFilter} />}
+            <select
+              name="niche"
+              defaultValue={nicheFilter}
+              className="rounded-md border border-gray-700 bg-gray-900 px-3 py-1.5 text-xs text-white focus:outline-none focus:border-gray-500"
+            >
+              <option value="all">All niches</option>
+              {nicheOptions.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+            <button
+              type="submit"
+              className="rounded-md bg-gray-800 hover:bg-gray-700 px-3 py-1.5 text-xs text-gray-300 transition-colors"
+            >
+              Filter
+            </button>
+            {nicheFilter !== 'all' && (
+              <Link
+                href={buildUrl({ niche: 'all', page: '1' })}
+                className="text-xs text-gray-500 hover:text-white"
+              >
+                Clear
+              </Link>
+            )}
+          </form>
+        )}
       </div>
 
       {/* Status tabs */}
@@ -235,7 +283,8 @@ export default async function DiscoverPage({
 
         {prospects.length === 0 && (
           <div className="rounded-lg border border-gray-800 bg-gray-900 p-12 text-center text-gray-600">
-            No prospects in this view. The discovery cron runs weekday mornings.
+            No prospects in this view. The discovery cron runs weekday mornings — or use
+            &ldquo;Run prospect finder&rdquo; above to search a niche now.
           </div>
         )}
       </div>
@@ -288,7 +337,7 @@ function ProspectCard({ prospect, opsBasePath }: { prospect: Prospect; opsBasePa
   const isDismissed = Boolean(prospect.dismissed_at);
   const noWebsite = prospect.audit_status === 'no_website';
   const niche =
-    prospect.business_types?.[0]?.replace(/_/g, ' ') ?? null;
+    prospect.niche ?? prospect.business_types?.[0]?.replace(/_/g, ' ') ?? null;
 
   return (
     <div className="rounded-lg border border-gray-800 bg-gray-900 p-4 space-y-3">
@@ -298,7 +347,7 @@ function ProspectCard({ prospect, opsBasePath }: { prospect: Prospect; opsBasePa
             <span className="text-sm font-semibold text-white">{prospect.name}</span>
             {prospect.region && (
               <span className="text-[11px] text-gray-500 bg-gray-800 px-1.5 py-0.5 rounded">
-                {REGION_LABELS[prospect.region] ?? prospect.region}
+                {REGION_LABELS[prospect.region as keyof typeof REGION_LABELS] ?? prospect.region}
               </span>
             )}
             {niche && (

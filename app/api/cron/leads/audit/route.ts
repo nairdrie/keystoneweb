@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
   const reclaimCutoff = new Date(Date.now() - 10 * 60_000).toISOString();
   const { data: pending } = await db
     .from('lead_prospects')
-    .select('id, website, name, city, region, business_types')
+    .select('id, website, name, city, region, niche, business_types')
     .or(`audit_status.eq.pending,and(audit_status.eq.auditing,audit_attempted_at.lt.${reclaimCutoff})`)
     .not('website', 'is', null)
     .order('discovered_at', { ascending: true })
@@ -91,6 +91,7 @@ async function auditOne(
     name: string;
     city: string | null;
     region: string | null;
+    niche: string | null;
     business_types: string[] | null;
   },
 ) {
@@ -107,9 +108,8 @@ async function auditOne(
   const cms: CmsResult | null =
     cmsSettled.status === 'fulfilled' ? cmsSettled.value : null;
 
-  // Derive a "primary niche" string from the business_types for the pitch
-  // copy (Google's types are like 'plumber', 'electrician', etc.).
-  const niche = prospect.business_types?.[0]?.replace(/_/g, ' ') ?? null;
+  // Prefer the clean discovery niche; fall back to the raw Google Places type.
+  const niche = prospect.niche ?? prospect.business_types?.[0]?.replace(/_/g, ' ') ?? null;
 
   const pitch = computePitch({
     hasWebsite: true,

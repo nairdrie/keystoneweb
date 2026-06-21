@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { requireOpsAccess } from '@/lib/ops/access';
+import { nicheToIndustry } from '@/lib/ops/leads';
 
 // PATCH /api/ops/lead-prospects/[id]
 // Two operations encoded via { action }:
@@ -101,6 +102,10 @@ export async function PATCH(
       );
     }
 
+    // Prefer the clean discovery niche over the raw Google Places type for both
+    // the free-text business_type and the (filterable) industry vertical.
+    const niche = prospect.niche ?? prospect.business_types?.[0]?.replace(/_/g, ' ') ?? null;
+
     const leadInsert = {
       contact_name: null,
       business_name: prospect.name,
@@ -108,10 +113,11 @@ export async function PATCH(
       phone: prospect.phone,
       website: prospect.website,
       has_existing_website: Boolean(prospect.website),
-      business_type: prospect.business_types?.[0]?.replace(/_/g, ' ') ?? null,
+      business_type: niche,
+      industry: nicheToIndustry(niche),
       address: prospect.formatted_address,
       city: prospect.city,
-      region: prospect.region === 'toronto_core' ? 'Ontario' : 'Ontario', // placeholder
+      region: 'Ontario',
       country: 'Canada',
       source: 'organic_search',
       source_detail: sourceDetail,
