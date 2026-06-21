@@ -23,6 +23,12 @@ const FIELD_MASK = [
   'places.websiteUri',
   'places.types',
   'places.addressComponents',
+  // Quality signals: rating + review count tell us whether a no-website
+  // business is actually active (worth a call) or a dead/ghost listing.
+  // businessStatus lets us drop permanently/temporarily closed businesses.
+  'places.rating',
+  'places.userRatingCount',
+  'places.businessStatus',
   'nextPageToken',
 ].join(',');
 
@@ -37,6 +43,9 @@ export interface PlaceResult {
   phone: string | null;
   website: string | null;
   types: string[];
+  rating: number | null;
+  reviewCount: number | null;
+  businessStatus: string | null;
   latitude: number | null;
   longitude: number | null;
 }
@@ -117,6 +126,9 @@ interface RawPlace {
   websiteUri?: string;
   types?: string[];
   addressComponents?: Array<{ types?: string[]; shortText?: string; longText?: string }>;
+  rating?: number;
+  userRatingCount?: number;
+  businessStatus?: string;
 }
 
 function normalize(p: RawPlace): PlaceResult {
@@ -138,6 +150,9 @@ function normalize(p: RawPlace): PlaceResult {
     phone: p.nationalPhoneNumber ?? null,
     website: p.websiteUri ?? null,
     types: p.types ?? [],
+    rating: typeof p.rating === 'number' ? p.rating : null,
+    reviewCount: typeof p.userRatingCount === 'number' ? p.userRatingCount : null,
+    businessStatus: p.businessStatus ?? null,
     latitude: p.location?.latitude ?? null,
     longitude: p.location?.longitude ?? null,
   };

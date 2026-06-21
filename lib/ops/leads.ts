@@ -47,6 +47,68 @@ export const LEAD_INDUSTRIES = [
 ] as const;
 export type LeadIndustry = (typeof LEAD_INDUSTRIES)[number];
 
+// Maps a discovery niche (the Google Places search term, e.g. "landscaper")
+// onto a LeadIndustry so promoted prospects land in the leads industry filter.
+// Unknown niches fall back to 'other' via industryForNiche().
+export const NICHE_TO_INDUSTRY: Record<string, LeadIndustry> = {
+  plumber: 'plumbing',
+  electrician: 'electrical',
+  'hvac contractor': 'hvac',
+  roofer: 'roofing',
+  landscaper: 'landscaping',
+  painter: 'painting',
+  'general contractor': 'construction',
+  handyman: 'handyman',
+  accountant: 'accounting',
+  'small law firm': 'legal',
+  dentist: 'dental',
+  chiropractor: 'medical',
+  'auto repair shop': 'automotive',
+  'auto body shop': 'automotive',
+  'hair salon': 'salon',
+  'nail salon': 'salon',
+  barbershop: 'salon',
+  'pet groomer': 'other',
+  'real estate agent': 'real_estate',
+  'cleaning service': 'cleaning',
+  'mobile mechanic': 'automotive',
+  'junk removal': 'other',
+  'snow removal': 'landscaping',
+  'fence installer': 'construction',
+  'deck builder': 'construction',
+  'window cleaning': 'cleaning',
+  'pressure washing': 'cleaning',
+  'pool service': 'other',
+  'tree service': 'landscaping',
+  'moving company': 'other',
+  catering: 'restaurant',
+  'personal trainer': 'fitness',
+  photographer: 'photography',
+  'appliance repair': 'other',
+  locksmith: 'other',
+  'flooring installer': 'construction',
+  'drywall contractor': 'construction',
+  'tiling contractor': 'construction',
+  'concrete contractor': 'construction',
+  'masonry contractor': 'construction',
+  'gutter cleaning': 'cleaning',
+  'pest control': 'pest_control',
+  'mobile detailing': 'automotive',
+  'tutoring service': 'other',
+};
+
+// Best-effort niche → industry. Exact match first, then a loose substring
+// match (so a typed "barber" still resolves to the salon vertical), else other.
+export function industryForNiche(niche: string | null | undefined): LeadIndustry {
+  if (!niche) return 'other';
+  const key = niche.trim().toLowerCase();
+  if (NICHE_TO_INDUSTRY[key]) return NICHE_TO_INDUSTRY[key];
+  for (const [mapNiche, industry] of Object.entries(NICHE_TO_INDUSTRY)) {
+    if (key.includes(mapNiche) || mapNiche.includes(key)) return industry;
+  }
+  return 'other';
+}
+
 export const LEAD_SOURCES = [
   'cold_call',
   'cold_email',
