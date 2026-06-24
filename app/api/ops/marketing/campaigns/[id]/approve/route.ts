@@ -52,7 +52,7 @@ export async function POST(
   });
 
   try {
-    let externalIds: { campaignId?: string; adGroupId?: string; adId?: string; adSetId?: string } = {};
+    let externalIds: { campaignId?: string; adGroupId?: string; adId?: string; adSetId?: string; warnings?: string[] } = {};
     const typedCampaign = campaign as unknown as Campaign;
 
     if (campaign.channel === 'google_ads') {
@@ -114,13 +114,19 @@ export async function POST(
       campaign_id: id,
       action: 'launched',
       actor: 'system',
-      details: { external_ids: externalIds, channel: campaign.channel },
+      details: {
+        external_ids: externalIds,
+        channel: campaign.channel,
+        // Bidding/budget calibration notes (ceiling applied, thin-budget flags).
+        calibration_warnings: externalIds.warnings || [],
+      },
     });
 
     return NextResponse.json({
       success: true,
       status: 'active',
       externalIds,
+      warnings: externalIds.warnings || [],
     });
   } catch (err: any) {
     console.error(`[ops/marketing/approve] Failed to launch campaign ${id}:`, err);

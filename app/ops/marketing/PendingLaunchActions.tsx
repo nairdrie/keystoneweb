@@ -14,6 +14,7 @@ export default function PendingLaunchActions({
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [launched, setLaunched] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [customerId, setCustomerId] = useState(googleAdsCustomerId || '');
@@ -46,10 +47,13 @@ export default function PendingLaunchActions({
         return;
       }
       // Non-blocking calibration notes (bid ceiling applied, thin-budget flags).
+      // The campaign is already 'active' server-side, so lock the button to avoid
+      // a re-launch ("Cannot launch from status active") while the notes stay up.
       if (Array.isArray(data.warnings) && data.warnings.length > 0) {
         setWarnings(data.warnings);
+        setLaunched(true);
         setLoading(false);
-        return; // keep the notes visible; ops can refresh manually
+        return; // keep the notes visible; ops refreshes via the button below
       }
       router.refresh();
     } catch {
@@ -81,10 +85,10 @@ export default function PendingLaunchActions({
         <button
           type="button"
           onClick={launch}
-          disabled={loading}
+          disabled={loading || launched}
           className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-500 disabled:opacity-50 transition-colors whitespace-nowrap"
         >
-          {loading ? 'Launching…' : 'Launch'}
+          {launched ? 'Launched' : loading ? 'Launching…' : 'Launch'}
         </button>
       </div>
       {billingReady && <span className="text-[10px] text-emerald-400">Billing previously confirmed for this site</span>}

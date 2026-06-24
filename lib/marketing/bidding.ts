@@ -58,8 +58,6 @@ export const PHRASE_MIN_CLICKS = 3;
 export const EXACT_MAX_KEYWORDS = 10;
 export const PHRASE_MAX_KEYWORDS = 15;
 export const BROAD_MAX_KEYWORDS = 20;
-/** Never trim a campaign below this many keywords, even when tightening. */
-export const MIN_KEYWORDS = 5;
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -158,7 +156,9 @@ export function summarizeKeywordMetrics(metrics: KeywordMetric[]): MarketCpcEsti
     if (typeof low === 'number' && low > 0 && typeof high === 'number' && high > 0) {
       midBids.push(Math.round((low + high) / 2));
     } else if (typeof high === 'number' && high > 0) {
-      midBids.push(high);
+      // A lone high bid is the TOP of the first-page range, not a mid-point —
+      // pull it toward a representative mid so it doesn't bias the median upward.
+      midBids.push(Math.round(high * 0.6));
     } else if (typeof low === 'number' && low > 0) {
       midBids.push(low);
     }
@@ -208,16 +208,45 @@ export function heuristicEstimate(keywords: string[]): MarketCpcEstimate {
 // ── Core decisions (pure) ─────────────────────────────────────────────────────
 
 /**
- * Max-CPC ceiling for the Maximize Clicks strategy. Capped so one click can't
- * eat more than {@link MAX_CLICK_BUDGET_FRACTION} of the day, never below the
- * absolute floor, and never above the priciest observed top-of-page bid (there
- * are no extra clicks to be won by bidding past the top of the page).
+ * Max-CPC ceiling for the Maximize Clicks strategy.
+ *
+ * The original (naive) ceiling was simply 25% of the daily budget. That re-created
+ * the very bug we set out to fix: on a $14/day budget in an $18-CPC niche the cap
+ * lands at $3.50 — far below the ~$12 first-page bid — so under Maximize Clicks the
+ * ad never clears the auction (zero impressions), exactly like the old flat $1 bid.
+ *
+ * So the ceiling is composed in two competing directions:
+ *   - PROTECT: start at {@link MAX_CLICK_BUDGET_FRACTION} of the daily budget so a
+ *     single click can't drain the day when traffic is cheap.
+ *   - COMPETE: lift the ceiling up to the cheapest first-page bid
+ *     (minTopOfPageBidMicros) so the ad can actually enter the auction — even when
+ *     that exceeds the protective fraction. A thin budget that forces this is
+ *     flagged loudly (see buildWarnings) rather than silently locked out.
+ *
+ * Then it is bounded: never above the priciest top-of-page bid (no extra clicks to
+ * be won past the top of the page), never above a full day's budget (a single click
+ * shouldn't be allowed to overspend the day), and never below the absolute floor
+ * where ads stop serving at all.
  */
 export function computeBidCeilingMicros(dailyBudgetMicros: number, estimate: MarketCpcEstimate): number {
+  // PROTECT: a single click ≤ a fraction of the day when traffic is cheap.
   let ceiling = Math.round(dailyBudgetMicros * MAX_CLICK_BUDGET_FRACTION);
+
+  // COMPETE: lift to the cheapest first-page bid so the ad can enter the auction.
+  if (estimate.minTopOfPageBidMicros && estimate.minTopOfPageBidMicros > 0) {
+    ceiling = Math.max(ceiling, estimate.minTopOfPageBidMicros);
+  }
+
+  // No point bidding above the priciest top-of-page bid.
   if (estimate.maxTopOfPageBidMicros && estimate.maxTopOfPageBidMicros > 0) {
     ceiling = Math.min(ceiling, estimate.maxTopOfPageBidMicros);
   }
+  // A single click should never be allowed to overspend the whole day's budget.
+  if (dailyBudgetMicros > 0) {
+    ceiling = Math.min(ceiling, dailyBudgetMicros);
+  }
+
+  // Always bid at least enough to serve.
   return Math.max(ceiling, MIN_CPC_CEILING_MICROS);
 }
 
@@ -245,9 +274,8 @@ export function prioritizeKeywords(keywords: string[], matchType: KeywordMatchTy
     matchType === 'PHRASE' ? PHRASE_MAX_KEYWORDS :
     BROAD_MAX_KEYWORDS;
 
-  // Don't trim below MIN_KEYWORDS, and never pad beyond what we actually have.
-  const keep = Math.min(ranked.length, Math.max(MIN_KEYWORDS, cap));
-  return ranked.slice(0, keep);
+  // Trim to the match-type cap; never pad beyond what we actually have.
+  return ranked.slice(0, Math.min(ranked.length, cap));
 }
 
 /** Daily budget (cents) needed to afford `targetClicks` at the estimate's CPC. */
@@ -327,6 +355,7 @@ function buildWarnings(opts: {
   const { dailyBudgetCents, estimatedClicksPerDay, matchType, estimate, cpcBidCeilingMicros, droppedKeywordCount } = opts;
   const warnings: string[] = [];
 
+  const dailyBudgetMicros = dailyBudgetCents * MICROS_PER_CENT;
   const cpc = fmtMicros(estimate.representativeCpcMicros);
   const daily = fmtCents(dailyBudgetCents);
   const clicks = estimatedClicksPerDay.toFixed(1);
@@ -356,6 +385,19 @@ function buildWarnings(opts: {
     );
   }
 
+  // Auction-entry check: if even the protective ceiling can't reach the cheapest
+  // first-page bid, the ad essentially can't enter the auction — name that
+  // explicitly (this is the exact zero-impression failure mode we set out to fix).
+  const floorMicros = estimate.minTopOfPageBidMicros && estimate.minTopOfPageBidMicros > 0
+    ? estimate.minTopOfPageBidMicros
+    : null;
+  if (floorMicros && cpcBidCeilingMicros < floorMicros) {
+    warnings.push(
+      `Max-CPC ceiling ${fmtMicros(cpcBidCeilingMicros)} is below the cheapest first-page bid (${fmtMicros(floorMicros)}) for this niche — ` +
+      `the ${daily}/day budget is too small to bid competitively, so the ad may win close to zero impressions until the budget is raised (suggested ${recPhrase}–${recBroad}).`,
+    );
+  }
+
   if (droppedKeywordCount > 0) {
     warnings.push(
       `Trimmed ${droppedKeywordCount} of the broadest keyword${droppedKeywordCount === 1 ? '' : 's'} to concentrate the budget on the highest-intent terms.`,
@@ -367,7 +409,16 @@ function buildWarnings(opts: {
   }
 
   // Always record the protective ceiling so ops can see the cap that was applied.
-  warnings.unshift(`Bidding: Maximize Clicks with a Max-CPC ceiling of ${fmtMicros(cpcBidCeilingMicros)} (a single click can't exceed ~${Math.round(MAX_CLICK_BUDGET_FRACTION * 100)}% of the daily budget).`);
+  // The % is computed from the ACTUAL ceiling vs the budget (the floor/market/day
+  // clamps mean it isn't always the nominal 25%).
+  const ceilingPct = dailyBudgetMicros > 0
+    ? Math.round((cpcBidCeilingMicros / dailyBudgetMicros) * 100)
+    : null;
+  warnings.unshift(
+    ceilingPct != null
+      ? `Bidding: Maximize Clicks with a Max-CPC ceiling of ${fmtMicros(cpcBidCeilingMicros)} (≈${ceilingPct}% of the ${daily}/day budget per click).`
+      : `Bidding: Maximize Clicks with a Max-CPC ceiling of ${fmtMicros(cpcBidCeilingMicros)}.`,
+  );
 
   return warnings;
 }

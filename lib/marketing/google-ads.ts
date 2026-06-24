@@ -411,14 +411,18 @@ export async function createDisplayCampaign(
   campaign: Campaign,
   customerId?: string,
 ): Promise<GoogleCampaignResult> {
+  const dailyBudgetCents = campaign.daily_budget_cents || 1000;
+  const displayPlan = planDisplayBidding({ dailyBudgetCents });
+  const displayWarnings = [
+    `Bidding: Maximize Clicks with a Max-CPC ceiling of $${(displayPlan.cpcBidCeilingMicros / 1_000_000).toFixed(2)}.`,
+  ];
+
   if (isMockMode()) {
     console.log('[google-ads mock] createDisplayCampaign', campaign.name);
-    return mockCampaignResult(`display-${campaign.id?.slice(0, 8)}`);
+    return { ...mockCampaignResult(`display-${campaign.id?.slice(0, 8)}`), warnings: displayWarnings };
   }
   const customer = await getClient(customerId);
   const content = campaign.content as GoogleDisplayContent;
-  const dailyBudgetCents = campaign.daily_budget_cents || 1000;
-  const displayPlan = planDisplayBidding({ dailyBudgetCents });
 
   const budgetResult = await customer.campaignBudgets.create([{
     name: uniqueBudgetName(campaign),
@@ -479,13 +483,7 @@ export async function createDisplayCampaign(
   const geoTargets = await resolveLocationResourceNames(customer, campaign.targeting?.locations || []);
   await applyLocationTargeting(customer, campaignResourceName, geoTargets);
 
-  const ceilingUsd = `$${(displayPlan.cpcBidCeilingMicros / 1_000_000).toFixed(2)}`;
-  return {
-    campaignId,
-    adGroupId,
-    adId,
-    warnings: [`Bidding: Maximize Clicks with a Max-CPC ceiling of ${ceilingUsd}.`],
-  };
+  return { campaignId, adGroupId, adId, warnings: displayWarnings };
 }
 
 /**
