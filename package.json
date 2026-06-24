@@ -11,6 +11,7 @@
     "template:previews": "node scripts/generate-template-previews.mjs",
     "test:ai-builder": "node scripts/verify-ai-builder-capabilities.mjs && node scripts/verify-ai-generated-preset-fixtures.mjs",
     "test:blocks": "node scripts/verify-block-regressions.mjs && node scripts/verify-layout-settings.mjs && node scripts/verify-estimate-quote.mjs && node scripts/verify-settings-schemas.mjs",
+    "test:marketing": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-marketing-bidding.mjs",
     "test:settings-schema": "node scripts/verify-settings-schemas.mjs",
     "test:visual:card-presets": "node scripts/playwright-card-preset-edit-smoke.mjs"
   },

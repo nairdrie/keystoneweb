@@ -127,7 +127,12 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
       campaign_id: id,
       action: 'launched',
       actor: `ops:${access.userEmail || access.userId}`,
-      details: { external_campaign_id: launched.campaignId, manual_ops_launch: true },
+      details: {
+        external_campaign_id: launched.campaignId,
+        manual_ops_launch: true,
+        // Bidding/budget calibration notes (ceiling applied, thin-budget flags).
+        calibration_warnings: launched.warnings || [],
+      },
     });
 
     try {
@@ -140,7 +145,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
       console.error('[ops/launch] customer notification failed (non-fatal):', err);
     }
 
-    return NextResponse.json({ campaign: updated });
+    return NextResponse.json({ campaign: updated, warnings: launched.warnings || [] });
   } catch (err) {
     const gaFailure = describeGoogleAdsFailure(err);
     if (gaFailure) {
