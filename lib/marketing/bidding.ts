@@ -284,6 +284,72 @@ export function recommendedDailyBudgetCents(estimate: MarketCpcEstimate, targetC
   return roundUpToDollarCents(Math.ceil(cents));
 }
 
+// ── Pre-payment budget feasibility hint ──────────────────────────────────────
+
+export interface BudgetFitAssessment {
+  /** ok = comfortable, tight = will run but light, too_low = likely can't run efficiently. */
+  level: 'ok' | 'tight' | 'too_low';
+  estimatedCpcMicros: number;
+  estimatedClicksPerDay: number;
+  /** Daily budget (cents) for comfortable broad-match volume. */
+  recommendedDailyBudgetCents: number;
+  /** Daily budget (cents) to reach the minimum "will run" tier. */
+  minViableDailyBudgetCents: number;
+  /** Customer-facing, forward-looking message (empty when there are no keywords). */
+  message: string;
+}
+
+/**
+ * A cheap, client-safe feasibility check for the campaign wizard, so an
+ * unrunnable budget is flagged BEFORE the customer pays — not at deploy time
+ * after the money is committed.
+ *
+ * It uses the same heuristic estimate and thresholds as the deploy-time
+ * calibration (so the two never disagree), but phrases the result for the
+ * customer and never touches the Google API. Pass the SEARCH portion of the
+ * daily budget and the campaign's keywords.
+ */
+export function assessBudgetFit(opts: { dailyBudgetCents: number; keywords: string[] }): BudgetFitAssessment {
+  const keywords = opts.keywords.map(k => k.trim()).filter(Boolean);
+  const estimate = heuristicEstimate(keywords);
+  const dailyBudgetCents = Math.max(0, Math.round(opts.dailyBudgetCents || 0));
+  const dailyBudgetMicros = dailyBudgetCents * MICROS_PER_CENT;
+  const cpc = estimate.representativeCpcMicros;
+  const clicks = cpc > 0 ? dailyBudgetMicros / cpc : 0;
+
+  const recommended = recommendedDailyBudgetCents(estimate, BROAD_MIN_CLICKS);
+  const minViable = recommendedDailyBudgetCents(estimate, PHRASE_MIN_CLICKS);
+
+  const cpcStr = fmtMicros(cpc);
+  const dailyStr = fmtCents(dailyBudgetCents);
+  const clicksStr = clicks.toFixed(1);
+
+  let level: BudgetFitAssessment['level'];
+  let message: string;
+  if (keywords.length === 0) {
+    level = 'ok';
+    message = '';
+  } else if (clicks >= BROAD_MIN_CLICKS) {
+    level = 'ok';
+    message = `Looks good: ${dailyStr}/day comfortably supports ~${Math.round(clicks)} clicks/day at an estimated ${cpcStr} per click for these keywords.`;
+  } else if (clicks >= PHRASE_MIN_CLICKS) {
+    level = 'tight';
+    message = `${dailyStr}/day buys ~${clicksStr} clicks/day at an estimated ${cpcStr} per click for these keywords. It will run, but raising the budget toward ${fmtCents(recommended)}/day would give steadier volume.`;
+  } else {
+    level = 'too_low';
+    message = `These keywords look competitive (estimated ~${cpcStr} per click), so ${dailyStr}/day may only buy ~${clicksStr} clicks/day. Consider raising the budget to ~${fmtCents(minViable)}–${fmtCents(recommended)}/day, using longer / more specific keywords, or narrowing the location before you pay.`;
+  }
+
+  return {
+    level,
+    estimatedCpcMicros: cpc,
+    estimatedClicksPerDay: clicks,
+    recommendedDailyBudgetCents: recommended,
+    minViableDailyBudgetCents: minViable,
+    message,
+  };
+}
+
 /**
  * Produce the full bidding plan for a search campaign.
  *

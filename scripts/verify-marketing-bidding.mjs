@@ -27,6 +27,7 @@ const {
   summarizeKeywordMetrics,
   heuristicEstimate,
   recommendedDailyBudgetCents,
+  assessBudgetFit,
   MIN_CPC_CEILING_MICROS,
   MAX_CLICK_BUDGET_FRACTION,
   MICROS_PER_CENT,
@@ -165,6 +166,31 @@ check('summarize null when no bids', summarizeKeywordMetrics([{ text: 'x', avgMo
 {
   check('display ceiling = 25% daily', planDisplayBidding({ dailyBudgetCents: 1_400 }).cpcBidCeilingMicros === 3_500_000);
   check('display ceiling floor', planDisplayBidding({ dailyBudgetCents: 100 }).cpcBidCeilingMicros === MIN_CPC_CEILING_MICROS);
+}
+
+// ── 9b. Pre-payment budget feasibility hint (wizard) ──────────────────────────
+{
+  // Thin budget, competitive (2-word) keywords → too_low + actionable copy.
+  const a = assessBudgetFit({ dailyBudgetCents: 1_400, keywords: ['plumber', 'plumbing company'] });
+  check('assess: thin budget → too_low', a.level === 'too_low', `got ${a.level}`);
+  check('assess: too_low message mentions competitive', /competitive/i.test(a.message), a.message);
+  check('assess: recommends a higher budget', a.recommendedDailyBudgetCents > 1_400, `got ${a.recommendedDailyBudgetCents}`);
+}
+{
+  // Healthy budget, long-tail keywords → ok.
+  const a = assessBudgetFit({ dailyBudgetCents: 20_000, keywords: ['emergency plumber near me downtown'] });
+  check('assess: healthy budget → ok', a.level === 'ok', `got ${a.level}`);
+  check('assess: ok message present', a.message.length > 0);
+}
+{
+  // Mid budget → tight (between PHRASE and BROAD click tiers).
+  const a = assessBudgetFit({ dailyBudgetCents: 4_000, keywords: ['plumber', 'plumbing company'] }); // rep $8 → 5 clicks/day
+  check('assess: mid budget → tight', a.level === 'tight', `got ${a.level}`);
+}
+{
+  // No keywords yet → no message (nothing to assess).
+  const a = assessBudgetFit({ dailyBudgetCents: 2_000, keywords: [] });
+  check('assess: no keywords → empty message', a.message === '', a.message);
 }
 
 // ── 10. Source-level guards on the deploy path (google-ads.ts) ────────────────
