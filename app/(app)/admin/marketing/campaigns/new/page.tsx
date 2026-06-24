@@ -16,6 +16,7 @@ import {
   type GoogleDisplayContent,
 } from '@/lib/marketing/types';
 import { formatCents } from '@/lib/marketing/pricing';
+import { assessBudgetFit } from '@/lib/marketing/bidding';
 import { AdPreview } from '../../_components/AdPreview';
 import LocationPicker, { type LocationValue, targetingFromLocationValue, locationValueFromTargeting } from '../../_components/LocationPicker';
 import ImagePicker from '../../_components/ImagePicker';
@@ -379,6 +380,15 @@ function ReviewForm(p: ReviewFormProps) {
   const searchBudget = showDisplayCompanion ? Math.round(p.dailyBudget * SEARCH_SPLIT) : p.dailyBudget;
   const displayBudget = p.dailyBudget - searchBudget;
 
+  // Pre-payment feasibility check: flag a budget that can't realistically run
+  // these keywords BEFORE the customer pays. Assesses the Search portion only.
+  const budgetFit = useMemo(() => {
+    if (!isGoogle) return null;
+    const keywords = (p.editedContent as unknown as GoogleSearchContent | null)?.keywords ?? [];
+    if (!keywords.length) return null;
+    return assessBudgetFit({ dailyBudgetCents: searchBudget, keywords });
+  }, [isGoogle, p.editedContent, searchBudget]);
+
   return (
     <div className="space-y-5">
       {/* Preview, with tab when Display is enabled */}
@@ -490,6 +500,40 @@ function ReviewForm(p: ReviewFormProps) {
           ) : (
             <p className="text-xs text-slate-500 mt-1.5">
               Up to <strong>{formatCents(p.dailyBudget)}</strong>/day. Wallet is debited as ads run.
+            </p>
+          )}
+
+          {budgetFit && budgetFit.message && budgetFit.level !== 'ok' && (
+            <div
+              className={`mt-2.5 flex items-start gap-2 rounded-lg border px-3 py-2.5 text-xs ${
+                budgetFit.level === 'too_low'
+                  ? 'border-amber-300 bg-amber-50 text-amber-900'
+                  : 'border-slate-200 bg-slate-50 text-slate-600'
+              }`}
+            >
+              <span className="mt-px shrink-0 font-bold">{budgetFit.level === 'too_low' ? '⚠' : 'ℹ'}</span>
+              <div className="space-y-1.5">
+                <p>{budgetFit.message}</p>
+                {budgetFit.level === 'too_low' && (
+                  <button
+                    type="button"
+                    onClick={() => p.setDailyBudget(
+                      showDisplayCompanion
+                        ? Math.round(budgetFit.minViableDailyBudgetCents / SEARCH_SPLIT)
+                        : budgetFit.minViableDailyBudgetCents,
+                    )}
+                    className="font-bold text-amber-800 underline underline-offset-2 hover:text-amber-900"
+                  >
+                    Raise to {formatCents(showDisplayCompanion ? Math.round(budgetFit.minViableDailyBudgetCents / SEARCH_SPLIT) : budgetFit.minViableDailyBudgetCents)}/day
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {budgetFit && budgetFit.level === 'ok' && budgetFit.message && (
+            <p className="mt-2.5 flex items-center gap-1.5 text-xs text-emerald-700">
+              <CheckCircle2 className="h-3.5 w-3.5" /> {budgetFit.message}
             </p>
           )}
         </div>

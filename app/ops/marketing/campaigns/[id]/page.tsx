@@ -234,9 +234,24 @@ export default function CampaignDetailPage() {
                   <span className="font-medium text-gray-300">{log.action}</span>
                   {' by '}
                   <span className="text-gray-500">{log.actor}</span>
-                  {log.details && Object.keys(log.details).length > 0 && (
-                    <span className="text-gray-600"> — {JSON.stringify(log.details)}</span>
-                  )}
+                  {(() => {
+                    const details = (log.details || {}) as Record<string, unknown>;
+                    const warnings = Array.isArray(details.calibration_warnings) ? details.calibration_warnings as string[] : [];
+                    // Show calibration notes as a friendly list; JSON-dump the rest.
+                    const rest = Object.fromEntries(Object.entries(details).filter(([k]) => k !== 'calibration_warnings'));
+                    return (
+                      <>
+                        {Object.keys(rest).length > 0 && (
+                          <span className="text-gray-600"> — {JSON.stringify(rest)}</span>
+                        )}
+                        {warnings.length > 0 && (
+                          <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[11px] text-amber-300/80">
+                            {warnings.map((w, i) => <li key={i}>{w}</li>)}
+                          </ul>
+                        )}
+                      </>
+                    );
+                  })()}
                 </span>
               </div>
             ))}

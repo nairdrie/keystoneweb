@@ -15,11 +15,17 @@
 
 import type {
   Campaign,
-  CampaignTargeting,
   GoogleSearchContent,
   GoogleDisplayContent,
 } from './types';
 import { buildCampaignFinalUrl } from './utm';
+import {
+  planSearchBidding,
+  planDisplayBidding,
+  summarizeKeywordMetrics,
+  type MarketCpcEstimate,
+  type KeywordMetric,
+} from './bidding';
 
 // ── Mock mode ────────────────────────────────────────────────────────────────
 // Set GOOGLE_ADS_MOCK=true in .env.local to skip all real Google API calls.
@@ -175,15 +181,15 @@ async function applyLocationTargeting(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   customer: any,
   campaignResourceName: string,
-  targeting: CampaignTargeting | undefined,
+  // Pre-resolved geoTargetConstants/<id> resource names. Resolved once by the
+  // caller so the same lookup feeds both the keyword market estimate and the
+  // campaign's location criteria.
+  resourceNames: string[],
 ): Promise<void> {
-  if (!targeting?.locations?.length) return;
-
   // Radius (proximity) targeting requires lat/lng — we don't have a geocoder
   // wired up yet, so for now we fall back to geo-name resolution.
   // TODO: when geocoding is available, emit a `proximity` criterion here.
 
-  const resourceNames = await resolveLocationResourceNames(customer, targeting.locations);
   if (!resourceNames.length) return;
 
   await customer.campaignCriteria.create(
@@ -194,12 +200,75 @@ async function applyLocationTargeting(
   );
 }
 
+// ── Market data (Keyword Planner) ────────────────────────────────────────────
+
+/** Google's language constant for English. */
+const ENGLISH_LANGUAGE_CONSTANT = 'languageConstants/1000';
+
+function normalizeCompetition(v: unknown): KeywordMetric['competition'] {
+  const s = typeof v === 'string' ? v.toUpperCase() : '';
+  return s === 'LOW' || s === 'MEDIUM' || s === 'HIGH' ? s : 'UNKNOWN';
+}
+
+/**
+ * Best-effort fetch of market CPC data from Google's Keyword Planner so the
+ * bidding plan can reference real "first page bid" estimates instead of guessing.
+ *
+ * Returns null on ANY failure (a brand-new sub-account without Keyword Plan
+ * access, no resolvable geo target, an API error) — the caller then falls back
+ * to the heuristic estimate. This never throws, so a missing estimate can never
+ * block a launch. The lookup is scoped to GOOGLE_SEARCH only, matching the
+ * network we actually deploy to (Search partners are excluded).
+ */
+async function fetchKeywordMarketEstimate(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  customer: any,
+  customerId: string,
+  keywords: string[],
+  geoTargetConstants: string[],
+): Promise<MarketCpcEstimate | null> {
+  const terms = keywords.map(k => k.trim()).filter(Boolean).slice(0, 20);
+  if (!terms.length) return null;
+  try {
+    const svc = customer?.keywordPlanIdeas;
+    if (!svc || typeof svc.generateKeywordHistoricalMetrics !== 'function') return null;
+
+    const res = await svc.generateKeywordHistoricalMetrics({
+      customer_id: customerId.replace(/-/g, ''),
+      keywords: terms,
+      language: ENGLISH_LANGUAGE_CONSTANT,
+      geo_target_constants: geoTargetConstants,
+      keyword_plan_network: 'GOOGLE_SEARCH',
+    });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rows: any[] = Array.isArray(res?.results) ? res.results : Array.isArray(res) ? res : [];
+    const toNum = (v: unknown) => (v == null ? null : Number(v));
+    const metrics: KeywordMetric[] = rows.map((r) => {
+      const km = r?.keyword_metrics || {};
+      return {
+        text: String(r?.text || ''),
+        avgMonthlySearches: km.avg_monthly_searches != null ? Number(km.avg_monthly_searches) : null,
+        competition: normalizeCompetition(km.competition),
+        lowTopOfPageBidMicros: toNum(km.low_top_of_page_bid_micros),
+        highTopOfPageBidMicros: toNum(km.high_top_of_page_bid_micros),
+      };
+    });
+    return summarizeKeywordMetrics(metrics);
+  } catch (err) {
+    console.warn('[google-ads] keyword market estimate unavailable, falling back to heuristic:', err);
+    return null;
+  }
+}
+
 // ── Campaign Creation ────────────────────────────────────────────────────────
 
 export interface GoogleCampaignResult {
   campaignId: string;
   adGroupId: string;
   adId: string;
+  /** Calibration / deployment notes for ops (bidding ceiling, budget flags). */
+  warnings?: string[];
 }
 
 /**
@@ -217,16 +286,31 @@ export async function createSearchCampaign(
   campaign: Campaign,
   customerId?: string,
 ): Promise<GoogleCampaignResult> {
+  const content = campaign.content as GoogleSearchContent;
+  const dailyBudgetCents = campaign.daily_budget_cents || 1000;
+
   if (isMockMode()) {
     console.log('[google-ads mock] createSearchCampaign', campaign.name);
-    return mockCampaignResult(`search-${campaign.id?.slice(0, 8)}`);
+    // Run the (pure) calibration even in mock so dev/ops can see the bidding
+    // plan and budget flags without a live Google account.
+    const mockPlan = planSearchBidding({ dailyBudgetCents, keywords: content.keywords, estimate: null });
+    return { ...mockCampaignResult(`search-${campaign.id?.slice(0, 8)}`), warnings: mockPlan.warnings };
   }
   const customer = await getClient(customerId);
-  const content = campaign.content as GoogleSearchContent;
+
+  // Resolve geo targets ONCE — reused for both the market estimate (so it's
+  // scoped to the campaign's locations) and the campaign location criteria.
+  const geoTargets = await resolveLocationResourceNames(customer, campaign.targeting?.locations || []);
+
+  // Reference real market data ("first page bid" estimates) when we can; fall
+  // back to a heuristic otherwise. This drives the bid ceiling, match type, and
+  // keyword selection so we never push a config that can't run efficiently.
+  const estimate = await fetchKeywordMarketEstimate(customer, customerId || getConfig().customerId, content.keywords, geoTargets);
+  const plan = planSearchBidding({ dailyBudgetCents, keywords: content.keywords, estimate });
 
   const budgetResult = await customer.campaignBudgets.create([{
     name: uniqueBudgetName(campaign),
-    amount_micros: (campaign.daily_budget_cents || 1000) * 10000,
+    amount_micros: dailyBudgetCents * 10000,
     delivery_method: 'STANDARD',
   }]);
   const budgetResourceName = budgetResult.results[0].resource_name;
@@ -235,11 +319,16 @@ export async function createSearchCampaign(
     name: campaign.name,
     campaign_budget: budgetResourceName,
     advertising_channel_type: 'SEARCH',
-    // A campaign requires a bidding strategy or the API rejects the create with
-    // "The required field was not present." Manual CPC matches the per-ad-group
-    // cpc_bid_micros below and doesn't depend on conversion tracking (which a
-    // fresh sub-account won't have configured yet).
-    manual_cpc: {},
+    // Maximize Clicks (TARGET_SPEND) — a volume-focused automated strategy that
+    // bids dynamically against the live auction instead of a static manual bid.
+    // The cpc_bid_ceiling caps any single click so one expensive auction can't
+    // drain the whole daily budget. A flat Manual CPC was the original failure
+    // mode: a hardcoded $1 bid sat below the first-page bid and won zero
+    // impressions. Maximize Clicks needs no conversion tracking, so it's safe on
+    // a fresh sub-account.
+    target_spend: {
+      cpc_bid_ceiling_micros: plan.cpcBidCeilingMicros,
+    },
     // Required since the EU political advertising transparency rules (TTPA).
     // Keystone runs ads for small businesses, not political advertising.
     contains_eu_political_advertising: 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING',
@@ -248,7 +337,10 @@ export async function createSearchCampaign(
     end_date: campaign.end_date?.replace(/-/g, '') || undefined,
     network_settings: {
       target_google_search: true,
-      target_search_network: true,
+      // Search partners OFF: for local lead-gen on strict daily budgets every
+      // dollar should go to high-intent Google Search traffic only.
+      target_search_network: false,
+      // Display network OFF for a search campaign.
       target_content_network: false,
     },
   }]);
@@ -260,16 +352,19 @@ export async function createSearchCampaign(
     name: `${campaign.name} — Ad Group`,
     type: 'SEARCH_STANDARD',
     status: 'ENABLED',
-    cpc_bid_micros: 1_000_000,
+    // No cpc_bid_micros: under Maximize Clicks the campaign-level strategy and
+    // its ceiling control bids. A per-ad-group manual bid would be ignored.
   }]);
   const adGroupResourceName = adGroupResult.results[0].resource_name;
   const adGroupId = adGroupResourceName.split('/').pop()!;
 
-  if (content.keywords.length > 0) {
+  // Deploy the calibrated keyword set (long-tail prioritized, possibly trimmed)
+  // with the calibrated match type (tighter than broad when the budget is thin).
+  if (plan.keywords.length > 0) {
     await customer.adGroupCriteria.create(
-      content.keywords.slice(0, 20).map(kw => ({
+      plan.keywords.slice(0, 20).map(kw => ({
         ad_group: adGroupResourceName,
-        keyword: { text: kw, match_type: 'BROAD' },
+        keyword: { text: kw, match_type: plan.matchType },
         status: 'ENABLED',
       })),
     );
@@ -302,30 +397,36 @@ export async function createSearchCampaign(
   // AdGroupAd resource name is "customers/X/adGroupAds/{adGroupId}~{adId}".
   const adId = adResult.results[0].resource_name.split('~').pop()!;
 
-  await applyLocationTargeting(customer, campaignResourceName, campaign.targeting);
+  await applyLocationTargeting(customer, campaignResourceName, geoTargets);
 
   await customer.campaigns.update([{
     resource_name: campaignResourceName,
     status: 'ENABLED',
   }]);
 
-  return { campaignId, adGroupId, adId };
+  return { campaignId, adGroupId, adId, warnings: plan.warnings };
 }
 
 export async function createDisplayCampaign(
   campaign: Campaign,
   customerId?: string,
 ): Promise<GoogleCampaignResult> {
+  const dailyBudgetCents = campaign.daily_budget_cents || 1000;
+  const displayPlan = planDisplayBidding({ dailyBudgetCents });
+  const displayWarnings = [
+    `Bidding: Maximize Clicks with a Max-CPC ceiling of $${(displayPlan.cpcBidCeilingMicros / 1_000_000).toFixed(2)}.`,
+  ];
+
   if (isMockMode()) {
     console.log('[google-ads mock] createDisplayCampaign', campaign.name);
-    return mockCampaignResult(`display-${campaign.id?.slice(0, 8)}`);
+    return { ...mockCampaignResult(`display-${campaign.id?.slice(0, 8)}`), warnings: displayWarnings };
   }
   const customer = await getClient(customerId);
   const content = campaign.content as GoogleDisplayContent;
 
   const budgetResult = await customer.campaignBudgets.create([{
     name: uniqueBudgetName(campaign),
-    amount_micros: (campaign.daily_budget_cents || 1000) * 10000,
+    amount_micros: dailyBudgetCents * 10000,
     delivery_method: 'STANDARD',
   }]);
   const budgetResourceName = budgetResult.results[0].resource_name;
@@ -334,9 +435,12 @@ export async function createDisplayCampaign(
     name: campaign.name,
     campaign_budget: budgetResourceName,
     advertising_channel_type: 'DISPLAY',
-    // Bidding strategy is required (see createSearchCampaign). Manual CPC pairs
-    // with the cpc_bid_micros set on the ad group below.
-    manual_cpc: {},
+    // Maximize Clicks (TARGET_SPEND) with a Max-CPC ceiling, same rationale as
+    // the search path: dynamic, volume-focused bidding that a single expensive
+    // click can't blow through, instead of a static flat manual bid.
+    target_spend: {
+      cpc_bid_ceiling_micros: displayPlan.cpcBidCeilingMicros,
+    },
     // Required since the EU political advertising transparency rules (TTPA).
     contains_eu_political_advertising: 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING',
     status: 'ENABLED',
@@ -351,7 +455,7 @@ export async function createDisplayCampaign(
     name: `${campaign.name} — Ad Group`,
     type: 'DISPLAY_STANDARD',
     status: 'ENABLED',
-    cpc_bid_micros: 1_000_000,
+    // No cpc_bid_micros: bids are controlled by the Maximize Clicks ceiling.
   }]);
   const adGroupResourceName = adGroupResult.results[0].resource_name;
   const adGroupId = adGroupResourceName.split('/').pop()!;
@@ -376,9 +480,10 @@ export async function createDisplayCampaign(
   // AdGroupAd resource name is "customers/X/adGroupAds/{adGroupId}~{adId}".
   const adId = adResult.results[0].resource_name.split('~').pop()!;
 
-  await applyLocationTargeting(customer, campaignResourceName, campaign.targeting);
+  const geoTargets = await resolveLocationResourceNames(customer, campaign.targeting?.locations || []);
+  await applyLocationTargeting(customer, campaignResourceName, geoTargets);
 
-  return { campaignId, adGroupId, adId };
+  return { campaignId, adGroupId, adId, warnings: displayWarnings };
 }
 
 /**
