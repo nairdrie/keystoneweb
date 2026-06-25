@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth/context';
 import Link from 'next/link';
-import { ExternalLink, X, BarChart3, Globe, ShoppingBag, Calendar, Loader2, Menu, Mail, TrendingUp, Search, Package, CalendarDays, MessageSquare, Link2, BookOpen, UtensilsCrossed, FileImage, Users, Minimize2, Paintbrush, ChevronDown, EyeOff, Plus, Stethoscope, LayoutDashboard } from 'lucide-react';
+import { ExternalLink, X, BarChart3, Globe, ShoppingBag, Calendar, Loader2, Menu, Mail, TrendingUp, Search, Package, CalendarDays, MessageSquare, Link2, BookOpen, UtensilsCrossed, FileImage, Users, Minimize2, Paintbrush, ChevronDown, EyeOff, Plus, Stethoscope, LayoutDashboard, Pencil, Check } from 'lucide-react';
 import AlertModal from '@/app/components/ui/AlertModal';
 import EditorLoadingScreen from '@/app/components/EditorLoadingScreen';
 import WalkthroughModal, { WalkthroughStep } from '@/app/components/WalkthroughModal';
@@ -98,6 +98,10 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const [focusMode, setFocusModeState] = useState(false);
   const [hasUnpublishedChanges, setHasUnpublishedChanges] = useState(false);
   const [showSiteSwitcher, setShowSiteSwitcher] = useState(false);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
+  const [renameSaving, setRenameSaving] = useState(false);
+  const renameInputRef = useRef<HTMLInputElement>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [navGuard, setNavGuard] = useState<{ open: boolean; action: (() => void) | null }>({ open: false, action: null });
   const [isAdminManageMode, setIsAdminManageMode] = useState(false);
@@ -429,6 +433,46 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     setUserSites(prev => prev.map(s => s.id === targetSiteId ? { ...s, isPublished: false } : s));
   }
 
+  // Focus + select the rename input when entering edit mode.
+  useEffect(() => {
+    if (isRenaming) {
+      renameInputRef.current?.focus();
+      renameInputRef.current?.select();
+    }
+  }, [isRenaming]);
+
+  function startRename() {
+    setRenameValue(siteTitle === 'My Website' ? '' : siteTitle);
+    setIsRenaming(true);
+  }
+
+  // Persist a new site name to site_slug (the field both the admin dashboard
+  // and the design dropdown display) and reflect it locally without a refetch.
+  async function handleRename() {
+    const trimmed = renameValue.trim();
+    if (!siteId || !trimmed || trimmed === siteTitle) {
+      setIsRenaming(false);
+      return;
+    }
+    setRenameSaving(true);
+    try {
+      const res = await fetch('/api/sites', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ siteId, title: trimmed }),
+      });
+      if (!res.ok) throw new Error('rename failed');
+      setSiteTitle(trimmed);
+      setUserSites(prev => prev.map(s => s.id === siteId ? { ...s, siteSlug: trimmed } : s));
+      setIsRenaming(false);
+    } catch {
+      setAlertConfig({ isOpen: true, title: 'Error', message: 'Failed to rename site. Please try again.', type: 'error' });
+    } finally {
+      setRenameSaving(false);
+    }
+  }
+
   if (loading || authLoading) return <EditorLoadingScreen />;
   if (!site) return null;
 
@@ -515,12 +559,58 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         {/* ── Hero / Site Header ── */}
         <div className={`${focusMode ? 'hidden' : 'block'} flex-none bg-white border-b border-slate-200 px-4 pt-4 pb-3 sm:px-6 sm:pt-5 sm:pb-4`}>
           <div className="flex items-center justify-between gap-3 sm:gap-4">
-            {/* Site title — big, no rename / help. Switch-site lives just below it. */}
+            {/* Site title — inline rename via the pencil. Switch-site lives just below it. */}
             <div className="min-w-0">
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight truncate">
-                {siteTitle || 'Untitled Site'}
-                <span className="text-slate-400 font-light hidden sm:inline"> Dashboard</span>
-              </h1>
+              {isRenaming ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={renameInputRef}
+                    value={renameValue}
+                    onChange={e => setRenameValue(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') handleRename();
+                      else if (e.key === 'Escape') setIsRenaming(false);
+                    }}
+                    disabled={renameSaving}
+                    maxLength={80}
+                    placeholder="Site name"
+                    className="min-w-0 w-full max-w-xs text-xl sm:text-2xl font-black text-slate-900 tracking-tight bg-transparent border-b-2 border-red-500 focus:outline-none disabled:opacity-60"
+                  />
+                  <button
+                    onClick={handleRename}
+                    disabled={renameSaving}
+                    className="shrink-0 p-1.5 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-60"
+                    title="Save name"
+                    aria-label="Save name"
+                  >
+                    {renameSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                  </button>
+                  <button
+                    onClick={() => setIsRenaming(false)}
+                    disabled={renameSaving}
+                    className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors disabled:opacity-60"
+                    title="Cancel"
+                    aria-label="Cancel rename"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                  <span className="truncate min-w-0">
+                    {siteTitle || 'Untitled Site'}
+                    <span className="text-slate-400 font-light hidden sm:inline"> Dashboard</span>
+                  </span>
+                  <button
+                    onClick={startRename}
+                    className="shrink-0 p-1 text-slate-300 hover:text-slate-700 transition-colors"
+                    title="Rename site"
+                    aria-label="Rename site"
+                  >
+                    <Pencil className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
+                  </button>
+                </h1>
+              )}
               <div className={`relative mt-0.5 ${isAdminManageMode ? 'hidden' : ''}`}>
                 <button
                   onClick={() => setShowSiteSwitcher(v => !v)}
