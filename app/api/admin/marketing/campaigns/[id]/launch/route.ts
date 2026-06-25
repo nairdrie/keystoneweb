@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { requireOpsAccess } from '@/lib/ops/access';
 import { createSearchCampaign, createDisplayCampaign } from '@/lib/marketing/google-ads';
+import { loadSitelinkSpecs } from '@/lib/marketing/sitelinks';
 import { sendMarketingCampaignLive } from '@/lib/marketing/notifications';
-import type { Campaign } from '@/lib/marketing/types';
+import type { Campaign, GoogleSearchContent } from '@/lib/marketing/types';
 
 /**
  * Unpack a google-ads-api GoogleAdsFailure into readable detail. The thrown
@@ -100,9 +101,16 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     .eq('id', id);
 
   try {
+    // Auto-generate sitelinks from the site's nav pages for search campaigns.
+    const sitelinks = campaign.campaign_type === 'display'
+      ? []
+      : await loadSitelinkSpecs(campaign.site_id, {
+          landingFinalUrl: (campaign.content as GoogleSearchContent | undefined)?.finalUrl,
+        });
+
     const launched = campaign.campaign_type === 'display'
       ? await createDisplayCampaign(campaign as Campaign, customerId)
-      : await createSearchCampaign(campaign as Campaign, customerId);
+      : await createSearchCampaign(campaign as Campaign, customerId, { sitelinks });
 
     const { data: updated } = await db.from('marketing_campaigns')
       .update({

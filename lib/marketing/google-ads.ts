@@ -26,6 +26,7 @@ import {
   type MarketCpcEstimate,
   type KeywordMetric,
 } from './bidding';
+import type { SitelinkSpec } from './sitelinks';
 
 // ── Mock mode ────────────────────────────────────────────────────────────────
 // Set GOOGLE_ADS_MOCK=true in .env.local to skip all real Google API calls.
@@ -285,16 +286,20 @@ function uniqueBudgetName(campaign: Campaign): string {
 export async function createSearchCampaign(
   campaign: Campaign,
   customerId?: string,
+  opts?: { sitelinks?: SitelinkSpec[] },
 ): Promise<GoogleCampaignResult> {
   const content = campaign.content as GoogleSearchContent;
   const dailyBudgetCents = campaign.daily_budget_cents || 1000;
+  const sitelinkSpecs = opts?.sitelinks || [];
 
   if (isMockMode()) {
     console.log('[google-ads mock] createSearchCampaign', campaign.name);
     // Run the (pure) calibration even in mock so dev/ops can see the bidding
     // plan and budget flags without a live Google account.
     const mockPlan = planSearchBidding({ dailyBudgetCents, keywords: content.keywords, estimate: null });
-    return { ...mockCampaignResult(`search-${campaign.id?.slice(0, 8)}`), warnings: mockPlan.warnings };
+    const warnings = [...mockPlan.warnings];
+    if (sitelinkSpecs.length) warnings.push(sitelinkNote(sitelinkSpecs.length, sitelinkSpecs));
+    return { ...mockCampaignResult(`search-${campaign.id?.slice(0, 8)}`), warnings };
   }
   const customer = await getClient(customerId);
 
@@ -399,12 +404,79 @@ export async function createSearchCampaign(
 
   await applyLocationTargeting(customer, campaignResourceName, geoTargets);
 
+  // Sitelinks: search ads serve in a more prominent, higher-CTR format with at
+  // least six. We mint them from the site's nav pages so the operator doesn't
+  // have to add them by hand in Google Ads. Best-effort — never blocks launch.
+  const sitelinksCreated = await applySitelinks(customer, campaignResourceName, campaign.id || '', sitelinkSpecs);
+
   await customer.campaigns.update([{
     resource_name: campaignResourceName,
     status: 'ENABLED',
   }]);
 
-  return { campaignId, adGroupId, adId, warnings: plan.warnings };
+  const warnings = [...plan.warnings];
+  if (sitelinkSpecs.length) {
+    warnings.push(
+      sitelinksCreated > 0
+        ? sitelinkNote(sitelinksCreated, sitelinkSpecs)
+        : 'Sitelinks could not be added automatically — add them manually in Google Ads.',
+    );
+  }
+
+  return { campaignId, adGroupId, adId, warnings };
+}
+
+/** Human-readable note listing the sitelinks that were attached. */
+function sitelinkNote(count: number, specs: SitelinkSpec[]): string {
+  const names = specs.slice(0, count).map(s => s.linkText).join(', ');
+  return `Added ${count} sitelink${count === 1 ? '' : 's'}${names ? `: ${names}` : ''}.`;
+}
+
+/**
+ * Create SitelinkAssets from the supplied specs and link them to the campaign.
+ * Best-effort: returns the number created, or 0 on any failure (never throws,
+ * so a sitelink problem can't roll back an already-created campaign).
+ */
+async function applySitelinks(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  customer: any,
+  campaignResourceName: string,
+  campaignId: string,
+  specs: SitelinkSpec[],
+): Promise<number> {
+  const clean = specs.filter(s => s.linkText?.trim() && s.finalUrl?.trim()).slice(0, 8);
+  if (!clean.length) return 0;
+  try {
+    const assetResult = await customer.assets.create(
+      clean.map(s => ({
+        final_urls: [buildCampaignFinalUrl(s.finalUrl, campaignId, 'google_ads', 'search')],
+        sitelink_asset: {
+          link_text: s.linkText.slice(0, 25),
+          // description1/description2 must be set together or not at all.
+          ...(s.description1 && s.description2
+            ? { description1: s.description1.slice(0, 35), description2: s.description2.slice(0, 35) }
+            : {}),
+        },
+      })),
+    );
+    const assetNames: string[] = (assetResult?.results || [])
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((r: any) => r?.resource_name)
+      .filter(Boolean);
+    if (!assetNames.length) return 0;
+
+    await customer.campaignAssets.create(
+      assetNames.map(asset => ({
+        campaign: campaignResourceName,
+        asset,
+        field_type: 'SITELINK',
+      })),
+    );
+    return assetNames.length;
+  } catch (err) {
+    console.warn('[google-ads] sitelink creation failed (non-fatal):', err);
+    return 0;
+  }
 }
 
 export async function createDisplayCampaign(

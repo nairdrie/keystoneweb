@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { getOpsAccessContext } from '@/lib/ops/access';
 import { createSearchCampaign, createDisplayCampaign } from '@/lib/marketing/google-ads';
+import { loadSitelinkSpecs } from '@/lib/marketing/sitelinks';
 import { createAdCampaign } from '@/lib/marketing/meta-ads';
 import { sendEmailCampaign } from '@/lib/marketing/email-campaigns';
-import type { Campaign } from '@/lib/marketing/types';
+import type { Campaign, GoogleSearchContent } from '@/lib/marketing/types';
 
 async function assertAdmin(): Promise<{ userId: string; email: string } | null> {
   const access = await getOpsAccessContext();
@@ -57,7 +58,11 @@ export async function POST(
 
     if (campaign.channel === 'google_ads') {
       if (campaign.campaign_type === 'search') {
-        externalIds = await createSearchCampaign(typedCampaign);
+        // Auto-generate sitelinks from the site's nav pages.
+        const sitelinks = await loadSitelinkSpecs(campaign.site_id, {
+          landingFinalUrl: (typedCampaign.content as GoogleSearchContent | undefined)?.finalUrl,
+        });
+        externalIds = await createSearchCampaign(typedCampaign, undefined, { sitelinks });
       } else {
         externalIds = await createDisplayCampaign(typedCampaign);
       }
