@@ -63,6 +63,14 @@ export default function RichTextToolbar({
     const [pos, setPos] = useState<{ top: number; left: number; placement: 'above' | 'below' } | null>(null);
     const [openPopover, setOpenPopover] = useState<PopoverKey>(null);
     const [fontSearch, setFontSearch] = useState('');
+    // While the user is dragging a control inside the toolbar (e.g. the font
+    // size slider) the text it targets changes size, which fires the
+    // ResizeObserver below and would re-position the toolbar — sliding the
+    // slider out from under the pointer and creating a feedback loop. Freeze
+    // re-positioning for the duration of any pointer-drag on the toolbar, then
+    // re-sync once on release.
+    const draggingRef = useRef(false);
+    const updateRef = useRef<() => void>(() => {});
 
     // Room we want available above/below the text so the toolbar AND any
     // popover that opens have somewhere to go without overlapping the text.
@@ -95,6 +103,9 @@ export default function RichTextToolbar({
     useLayoutEffect(() => {
         if (!targetEl) return;
         const update = () => {
+            // Frozen mid-drag: keep the toolbar (and the slider the user is
+            // holding) exactly where it is until the pointer is released.
+            if (draggingRef.current) return;
             const r = targetEl.getBoundingClientRect();
             const tb = toolbarRef.current;
             const tbHeight = tb?.offsetHeight ?? 56;
@@ -117,6 +128,7 @@ export default function RichTextToolbar({
             const left = Math.max(8, Math.min(rawLeft, window.innerWidth - tbWidth - 8));
             setPos({ top, left, placement });
         };
+        updateRef.current = update;
         update();
         const handleScroll = () => update();
         window.addEventListener('scroll', handleScroll, true);
@@ -129,6 +141,22 @@ export default function RichTextToolbar({
             ro.disconnect();
         };
     }, [targetEl]);
+
+    // End the position-freeze when the drag's pointer is released anywhere,
+    // then re-sync once so the toolbar settles against the text's final size.
+    useEffect(() => {
+        const endDrag = () => {
+            if (!draggingRef.current) return;
+            draggingRef.current = false;
+            updateRef.current();
+        };
+        window.addEventListener('pointerup', endDrag);
+        window.addEventListener('pointercancel', endDrag);
+        return () => {
+            window.removeEventListener('pointerup', endDrag);
+            window.removeEventListener('pointercancel', endDrag);
+        };
+    }, []);
 
     // Close popovers when clicking outside the toolbar (but allow clicks inside the editable target)
     useEffect(() => {
@@ -585,6 +613,7 @@ export default function RichTextToolbar({
             ref={toolbarRef}
             className="fixed z-[10000] select-none"
             style={{ top: pos.top, left: pos.left }}
+            onPointerDown={() => { draggingRef.current = true; }}
         >
             {toolbarBar}
             {popover && (
