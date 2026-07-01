@@ -1,0 +1,914 @@
+{
+  "generatedBy": "synthetic-site-corpus-gen workflow (Opus author -> adversarial refine)",
+  "purpose": "Seed corpus of gold-standard example sites for the AI website builder RAG system. Retrieve by category/style, inject as few-shot exemplars, or mine for design-token bundles and copy.",
+  "version": 1,
+  "count": 12,
+  "categories": [
+    "bakery",
+    "coffee",
+    "dental",
+    "fitness",
+    "handmade",
+    "landscaping",
+    "legal",
+    "nonprofit",
+    "photographer",
+    "restaurant",
+    "saas",
+    "wellness"
+  ],
+  "styleFamilies": [
+    "bold-retro",
+    "clean-clinical-trust",
+    "energetic-dark-neon",
+    "natural-earthy-trust",
+    "quiet-luxury",
+    "quiet-luxury dark gallery",
+    "rustic-warm-atmospheric",
+    "sharp-modern-structured",
+    "soft-botanical-calm",
+    "story-first hopeful editorial",
+    "warm-editorial-craft"
+  ],
+  "items": [
+    {
+      "slug": "artisan-bakery",
+      "file": "sites/artisan-bakery.json",
+      "category": "bakery",
+      "businessType": "food",
+      "styleFamily": "warm-editorial-craft",
+      "siteTitle": "Ember & Rye",
+      "voice": "Warm, sensory, and unhurried — a neighborhood baker who talks about flour, fire, and the four o'clock hour like they matter, because they do.",
+      "palette": {
+        "primary": "#3B2B22",
+        "secondary": "#C1613A",
+        "accent": "#FAF3E8"
+      },
+      "fonts": {
+        "heading": "Fraunces",
+        "body": "Karla"
+      },
+      "paletteMood": "Stone-ground cream, terracotta crust, and deep cocoa crumb — the exact colors of a loaf pulled at dawn.",
+      "tone": "warm, sensory, hand-made, unhurried, specific",
+      "tags": [
+        "bakery",
+        "patisserie",
+        "sourdough",
+        "food",
+        "warm-editorial",
+        "craft",
+        "artisan",
+        "neighborhood",
+        "cream-terracotta-cocoa",
+        "fraunces-karla",
+        "sensory",
+        "wood-fired"
+      ],
+      "structureNotes": "Deliberately breaks the generic hero->services->testimonials->cta template: a full-screen atmospheric hero opens into the baker's origin story (aboutImageText) before any selling, a menu block stands in for a services grid to foreground the actual bakes, a single essay-variant featuredQuote replaces a testimonials grid with one regular's love letter, and a morning-bake gallery precedes the visit/contact close.",
+      "pages": [
+        {
+          "slug": "home",
+          "role": "home",
+          "blockTypes": [
+            "hero",
+            "aboutImageText",
+            "menu",
+            "stats",
+            "featuredQuote",
+            "gallery",
+            "contact"
+          ]
+        },
+        {
+          "slug": "our-bakes",
+          "role": "menu",
+          "blockTypes": [
+            "hero",
+            "menu",
+            "servicesGrid",
+            "featuresList",
+            "faq",
+            "cta"
+          ]
+        },
+        {
+          "slug": "visit",
+          "role": "contact",
+          "blockTypes": [
+            "hero",
+            "contact",
+            "map",
+            "contact_form"
+          ]
+        }
+      ],
+      "blockCount": 17,
+      "embedText": "bakery | food | warm-editorial-craft | Ember & Rye | Warm, sensory, and unhurried — a neighborhood baker who talks about flour, fire, and the four o'clock hour like they matter, because they do. | warm, sensory, hand-made, unhurried, specific | bakery patisserie sourdough food warm-editorial craft artisan neighborhood cream-terracotta-cocoa fraunces-karla sensory wood-fired | Deliberately breaks the generic hero->services->testimonials->cta template: a full-screen atmospheric hero opens into the baker's origin story (aboutImageText) before any selling, a menu block stands in for a services grid to foreground the actual bakes, a single essay-variant featuredQuote replaces a testimonials grid with one regular's love letter, and a morning-bake gallery precedes the visit/contact close."
+    },
+    {
+      "slug": "boutique-fitness-gym",
+      "file": "sites/boutique-fitness-gym.json",
+      "category": "fitness",
+      "businessType": "booking",
+      "styleFamily": "energetic-dark-neon",
+      "siteTitle": "IRONLINE Strength Club",
+      "voice": "Bold, direct, second-person coaching that treats every session like the clock is running and you're the athlete.",
+      "palette": {
+        "primary": "#121212",
+        "secondary": "#C6FF00",
+        "accent": "#f6f7f2"
+      },
+      "fonts": {
+        "heading": "Sora",
+        "body": "Inter"
+      },
+      "paletteMood": "Blacked-out gym floor under a single neon-lime work light: heavy charcoal, one electric accent, nothing soft.",
+      "tone": "bold, motivating, direct, second-person, high-momentum",
+      "tags": [
+        "fitness",
+        "gym",
+        "boutique-fitness",
+        "strength-training",
+        "conditioning",
+        "booking",
+        "dark-neon",
+        "energetic",
+        "brooklyn",
+        "second-person",
+        "high-intensity",
+        "membership"
+      ],
+      "structureNotes": "Home deliberately front-loads a palette:primary stats banner immediately after the hero to establish authority through numbers before selling programs, and inserts a tabBar nav strip mid-page instead of ending on the generic services->testimonials->cta flow, giving the dense energetic pacing the brief asked for.",
+      "pages": [
+        {
+          "slug": "home",
+          "role": "home",
+          "blockTypes": [
+            "hero",
+            "stats",
+            "servicesGrid",
+            "tabBar",
+            "testimonials",
+            "pricing",
+            "cta"
+          ]
+        },
+        {
+          "slug": "programs",
+          "role": "services",
+          "blockTypes": [
+            "hero",
+            "servicesGrid",
+            "tabBar",
+            "featuresList",
+            "cta"
+          ]
+        },
+        {
+          "slug": "join",
+          "role": "pricing",
+          "blockTypes": [
+            "hero",
+            "pricing",
+            "faq",
+            "contact",
+            "cta"
+          ]
+        }
+      ],
+      "blockCount": 17,
+      "embedText": "fitness | booking | energetic-dark-neon | IRONLINE Strength Club | Bold, direct, second-person coaching that treats every session like the clock is running and you're the athlete. | bold, motivating, direct, second-person, high-momentum | fitness gym boutique-fitness strength-training conditioning booking dark-neon energetic brooklyn second-person high-intensity membership | Home deliberately front-loads a palette:primary stats banner immediately after the hero to establish authority through numbers before selling programs, and inserts a tabBar nav strip mid-page instead of ending on the generic services->testimonials->cta flow, giving the dense energetic pacing the brief asked for."
+    },
+    {
+      "slug": "community-foundation-nonprofit",
+      "file": "sites/community-foundation-nonprofit.json",
+      "category": "nonprofit",
+      "businessType": "nonprofit",
+      "styleFamily": "story-first hopeful editorial",
+      "siteTitle": "The Riverbend Neighbors Fund",
+      "voice": "Warm, plain-spoken, and unflinchingly concrete — a neighbor telling you exactly where the money went and who it reached.",
+      "palette": {
+        "primary": "#1F4B47",
+        "secondary": "#E86A5C",
+        "accent": "#FBF8F3"
+      },
+      "fonts": {
+        "heading": "Outfit",
+        "body": "Source Sans 3"
+      },
+      "paletteMood": "Warm oat-paper white sections, a deep hopeful-teal spine in headings and the impact stats banner, and a coral heartbeat reserved for the donate CTAs — soft, human, and quietly optimistic.",
+      "tone": "hopeful, human, mission-driven, plain-spoken, concrete",
+      "tags": [
+        "nonprofit",
+        "community-foundation",
+        "charity",
+        "donation",
+        "grants",
+        "mutual-aid",
+        "story-first",
+        "hopeful-editorial",
+        "warm-teal-coral",
+        "mission-driven",
+        "local"
+      ],
+      "structureNotes": "Deliberately leads hero -> mission (aboutImageText) -> impact stats -> a single beneficiary essay quote -> programs -> donate CTA, front-loading human story and proof-of-impact before ever listing programs, which inverts the generic hero->services->testimonials->cta template that sells before it earns trust.",
+      "pages": [
+        {
+          "slug": "home",
+          "role": "home",
+          "blockTypes": [
+            "hero",
+            "aboutImageText",
+            "stats",
+            "featuredQuote",
+            "servicesGrid",
+            "cta"
+          ]
+        },
+        {
+          "slug": "programs",
+          "role": "services",
+          "blockTypes": [
+            "hero",
+            "servicesGrid",
+            "featuresList",
+            "faq",
+            "cta"
+          ]
+        },
+        {
+          "slug": "get-involved",
+          "role": "contact",
+          "blockTypes": [
+            "cta",
+            "servicesGrid",
+            "contact_form",
+            "contact"
+          ]
+        }
+      ],
+      "blockCount": 15,
+      "embedText": "nonprofit | nonprofit | story-first hopeful editorial | The Riverbend Neighbors Fund | Warm, plain-spoken, and unflinchingly concrete — a neighbor telling you exactly where the money went and who it reached. | hopeful, human, mission-driven, plain-spoken, concrete | nonprofit community-foundation charity donation grants mutual-aid story-first hopeful-editorial warm-teal-coral mission-driven local | Deliberately leads hero -> mission (aboutImageText) -> impact stats -> a single beneficiary essay quote -> programs -> donate CTA, front-loading human story and proof-of-impact before ever listing programs, which inverts the generic hero->services->testimonials->cta template that sells before it earns trust."
+    },
+    {
+      "slug": "corporate-law-firm",
+      "file": "sites/corporate-law-firm.json",
+      "category": "legal",
+      "businessType": "services",
+      "styleFamily": "quiet-luxury",
+      "siteTitle": "Halstead & Roe",
+      "voice": "Precise, understated, and quietly authoritative — the counsel of a firm that lets its record speak and never oversells.",
+      "palette": {
+        "primary": "#14213D",
+        "secondary": "#B08D57",
+        "accent": "#F5F3EF"
+      },
+      "fonts": {
+        "heading": "Libre Baskerville",
+        "body": "Source Sans 3"
+      },
+      "paletteMood": "Ink navy and muted gold on warm off-white — a lawyer's oak-panelled restraint, not a startup's neon.",
+      "tone": "precise, authoritative, understated, no-hype, patrician",
+      "tags": [
+        "legal",
+        "law-firm",
+        "corporate-law",
+        "boutique",
+        "quiet-luxury",
+        "professional-services",
+        "toronto",
+        "m-and-a",
+        "authority",
+        "services",
+        "faq",
+        "team",
+        "stats"
+      ],
+      "structureNotes": "Home deliberately leads minimal-hero -> credibility stats -> practice-areas grid -> named team -> a single general-counsel client quote -> consultation CTA, deferring social proof behind capability and people because a boutique firm sells partner access and record, not a wall of testimonials in the generic hero->services->testimonials->cta order.",
+      "pages": [
+        {
+          "slug": "home",
+          "role": "home",
+          "blockTypes": [
+            "hero",
+            "stats",
+            "servicesGrid",
+            "team",
+            "featuredQuote",
+            "cta"
+          ]
+        },
+        {
+          "slug": "practice-areas",
+          "role": "services",
+          "blockTypes": [
+            "hero",
+            "servicesGrid",
+            "faq",
+            "cta"
+          ]
+        },
+        {
+          "slug": "attorneys",
+          "role": "about",
+          "blockTypes": [
+            "hero",
+            "team",
+            "featuredQuote",
+            "cta"
+          ]
+        },
+        {
+          "slug": "contact",
+          "role": "contact",
+          "blockTypes": [
+            "hero",
+            "contact",
+            "contact_form",
+            "map"
+          ]
+        }
+      ],
+      "blockCount": 18,
+      "embedText": "legal | services | quiet-luxury | Halstead & Roe | Precise, understated, and quietly authoritative — the counsel of a firm that lets its record speak and never oversells. | precise, authoritative, understated, no-hype, patrician | legal law-firm corporate-law boutique quiet-luxury professional-services toronto m-and-a authority services faq team stats | Home deliberately leads minimal-hero -> credibility stats -> practice-areas grid -> named team -> a single general-counsel client quote -> consultation CTA, deferring social proof behind capability and people because a boutique firm sells partner access and record, not a wall of testimonials in the generic hero->services->testimonials->cta order."
+    },
+    {
+      "slug": "craft-coffee-roaster",
+      "file": "sites/craft-coffee-roaster.json",
+      "category": "coffee",
+      "businessType": "food",
+      "styleFamily": "bold-retro",
+      "siteTitle": "Third Gear Coffee Roasters",
+      "voice": "Playful, punchy, and confident — coffee-nerdy enough to name the varietal, friendly enough to hand you a cup and skip the lecture.",
+      "palette": {
+        "primary": "#1A1A1A",
+        "secondary": "#E2711D",
+        "accent": "#F2E8D5"
+      },
+      "fonts": {
+        "heading": "Space Grotesk",
+        "body": "DM Sans"
+      },
+      "paletteMood": "Warm cream paper, a shot of burnt-orange energy, and near-black ink — a 1970s diner menu that learned to pull a killer espresso.",
+      "tone": "playful, punchy, confident, coffee-nerdy, friendly",
+      "tags": [
+        "coffee",
+        "roaster",
+        "cafe",
+        "ecommerce",
+        "subscription",
+        "bold-retro",
+        "high-contrast",
+        "playful",
+        "food",
+        "products",
+        "single-origin"
+      ],
+      "structureNotes": "Home deliberately breaks the generic hero->services->testimonials->cta pattern by leading with a punchy centered hero, then a stats banner and tabBar 'roast board' moment, then product-first commerce (productGrid) before any narrative, pushing servicesGrid, a single featuredQuote, deliveryLinks, testimonials, and faq below the fold to keep the beans front and center.",
+      "pages": [
+        {
+          "slug": "home",
+          "role": "home",
+          "blockTypes": [
+            "hero",
+            "stats",
+            "tabBar",
+            "productGrid",
+            "servicesGrid",
+            "featuredQuote",
+            "deliveryLinks",
+            "testimonials",
+            "faq",
+            "cta"
+          ]
+        },
+        {
+          "slug": "shop",
+          "role": "shop",
+          "blockTypes": [
+            "hero",
+            "productGrid",
+            "pricing",
+            "featuresList",
+            "cta"
+          ]
+        },
+        {
+          "slug": "our-story",
+          "role": "about",
+          "blockTypes": [
+            "hero",
+            "aboutImageText",
+            "aboutImageText",
+            "timeline",
+            "gallery",
+            "team",
+            "contact"
+          ]
+        }
+      ],
+      "blockCount": 22,
+      "embedText": "coffee | food | bold-retro | Third Gear Coffee Roasters | Playful, punchy, and confident — coffee-nerdy enough to name the varietal, friendly enough to hand you a cup and skip the lecture. | playful, punchy, confident, coffee-nerdy, friendly | coffee roaster cafe ecommerce subscription bold-retro high-contrast playful food products single-origin | Home deliberately breaks the generic hero->services->testimonials->cta pattern by leading with a punchy centered hero, then a stats banner and tabBar 'roast board' moment, then product-first commerce (productGrid) before any narrative, pushing servicesGrid, a single featuredQuote, deliveryLinks, testimonials, and faq below the fold to keep the beans front and center."
+    },
+    {
+      "slug": "farm-to-table-restaurant",
+      "file": "sites/farm-to-table-restaurant.json",
+      "category": "restaurant",
+      "businessType": "food",
+      "styleFamily": "rustic-warm-atmospheric",
+      "siteTitle": "The Hollow & Hearth",
+      "voice": "Warm, ingredient-forward, and story-rich — the tone of a farmer-friend telling you where tonight's dinner grew.",
+      "palette": {
+        "primary": "#34492E",
+        "secondary": "#A9552F",
+        "accent": "#F5EFE3"
+      },
+      "fonts": {
+        "heading": "Fraunces",
+        "body": "Karla"
+      },
+      "paletteMood": "Warm oat linen, deep forest shade, and fire-roasted rust — a candlelit barn supper at harvest.",
+      "tone": "warm, seasonal, ingredient-forward, story-rich, rustic",
+      "tags": [
+        "restaurant",
+        "farm-to-table",
+        "seasonal",
+        "rustic-warm",
+        "atmospheric",
+        "asheville",
+        "menu",
+        "chef-driven",
+        "food"
+      ],
+      "structureNotes": "Opens on a full-bleed image hero under a transparent overlay header, then leads with sourcing (aboutImageText) and the living menu before any social proof — deferring testimonials/stats and placing an essay-variant chef quote at the emotional center, deliberately breaking the generic hero->services->testimonials->cta order to foreground provenance and story.",
+      "pages": [
+        {
+          "slug": "home",
+          "role": "home",
+          "blockTypes": [
+            "hero",
+            "aboutImageText",
+            "menu",
+            "featuredQuote",
+            "gallery",
+            "stats",
+            "testimonials",
+            "cta"
+          ]
+        },
+        {
+          "slug": "menu",
+          "role": "menu",
+          "blockTypes": [
+            "menu",
+            "faq",
+            "deliveryLinks"
+          ]
+        },
+        {
+          "slug": "visit",
+          "role": "contact",
+          "blockTypes": [
+            "contact",
+            "map",
+            "cta"
+          ]
+        }
+      ],
+      "blockCount": 14,
+      "embedText": "restaurant | food | rustic-warm-atmospheric | The Hollow & Hearth | Warm, ingredient-forward, and story-rich — the tone of a farmer-friend telling you where tonight's dinner grew. | warm, seasonal, ingredient-forward, story-rich, rustic | restaurant farm-to-table seasonal rustic-warm atmospheric asheville menu chef-driven food | Opens on a full-bleed image hero under a transparent overlay header, then leads with sourcing (aboutImageText) and the living menu before any social proof — deferring testimonials/stats and placing an essay-variant chef quote at the emotional center, deliberately breaking the generic hero->services->testimonials->cta order to foreground provenance and story."
+    },
+    {
+      "slug": "handmade-jewelry-shop",
+      "file": "sites/handmade-jewelry-shop.json",
+      "category": "handmade",
+      "businessType": "products",
+      "styleFamily": "quiet-luxury",
+      "siteTitle": "Alder & Ore",
+      "voice": "Elegant and intimate, speaking to the hand of the maker and the weight of the metal — refined but never cold.",
+      "palette": {
+        "primary": "#2B2B2B",
+        "secondary": "#CBB48B",
+        "accent": "#F3E7E4"
+      },
+      "fonts": {
+        "heading": "Cormorant Garamond",
+        "body": "Inter"
+      },
+      "paletteMood": "Warm blush and soft gold against deep charcoal — a jeweler's bench at golden hour.",
+      "tone": "elegant, intimate, refined, materials-focused, artisanal",
+      "tags": [
+        "handmade",
+        "jewelry",
+        "e-commerce",
+        "products",
+        "quiet-luxury",
+        "goldsmith",
+        "minimal",
+        "blush-and-gold",
+        "made-to-order",
+        "sustainable",
+        "providence"
+      ],
+      "structureNotes": "Leads product-forward (minimal hero straight into productGrid) rather than services-first, then earns trust through the maker's story, a single owner quote, and in-wear gallery before any social proof — inverting the generic hero->services->testimonials->cta template for an e-commerce jewelry brand where the objects and the hand behind them carry the pitch.",
+      "pages": [
+        {
+          "slug": "home",
+          "role": "home",
+          "blockTypes": [
+            "hero",
+            "productGrid",
+            "aboutImageText",
+            "featuredQuote",
+            "gallery",
+            "testimonials",
+            "faq",
+            "cta"
+          ]
+        },
+        {
+          "slug": "shop",
+          "role": "shop",
+          "blockTypes": [
+            "hero",
+            "productGrid",
+            "featuresList",
+            "stats",
+            "cta"
+          ]
+        },
+        {
+          "slug": "about",
+          "role": "about",
+          "blockTypes": [
+            "aboutImageText",
+            "aboutImageText",
+            "timeline",
+            "gallery",
+            "contact",
+            "cta"
+          ]
+        }
+      ],
+      "blockCount": 19,
+      "embedText": "handmade | products | quiet-luxury | Alder & Ore | Elegant and intimate, speaking to the hand of the maker and the weight of the metal — refined but never cold. | elegant, intimate, refined, materials-focused, artisanal | handmade jewelry e-commerce products quiet-luxury goldsmith minimal blush-and-gold made-to-order sustainable providence | Leads product-forward (minimal hero straight into productGrid) rather than services-first, then earns trust through the maker's story, a single owner quote, and in-wear gallery before any social proof — inverting the generic hero->services->testimonials->cta template for an e-commerce jewelry brand where the objects and the hand behind them carry the pitch."
+    },
+    {
+      "slug": "landscaping-company",
+      "file": "sites/landscaping-company.json",
+      "category": "landscaping",
+      "businessType": "services",
+      "styleFamily": "natural-earthy-trust",
+      "siteTitle": "Cedar & Slate Landscapes",
+      "voice": "Dependable, craftsmanly, and quietly proud — a family-run crew that talks about soil, seasons, and stonework the way a good neighbor would.",
+      "palette": {
+        "primary": "#2A2620",
+        "secondary": "#2F5233",
+        "accent": "#E9E5DC"
+      },
+      "fonts": {
+        "heading": "Merriweather",
+        "body": "Source Sans 3"
+      },
+      "paletteMood": "Weathered stone and deep evergreen with warm bark undertones — grounded, seasonal, and unhurried.",
+      "tone": "dependable, craftsmanly, local, seasons-aware, unhurried",
+      "tags": [
+        "landscaping",
+        "garden-design",
+        "hardscaping",
+        "maintenance",
+        "residential",
+        "earthy",
+        "natural",
+        "trust",
+        "seasonal",
+        "local-services",
+        "fraser-valley",
+        "before-after-gallery",
+        "free-estimate"
+      ],
+      "structureNotes": "Home leads with an image-forward split hero straight into a before/after gallery to prove craft before pitching services, then servicesGrid, a process timeline, banner stats, exactly one featuredQuote, and a closing estimate CTA — deliberately front-loading visual proof and process over the generic hero->services->testimonials->cta order.",
+      "pages": [
+        {
+          "slug": "home",
+          "role": "home",
+          "blockTypes": [
+            "hero",
+            "gallery",
+            "servicesGrid",
+            "timeline",
+            "stats",
+            "featuredQuote",
+            "cta"
+          ]
+        },
+        {
+          "slug": "projects",
+          "role": "portfolio",
+          "blockTypes": [
+            "hero",
+            "gallery",
+            "servicesGrid",
+            "testimonials",
+            "cta"
+          ]
+        },
+        {
+          "slug": "estimate",
+          "role": "contact",
+          "blockTypes": [
+            "hero",
+            "estimateForm",
+            "faq",
+            "contact"
+          ]
+        }
+      ],
+      "blockCount": 16,
+      "embedText": "landscaping | services | natural-earthy-trust | Cedar & Slate Landscapes | Dependable, craftsmanly, and quietly proud — a family-run crew that talks about soil, seasons, and stonework the way a good neighbor would. | dependable, craftsmanly, local, seasons-aware, unhurried | landscaping garden-design hardscaping maintenance residential earthy natural trust seasonal local-services fraser-valley before-after-gallery free-estimate | Home leads with an image-forward split hero straight into a before/after gallery to prove craft before pitching services, then servicesGrid, a process timeline, banner stats, exactly one featuredQuote, and a closing estimate CTA — deliberately front-loading visual proof and process over the generic hero->services->testimonials->cta order."
+    },
+    {
+      "slug": "modern-dental-clinic",
+      "file": "sites/modern-dental-clinic.json",
+      "category": "dental",
+      "businessType": "booking",
+      "styleFamily": "clean-clinical-trust",
+      "siteTitle": "Riverbend Family Dental",
+      "voice": "Reassuring, plain-spoken, and warm — a family dentist that explains everything before it touches your teeth.",
+      "palette": {
+        "primary": "#132A3E",
+        "secondary": "#2E6BE6",
+        "accent": "#EAF3F0"
+      },
+      "fonts": {
+        "heading": "Outfit",
+        "body": "Inter"
+      },
+      "paletteMood": "Crisp clinical white grounded by a calm medical blue, softened with a spa-like mint that keeps the space feeling gentle rather than sterile.",
+      "tone": "reassuring, professional, warm, plain-spoken",
+      "tags": [
+        "dental",
+        "family-dentist",
+        "booking",
+        "healthcare",
+        "clean-clinical",
+        "medical-blue",
+        "mint",
+        "trust-first",
+        "same-day-emergency",
+        "invisalign",
+        "kitchener"
+      ],
+      "structureNotes": "Deviates from the generic hero->services->testimonials->cta template by leading with a trust-first featuresList (same-day, gentle, insurance) before any service list and inserting a primary-banner stats proof block between services and testimonials, so a nervous patient sees reasons to trust the clinic before being sold treatments.",
+      "pages": [
+        {
+          "slug": "home",
+          "role": "home",
+          "blockTypes": [
+            "hero",
+            "featuresList",
+            "servicesGrid",
+            "stats",
+            "testimonials",
+            "faq",
+            "cta"
+          ]
+        },
+        {
+          "slug": "services",
+          "role": "services",
+          "blockTypes": [
+            "hero",
+            "servicesGrid",
+            "faq",
+            "cta"
+          ]
+        },
+        {
+          "slug": "book",
+          "role": "booking",
+          "blockTypes": [
+            "hero",
+            "booking",
+            "contact"
+          ]
+        }
+      ],
+      "blockCount": 14,
+      "embedText": "dental | booking | clean-clinical-trust | Riverbend Family Dental | Reassuring, plain-spoken, and warm — a family dentist that explains everything before it touches your teeth. | reassuring, professional, warm, plain-spoken | dental family-dentist booking healthcare clean-clinical medical-blue mint trust-first same-day-emergency invisalign kitchener | Deviates from the generic hero->services->testimonials->cta template by leading with a trust-first featuresList (same-day, gentle, insurance) before any service list and inserting a primary-banner stats proof block between services and testimonials, so a nervous patient sees reasons to trust the clinic before being sold treatments."
+    },
+    {
+      "slug": "photography-portfolio",
+      "file": "sites/photography-portfolio.json",
+      "category": "photographer",
+      "businessType": "portfolio",
+      "styleFamily": "quiet-luxury dark gallery",
+      "siteTitle": "Marlow & Fen",
+      "voice": "Hushed, exacting, and warm — a photographer who talks about light and quiet moments rather than packages and deliverables.",
+      "palette": {
+        "primary": "#111827",
+        "secondary": "#C9A227",
+        "accent": "#f6f4ef"
+      },
+      "fonts": {
+        "heading": "Playfair Display",
+        "body": "Inter"
+      },
+      "paletteMood": "Near-black gallery walls, warm bone-white light, and a single restrained thread of muted gold.",
+      "tone": "minimal, evocative, quietly confident, warm, editorial",
+      "tags": [
+        "photographer",
+        "wedding",
+        "fine-art",
+        "portfolio",
+        "dark-mode",
+        "gallery",
+        "film-photography",
+        "quiet-luxury",
+        "hudson-valley",
+        "editorial",
+        "image-led",
+        "minimal"
+      ],
+      "structureNotes": "The home page deliberately opens on a chrome-free fullImage hero and leads with images (gallery -> single minimal quote -> short about -> inquiry), skipping the generic services/testimonials/CTA stack so the work breathes; all commercial depth (stats, services, testimonials, pricing, FAQ) is pushed to the portfolio and inquire pages where a serious couple goes to decide.",
+      "pages": [
+        {
+          "slug": "home",
+          "role": "home",
+          "blockTypes": [
+            "hero",
+            "gallery",
+            "featuredQuote",
+            "aboutImageText",
+            "contact_form"
+          ]
+        },
+        {
+          "slug": "portfolio",
+          "role": "gallery",
+          "blockTypes": [
+            "gallery",
+            "stats",
+            "servicesGrid",
+            "testimonials",
+            "pricing",
+            "featuredQuote",
+            "cta"
+          ]
+        },
+        {
+          "slug": "inquire",
+          "role": "contact",
+          "blockTypes": [
+            "contact_form",
+            "faq",
+            "contact"
+          ]
+        }
+      ],
+      "blockCount": 15,
+      "embedText": "photographer | portfolio | quiet-luxury dark gallery | Marlow & Fen | Hushed, exacting, and warm — a photographer who talks about light and quiet moments rather than packages and deliverables. | minimal, evocative, quietly confident, warm, editorial | photographer wedding fine-art portfolio dark-mode gallery film-photography quiet-luxury hudson-valley editorial image-led minimal | The home page deliberately opens on a chrome-free fullImage hero and leads with images (gallery -> single minimal quote -> short about -> inquiry), skipping the generic services/testimonials/CTA stack so the work breathes; all commercial depth (stats, services, testimonials, pricing, FAQ) is pushed to the portfolio and inquire pages where a serious couple goes to decide."
+    },
+    {
+      "slug": "saas-analytics-startup",
+      "file": "sites/saas-analytics-startup.json",
+      "category": "saas",
+      "businessType": "services",
+      "styleFamily": "sharp-modern-structured",
+      "siteTitle": "Cardinal",
+      "voice": "Crisp, technical, and precise — a product-analytics company that talks in real numbers and never pads a sentence.",
+      "palette": {
+        "primary": "#0F172A",
+        "secondary": "#6366F1",
+        "accent": "#F1F5F9"
+      },
+      "fonts": {
+        "heading": "Space Grotesk",
+        "body": "Inter"
+      },
+      "paletteMood": "Slate ink on cool paper, cut through with one confident electric-indigo signal — engineering-grade calm, zero decoration.",
+      "tone": "crisp, technical, precise, no-fluff, engineering-grade",
+      "tags": [
+        "saas",
+        "product-analytics",
+        "b2b",
+        "developer-tools",
+        "sharp-modern",
+        "slate-indigo",
+        "usage-based-pricing",
+        "structured",
+        "technical"
+      ],
+      "structureNotes": "Deliberately leads with a split product-framing hero into a customer logoCloud and a deep featuresList before any social proof, then routes funnel-of-belief through stats -> pricing -> faq -> cta — front-loading capability and hard numbers instead of the generic hero->services->testimonials->cta order, which suits a technical B2B buyer who wants proof before pitch.",
+      "pages": [
+        {
+          "slug": "home",
+          "role": "home",
+          "blockTypes": [
+            "hero",
+            "logoCloud",
+            "featuresList",
+            "stats",
+            "pricing",
+            "faq",
+            "cta"
+          ]
+        },
+        {
+          "slug": "product",
+          "role": "product",
+          "blockTypes": [
+            "hero",
+            "featuresList",
+            "servicesGrid",
+            "stats",
+            "testimonials",
+            "cta"
+          ]
+        },
+        {
+          "slug": "pricing",
+          "role": "pricing",
+          "blockTypes": [
+            "hero",
+            "pricing",
+            "stats",
+            "faq",
+            "cta"
+          ]
+        }
+      ],
+      "blockCount": 18,
+      "embedText": "saas | services | sharp-modern-structured | Cardinal | Crisp, technical, and precise — a product-analytics company that talks in real numbers and never pads a sentence. | crisp, technical, precise, no-fluff, engineering-grade | saas product-analytics b2b developer-tools sharp-modern slate-indigo usage-based-pricing structured technical | Deliberately leads with a split product-framing hero into a customer logoCloud and a deep featuresList before any social proof, then routes funnel-of-belief through stats -> pricing -> faq -> cta — front-loading capability and hard numbers instead of the generic hero->services->testimonials->cta order, which suits a technical B2B buyer who wants proof before pitch."
+    },
+    {
+      "slug": "yoga-wellness-studio",
+      "file": "sites/yoga-wellness-studio.json",
+      "category": "wellness",
+      "businessType": "booking",
+      "styleFamily": "soft-botanical-calm",
+      "siteTitle": "Fernrow Yoga",
+      "voice": "Calm, grounded, and unpretentious — a neighborhood studio that speaks like a knowing friend, never a wellness brand shouting about transformation.",
+      "palette": {
+        "primary": "#3A4133",
+        "secondary": "#7C8B6F",
+        "accent": "#F3F1E7"
+      },
+      "fonts": {
+        "heading": "Sora",
+        "body": "Inter"
+      },
+      "paletteMood": "Sun-warmed sage and oat-cream with a whisper of clay pink — like linen curtains and a potted fern in morning light.",
+      "tone": "calm, grounded, welcoming, unpretentious, warm",
+      "tags": [
+        "wellness",
+        "yoga",
+        "studio",
+        "booking",
+        "botanical",
+        "calm",
+        "sage",
+        "vancouver",
+        "prenatal",
+        "restorative",
+        "membership",
+        "neighborhood"
+      ],
+      "structureNotes": "The home page leads split hero into a philosophy aboutImageText and class servicesGrid before any social proof, so the studio's ethos and offering land first; testimonials and CTA close rather than open, and pricing/booking/faq are split across dedicated classes and book pages — deliberately avoiding the generic hero->services->testimonials->cta single-page pattern.",
+      "pages": [
+        {
+          "slug": "home",
+          "role": "home",
+          "blockTypes": [
+            "hero",
+            "aboutImageText",
+            "servicesGrid",
+            "stats",
+            "testimonials",
+            "cta"
+          ]
+        },
+        {
+          "slug": "classes",
+          "role": "services",
+          "blockTypes": [
+            "hero",
+            "servicesGrid",
+            "pricing"
+          ]
+        },
+        {
+          "slug": "book",
+          "role": "booking",
+          "blockTypes": [
+            "hero",
+            "booking",
+            "faq"
+          ]
+        }
+      ],
+      "blockCount": 12,
+      "embedText": "wellness | booking | soft-botanical-calm | Fernrow Yoga | Calm, grounded, and unpretentious — a neighborhood studio that speaks like a knowing friend, never a wellness brand shouting about transformation. | calm, grounded, welcoming, unpretentious, warm | wellness yoga studio booking botanical calm sage vancouver prenatal restorative membership neighborhood | The home page leads split hero into a philosophy aboutImageText and class servicesGrid before any social proof, so the studio's ethos and offering land first; testimonials and CTA close rather than open, and pricing/booking/faq are split across dedicated classes and book pages — deliberately avoiding the generic hero->services->testimonials->cta single-page pattern."
+    }
+  ]
+}

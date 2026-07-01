@@ -1,0 +1,322 @@
+{
+  "slug": "farm-to-table-restaurant",
+  "category": "restaurant",
+  "businessType": "food",
+  "styleFamily": "rustic-warm-atmospheric",
+  "siteTitle": "The Hollow & Hearth",
+  "voice": "Warm, ingredient-forward, and story-rich — the tone of a farmer-friend telling you where tonight's dinner grew.",
+  "designTokens": {
+    "customColors": { "primary": "#34492E", "secondary": "#A9552F", "accent": "#F5EFE3" },
+    "fonts": { "heading": "Fraunces", "body": "Karla" },
+    "headerConfig": {
+      "bgType": "transparent",
+      "logoPosition": "center",
+      "navPosition": "center",
+      "desktopMenuStyle": "inline",
+      "rightElement": "none",
+      "sticky": true,
+      "layout": "centeredAboveNav",
+      "overlay": true
+    },
+    "paletteMood": "Warm oat linen, deep forest shade, and fire-roasted rust — a candlelit barn supper at harvest."
+  },
+  "pages": [
+    {
+      "slug": "home",
+      "title": "Home",
+      "role": "home",
+      "blocks": [
+        {
+          "blockType": "hero",
+          "data": {
+            "cards": [
+              {
+                "id": "hero-1",
+                "content": {
+                  "title": { "enabled": true, "value": "Dinner that starts twelve miles from your table", "align": "center" },
+                  "subtitle": { "enabled": true, "value": "The Hollow & Hearth is a seasonal farm-to-table kitchen in the Willow Creek valley outside Asheville, cooking what our partner farms picked, pulled, and pastured this week.", "align": "center" },
+                  "cta": { "enabled": true, "label": "See this week's menu", "link": { "linkType": "page", "pageSlug": "menu" }, "align": "center" },
+                  "image": { "enabled": false, "url": "", "side": "right", "layout": "contained" }
+                },
+                "background": {
+                  "type": "image",
+                  "image": { "url": "" },
+                  "overlay": { "color": "#34492E", "opacity": 0.42 }
+                }
+              }
+            ],
+            "transition": { "type": "fade", "intervalSec": 6, "pauseOnHover": true },
+            "height": {
+              "desktop": { "mode": "fitScreen", "valuePx": 0, "revealNext": 1 },
+              "tablet": { "mode": "fitScreen", "valuePx": 0, "revealNext": 1 },
+              "mobile": { "mode": "fitScreen", "valuePx": 0, "revealNext": 0 }
+            }
+          }
+        },
+        {
+          "blockType": "aboutImageText",
+          "data": {
+            "pretext": "Our sourcing",
+            "pretextEnabled": true,
+            "pretextStyle": "underline",
+            "pretextAlignment": "left",
+            "title": "We buy from eleven farms we can drive to before the coffee gets cold",
+            "description": "Every Monday, chef-owner Dara Whitfield loads the pickup and works the valley: eggs still warm from Redbud Ridge, trout from the springhouse pools at Clear Fork, and whatever the Ostrowski sisters at Two Creeks decided to over-plant this year. The menu is written after those visits, not before — so if the ramps came in early or the last of the sungold tomatoes finally split, that's what lands on your plate that night.",
+            "items": [
+              "Redbud Ridge Farm — pastured eggs, heritage pork, and the Berkshire lard we cure our own guanciale from",
+              "Clear Fork Springhouse — spring-fed rainbow trout and watercress cut the morning of service",
+              "Two Creeks Market Garden — heirloom tomatoes, sorrel, and the garlic scapes we grill over embers",
+              "Sawyer's Dairy — raw Jersey cream churned into the buttermilk for our biscuits and the butter we brown for dessert"
+            ],
+            "image": "",
+            "imagePosition": "left",
+            "splitRatio": "50-50",
+            "mobileStackOrder": "image-first",
+            "variant": "tall",
+            "mediaTreatment": "framed",
+            "textAlign": "left",
+            "imageCaption": "Dara at the Two Creeks garden gate, first light in June.",
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "menu",
+          "data": {
+            "menuTitle": "On the board this week",
+            "menuSubtitle": "The menu turns over every Thursday as the fields do. Here is what we are cooking now, mid-summer, while the corn is high and the peaches are heavy.",
+            "mode": "items",
+            "variant": "list",
+            "showPrices": true,
+            "showDescriptions": true,
+            "showMenuTabs": true,
+            "showFeaturedImages": true,
+            "showImages": false,
+            "showMenuIcons": true,
+            "categoryStyle": "divider",
+            "showMenuIconLegend": true,
+            "menuIconLegendPosition": "bottom",
+            "menuIconLegendMode": "used",
+            "itemDetailEnabled": true,
+            "itemDetailShowPhoto": true,
+            "itemDetailPhotoVisibility": "menu",
+            "itemDetailShowName": true,
+            "itemDetailShowDescription": true,
+            "itemDetailShowPrice": true,
+            "backgroundColor": ""
+          }
+        },
+        {
+          "blockType": "featuredQuote",
+          "data": {
+            "variant": "essay",
+            "eyebrow": "From the kitchen",
+            "title": "Why we cook backward",
+            "quote": "Most restaurants decide the dish and then go hunt for the ingredient. We do it the other way around. I have learned that the ground writes a better menu than I do. The July I planned a whole tasting around heirloom eggplant, a hailstorm took the field flat in nine minutes — and the sweet corn the storm spared became the best succotash we have ever sent out. So I stopped arguing with the season. When the trout are fat and the sorrel is sharp, we cook trout and sorrel, and I write it on the board in chalk because chalk erases. That is the whole philosophy. Cook what is ready, thank the person who grew it by name, and let the valley be the head chef.",
+            "personName": "Dara Whitfield",
+            "personTitle": "Chef & Owner, The Hollow & Hearth",
+            "personContext": "Raised on a tobacco farm two ridges over; cooked twelve years in Charleston before coming home to the valley in 2016.",
+            "personImage": "",
+            "imagePosition": "left",
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "gallery",
+          "data": {
+            "pretext": "The valley",
+            "pretextEnabled": true,
+            "pretextStyle": "underline",
+            "pretextAlignment": "center",
+            "title": "A room built from the barn that stood here first",
+            "subtitle": "Reclaimed chestnut beams, an open hearth we cook the whole animal over, and long farm tables meant to seat strangers side by side.",
+            "columns": 3,
+            "frameStyle": "editorial",
+            "mediaAspect": "portrait",
+            "showLightboxNav": true,
+            "showLightboxThumbs": true,
+            "autoScroll": false,
+            "backgroundColor": ""
+          }
+        },
+        {
+          "blockType": "stats",
+          "data": {
+            "title": "The valley, by the numbers",
+            "variant": "banner",
+            "items": [
+              { "value": "11", "label": "Partner farms within a 15-mile radius" },
+              { "value": "92%", "label": "Of our produce grown inside Buncombe County" },
+              { "value": "2016", "label": "The year Dara came home and lit the hearth" },
+              { "value": "38", "label": "Seats around the reclaimed-chestnut tables" }
+            ],
+            "backgroundColor": "palette:primary"
+          }
+        },
+        {
+          "blockType": "testimonials",
+          "data": {
+            "title": "What the tables are saying",
+            "subtitle": "Notes left in the guestbook by the hearth and the odd voicemail we never delete.",
+            "variant": "cards",
+            "items": [
+              { "name": "Marisol", "role": "Anniversary dinner, ten years running", "quote": "The trout with brown butter and toasted almonds was the best thing my husband has eaten in this state, and he grew up here. We drive ninety minutes for it every August.", "rating": 5 },
+              { "name": "Gene", "role": "Redbud Ridge Farm", "quote": "I sell eggs to a lot of restaurants. Dara is the only chef who calls to tell me how the hens' eggs tasted that week. It shows up on the plate.", "rating": 5 },
+              { "name": "Priya", "role": "First-timer, sat at the communal table", "quote": "I came alone and left having split a peach cobbler with the couple beside me. The corn succotash tasted like it was picked that afternoon — turns out it was.", "rating": 5 },
+              { "name": "Thomas", "role": "Local regular, Tuesday two-top", "quote": "I've eaten here forty-some times and never had the same menu twice. The chalkboard keeps me honest and the pork shoulder over the hearth keeps me coming back.", "rating": 5 }
+            ],
+            "cardStyle": "editorial",
+            "surfaceStyle": "white",
+            "spacingDensity": "standard",
+            "backgroundColor": ""
+          }
+        },
+        {
+          "blockType": "cta",
+          "data": {
+            "title": "Tables open Wednesday through Sunday, one seating a night",
+            "subtitle": "We take a small number of reservations so the kitchen can cook slow and close to the season. Call the barn or plan your drive out to Willow Creek.",
+            "buttonText": "Plan your visit",
+            "buttonTextLink": { "linkType": "page", "pageSlug": "visit" },
+            "showPattern": true,
+            "backgroundColor": "palette:secondary"
+          }
+        }
+      ]
+    },
+    {
+      "slug": "menu",
+      "title": "Menu",
+      "role": "menu",
+      "blocks": [
+        {
+          "blockType": "menu",
+          "data": {
+            "menuTitle": "This week at the hearth",
+            "menuSubtitle": "Written every Thursday after the farm run and chalked on the board by the door. Prices are per plate; portions are made for sharing down the long table.",
+            "mode": "items",
+            "variant": "cards",
+            "showPrices": true,
+            "showDescriptions": true,
+            "showMenuTabs": true,
+            "showFeaturedImages": true,
+            "showImages": false,
+            "showMenuIcons": true,
+            "categoryStyle": "heading",
+            "showMenuIconLegend": true,
+            "menuIconLegendPosition": "top",
+            "menuIconLegendMode": "used",
+            "itemDetailEnabled": true,
+            "itemDetailShowPhoto": true,
+            "itemDetailPhotoVisibility": "menu",
+            "itemDetailShowName": true,
+            "itemDetailShowDescription": true,
+            "itemDetailShowPrice": true,
+            "itemDetailShowCategory": true,
+            "itemDetailShowIcons": true,
+            "backgroundColor": ""
+          }
+        },
+        {
+          "blockType": "faq",
+          "data": {
+            "pretext": "Before you drive out",
+            "pretextEnabled": true,
+            "pretextStyle": "pill",
+            "pretextAlignment": "center",
+            "title": "Questions we get at the barn",
+            "subtitle": "The honest answers to what folks ask before they make the trip to Willow Creek.",
+            "items": [
+              { "question": "Does the menu really change every week?", "answer": "Yes. Dara rewrites the board every Thursday after the Monday and Wednesday farm runs. A dish you loved in July may be gone by August because the ingredient is — but something just as good will have come in to replace it." },
+              { "question": "Can you handle vegetarians, vegans, and gluten allergies?", "answer": "Always. Roughly a third of the board is vegetable-forward already, and we mark gluten-free, vegetarian, and vegan dishes with icons. Tell us when you book and the kitchen will build a full plant-based or gluten-free run for the table." },
+              { "question": "Do I need a reservation, and how far ahead?", "answer": "We strongly recommend it — there is one seating a night and only 38 seats. Weekends book two to three weeks out; weeknights often have room a few days ahead. Walk-ins are welcome at the six hearthside counter stools, first come first served." },
+              { "question": "What does dinner cost, roughly?", "answer": "Individual plates run $14 to $34, and most tables share three to five between two people. A relaxed dinner for two with a glass of wine each lands around $110 to $140 before tip." },
+              { "question": "Where exactly are you, and is the drive hard?", "answer": "We're at 4120 Willow Creek Road, about 22 minutes northeast of downtown Asheville. The last mile is gravel but graded and easy in any car. There's a lit lot beside the barn." },
+              { "question": "Can I bring my own wine?", "answer": "We have a small list built entirely around Southeastern and natural producers, but corkage is $20 a bottle if you'd rather bring your own. We'll happily decant it." },
+              { "question": "Are kids welcome?", "answer": "Very. The communal tables were built for it, and the kitchen will always turn out a simpler plate — buttered pasta with parmesan or a plain grilled trout — for younger guests." }
+            ],
+            "cardStyle": "bordered",
+            "surfaceStyle": "white",
+            "spacingDensity": "standard",
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "deliveryLinks",
+          "data": {
+            "pretext": "Can't make the drive",
+            "pretextEnabled": true,
+            "pretextStyle": "text",
+            "pretextAlignment": "center",
+            "title": "A few dishes travel to your door",
+            "subtitle": "The hearth-cooking doesn't reheat, but our jarred larder — pickles, cornbread, and the weekend braise — goes out through these partners within Asheville city limits.",
+            "links": [
+              { "id": "del-1", "platform": "ubereats", "label": "Order the larder box on Uber Eats", "url": "https://www.ubereats.com", "enabled": true },
+              { "id": "del-2", "platform": "doordash", "label": "Weekend braise & sides on DoorDash", "url": "https://www.doordash.com", "enabled": true }
+            ],
+            "backgroundColor": ""
+          }
+        }
+      ]
+    },
+    {
+      "slug": "visit",
+      "title": "Visit",
+      "role": "contact",
+      "blocks": [
+        {
+          "blockType": "contact",
+          "data": {
+            "pretext": "Find the barn",
+            "pretextEnabled": true,
+            "pretextStyle": "underline",
+            "pretextAlignment": "left",
+            "title": "Come out to Willow Creek",
+            "subtitle": "One seating a night, Wednesday through Sunday. Call the barn line to book — we answer between the lunch prep and the dinner rush.",
+            "phone": "(828) 555-0146",
+            "email": "table@hollowandhearth.com",
+            "address": "4120 Willow Creek Road, Weaverville, NC 28787",
+            "hours": "Wed–Thu 5:30pm seating · Fri–Sat 5:00 & 8:00pm seatings · Sun 4:00pm supper · Closed Mon & Tue for the farm run",
+            "cardStyle": "soft",
+            "surfaceStyle": "white",
+            "spacingDensity": "standard",
+            "backgroundColor": ""
+          }
+        },
+        {
+          "blockType": "map",
+          "data": {
+            "title": "Twenty-two minutes northeast of downtown Asheville",
+            "address": "4120 Willow Creek Road, Weaverville, NC 28787",
+            "locations": [
+              { "id": "loc-1", "label": "The Hollow & Hearth", "address": "4120 Willow Creek Road, Weaverville, NC 28787", "description": "Look for the red barn and the smoke from the hearth chimney. Lit gravel lot beside the building." }
+            ],
+            "mapProvider": "maptiler",
+            "mapHeight": 460,
+            "mapZoom": 13,
+            "mapStyle": "outdoor",
+            "markerLabel": "The Hollow & Hearth",
+            "showMapDirections": true,
+            "showCardDirections": true,
+            "showLocationCards": true
+          }
+        },
+        {
+          "blockType": "cta",
+          "data": {
+            "title": "Hold a table by the hearth",
+            "subtitle": "Weekends fill two to three weeks out. Ring the barn line and tell us how many are coming — and mention any allergies so the kitchen can plan the plates.",
+            "buttonText": "Call (828) 555-0146",
+            "buttonTextLink": { "linkType": "custom", "href": "tel:+18285550146" },
+            "showPattern": true,
+            "backgroundColor": "palette:secondary"
+          }
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "tone": "warm, seasonal, ingredient-forward, story-rich, rustic",
+    "structureNotes": "Opens on a full-bleed image hero under a transparent overlay header, then leads with sourcing (aboutImageText) and the living menu before any social proof — deferring testimonials/stats and placing an essay-variant chef quote at the emotional center, deliberately breaking the generic hero->services->testimonials->cta order to foreground provenance and story.",
+    "tags": ["restaurant", "farm-to-table", "seasonal", "rustic-warm", "atmospheric", "asheville", "menu", "chef-driven", "food"]
+  }
+}

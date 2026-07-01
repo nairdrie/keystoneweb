@@ -20,6 +20,7 @@ import {
   generateCreativeSeed,
   type WizardData,
   type SitePlan,
+  type ExemplarReference,
 } from './builder-schema';
 import { AI_SUPPORTED_BLOCK_TYPES, sanitizeAiBlockData, sanitizeAiCustomColors, sanitizeAiHeaderConfig } from './block-capabilities';
 import { callAi, extractJSON, getProviderConfig } from './ai-client';
@@ -29,8 +30,11 @@ import { buildAiSampleData, enrichBlocksWithSampleMedia, hasAiSampleData } from 
 import {
   buildFallbackBlocksForArchitecture,
   buildSiteArchitecture,
+  buildArchitectureFromExemplar,
   type ArchitectureBlock,
 } from './site-architecture';
+import { retrieveSiteExemplar } from './rag/retrieval';
+import type { RetrievedExemplar } from './rag/types';
 import {
   getTemplateStyleProfileNames,
   isTemplateStyleProfileId,
@@ -73,7 +77,8 @@ export async function orchestrateNewSiteBuild(input: OrchestrateInput, emit: Emi
   }
 
   const seed = generateCreativeSeed();
-  const architecture = buildSiteArchitecture({
+
+  const architectureInput = {
     businessType: wizardData.businessType,
     category: wizardData.category,
     templateId: wizardData.templateId,
@@ -81,8 +86,29 @@ export async function orchestrateNewSiteBuild(input: OrchestrateInput, emit: Emi
     requestedPageLabels: wizardData.pageLabels,
     description: wizardData.description,
     extras: wizardData.extras,
+  };
+
+  // RAG (optional, flag-gated). Retrieve a curated exemplar to (a) seed a VARIED
+  // page/block structure, (b) supply coherent design tokens, and (c) act as a
+  // copy/tone quality benchmark. Fully guarded: no-ops unless AI_BUILDER_RAG is
+  // set and embeddings are configured, and never throws into the build.
+  const retrieval = await retrieveSiteExemplar({
+    description: wizardData.description,
+    category: wizardData.category,
+    businessType: wizardData.businessType,
+    styleLabels: wizardData.styleLabels,
+    pageLabels: wizardData.pageLabels,
+    extras: wizardData.extras,
   });
-  console.log('[AI Builder] Orchestrator: seed=', seed);
+  const retrievedExemplar = retrieval.primary;
+  const exemplarRef = toExemplarReference(retrievedExemplar);
+  const flexibleStructure = Boolean(retrievedExemplar);
+
+  const architecture = retrievedExemplar
+    ? buildArchitectureFromExemplar(retrievedExemplar, architectureInput)
+    : buildSiteArchitecture(architectureInput);
+
+  console.log('[AI Builder] Orchestrator: seed=', seed, 'rag=', retrievedExemplar ? `${retrievedExemplar.slug}(${retrievedExemplar.similarity.toFixed(3)})` : 'off');
   console.log(
     `[AI Builder] Architecture: category=${architecture.categoryLabel} pages=${architecture.pages.map((p) => `${p.slug}[${p.blocks.map((b) => b.blockType).join('+')}]`).join(',') || '(none)'}`,
   );
@@ -92,7 +118,7 @@ export async function orchestrateNewSiteBuild(input: OrchestrateInput, emit: Emi
 
   let plan: SitePlan;
   try {
-    const planSystem = buildPlanSystemPrompt(wizardData, availablePalettes, seed, architecture);
+    const planSystem = buildPlanSystemPrompt(wizardData, availablePalettes, seed, architecture, exemplarRef);
     const planRaw = await callAi({
       apiKey, model, system: planSystem, user: 'Produce the plan now.', maxTokens: 2048, signal,
     }, provider);
@@ -104,12 +130,16 @@ export async function orchestrateNewSiteBuild(input: OrchestrateInput, emit: Emi
     logPlan(plan, 'fallback');
   }
 
+  // Let the retrieved exemplar's coherent design tokens fill any the plan call
+  // left unset, so palette/fonts/header stay intentional rather than defaulted.
+  if (retrievedExemplar) plan = mergeExemplarTokens(plan, retrievedExemplar);
+
   // ── Phase B — Home ────────────────────────────────────────────────────
   emit({ type: 'progress', step: 'home', message: 'Building your home page…' });
 
   let homeBlocks: RecipeBlock[] = [];
   try {
-    const homeSystem = buildHomeSystemPrompt(plan, wizardData, seed);
+    const homeSystem = buildHomeSystemPrompt(plan, wizardData, seed, exemplarRef);
     const homeRaw = await callAi({
       apiKey, model, system: homeSystem, user: 'Produce the home blocks now.', maxTokens: 4096, signal,
     }, provider);
@@ -118,6 +148,7 @@ export async function orchestrateNewSiteBuild(input: OrchestrateInput, emit: Emi
       plan.homeArchitecture?.blocks,
       plan.siteTitle,
       'home',
+      flexibleStructure,
     );
     console.log(`[AI Builder] Home built: ${homeBlocks.length} blocks`);
   } catch (err: unknown) {
@@ -131,7 +162,7 @@ export async function orchestrateNewSiteBuild(input: OrchestrateInput, emit: Emi
   const pagePromises = plan.pages.map((page) => (async () => {
     emit({ type: 'progress', step: 'page', slug: page.slug, message: `Writing the ${page.title} page…` });
     try {
-      const pageSystem = buildPageSystemPrompt(plan, page, wizardData, seed);
+      const pageSystem = buildPageSystemPrompt(plan, page, wizardData, seed, exemplarRef);
       const pageRaw = await callAi({
         apiKey, model, system: pageSystem, user: `Produce the blocks for the "${page.slug}" page now.`, maxTokens: 3072, signal,
       }, provider);
@@ -140,6 +171,7 @@ export async function orchestrateNewSiteBuild(input: OrchestrateInput, emit: Emi
         page.blocks,
         plan.siteTitle,
         page.slug,
+        flexibleStructure,
       );
       if (blocks.length === 0) {
         console.warn(`[AI Builder] Page ${page.slug}: AI returned no architecture blocks - using architecture fallback`);
@@ -369,13 +401,76 @@ function errorMessage(err: unknown): string {
   return String(err);
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// RAG helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Map a retrieved exemplar into the light reference shape the prompts consume. */
+function toExemplarReference(ex: RetrievedExemplar | null): ExemplarReference | undefined {
+  if (!ex) return undefined;
+  return {
+    siteTitle: ex.siteTitle,
+    category: ex.category,
+    styleFamily: ex.styleFamily,
+    voice: ex.voice,
+    tone: ex.tone,
+    structureNotes: ex.structureNotes,
+    designTokens: ex.designTokens,
+    copyExemplars: ex.copyExemplars,
+  };
+}
+
+/**
+ * Fill any design tokens the plan call left unset from the retrieved exemplar,
+ * running them through the same sanitizers the plan output uses. Never
+ * overrides tokens the plan explicitly chose.
+ */
+function mergeExemplarTokens(plan: SitePlan, exemplar: RetrievedExemplar | null): SitePlan {
+  if (!exemplar) return plan;
+  const t = exemplar.designTokens ?? {};
+  const merged: SitePlan = { ...plan };
+
+  if (!merged.customColors && t.customColors && (t.customColors.primary || t.customColors.secondary || t.customColors.accent)) {
+    const colors = sanitizeAiCustomColors(t.customColors as Record<string, unknown>);
+    if (Object.keys(colors).length > 0) merged.customColors = colors;
+  }
+
+  if (!merged.fonts && t.fonts && (t.fonts.heading || t.fonts.body)) {
+    const fonts: { heading?: string; body?: string } = {};
+    if (typeof t.fonts.heading === 'string') fonts.heading = t.fonts.heading.replace(/[^a-zA-Z0-9 ]/g, '').slice(0, 50);
+    if (typeof t.fonts.body === 'string') fonts.body = t.fonts.body.replace(/[^a-zA-Z0-9 ]/g, '').slice(0, 50);
+    if (Object.keys(fonts).length > 0) merged.fonts = fonts;
+  }
+
+  if (!merged.headerConfig && t.headerConfig && Object.keys(t.headerConfig).length > 0) {
+    const header = sanitizeAiHeaderConfig(
+      t.headerConfig,
+      (value) => value.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/javascript\s*:/gi, ''),
+    );
+    if (Object.keys(header).length > 0) merged.headerConfig = header;
+  }
+
+  return merged;
+}
+
 function fitBlocksToArchitecture(
   blocks: RecipeBlock[],
   architectureBlocks: readonly ArchitectureBlock[] | undefined,
   siteTitle: string,
   pageSlug: string,
+  flexible = false,
 ): RecipeBlock[] {
   if (!architectureBlocks || architectureBlocks.length === 0) return blocks;
+
+  // Flexible (RAG) mode: the architecture is already a varied, exemplar-derived
+  // structure, so respect the model's own valid composition instead of clamping
+  // each block into a fixed slot. Fall back to the architecture only when the
+  // model returned nothing usable.
+  if (flexible) {
+    return blocks.length > 0
+      ? blocks
+      : buildFallbackBlocksForArchitecture(architectureBlocks, siteTitle, pageSlug);
+  }
 
   const queues = new Map<string, RecipeBlock[]>();
   for (const block of blocks) {

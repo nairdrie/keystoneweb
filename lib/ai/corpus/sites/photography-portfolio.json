@@ -1,0 +1,387 @@
+{
+  "slug": "photography-portfolio",
+  "category": "photographer",
+  "businessType": "portfolio",
+  "styleFamily": "quiet-luxury dark gallery",
+  "siteTitle": "Marlow & Fen",
+  "voice": "Hushed, exacting, and warm — a photographer who talks about light and quiet moments rather than packages and deliverables.",
+  "designTokens": {
+    "customColors": { "primary": "#111827", "secondary": "#C9A227", "accent": "#f6f4ef" },
+    "fonts": { "heading": "Playfair Display", "body": "Inter" },
+    "headerConfig": {
+      "bgType": "transparent",
+      "logoPosition": "center",
+      "navPosition": "center",
+      "desktopMenuStyle": "inline",
+      "rightElement": "none",
+      "sticky": true,
+      "layout": "centeredAboveNav",
+      "overlay": true,
+      "navFontSize": "13px",
+      "navFontWeight": "500"
+    },
+    "paletteMood": "Near-black gallery walls, warm bone-white light, and a single restrained thread of muted gold."
+  },
+  "pages": [
+    {
+      "slug": "home",
+      "title": "Home",
+      "role": "home",
+      "blocks": [
+        {
+          "blockType": "hero",
+          "data": {
+            "cards": [
+              {
+                "id": "hero-1",
+                "content": {
+                  "title": { "enabled": true, "value": "Weddings remembered in low, honest light", "align": "center" },
+                  "subtitle": { "enabled": true, "value": "Marlow & Fen is a fine-art wedding photographer based in the Hudson Valley, photographing intimate ceremonies and long-table dinners across the Northeast on film and available light.", "align": "center" },
+                  "cta": { "enabled": true, "label": "See the portfolio", "link": { "linkType": "page", "pageSlug": "portfolio" }, "align": "center" },
+                  "image": { "enabled": false, "url": "", "side": "right", "layout": "split" }
+                },
+                "background": {
+                  "type": "image",
+                  "image": { "url": "" },
+                  "overlay": { "color": "#0E0E10", "opacity": 0.5 }
+                }
+              }
+            ],
+            "transition": { "type": "fade", "intervalSec": 6, "pauseOnHover": true },
+            "height": {
+              "desktop": { "mode": "fitScreen", "valuePx": 0, "revealNext": 1 },
+              "tablet": { "mode": "fitScreen", "valuePx": 0, "revealNext": 1 },
+              "mobile": { "mode": "fitScreen", "valuePx": 0, "revealNext": 1 }
+            }
+          }
+        },
+        {
+          "blockType": "gallery",
+          "data": {
+            "pretext": "Selected work",
+            "pretextEnabled": true,
+            "pretextStyle": "underline",
+            "pretextAlignment": "center",
+            "title": "A quiet year of weddings",
+            "subtitle": "Twelve frames pulled from farmhouse ceremonies, city hall mornings, and one rain-soaked vineyard on the Cayuga shore.",
+            "columns": 3,
+            "frameStyle": "editorial",
+            "mediaAspect": "portrait",
+            "showLightboxNav": true,
+            "showLightboxThumbs": true,
+            "showSeeMore": true,
+            "seeMore": "View the full portfolio",
+            "seeMoreLink": { "linkType": "page", "pageSlug": "portfolio" },
+            "backgroundColor": ""
+          }
+        },
+        {
+          "blockType": "featuredQuote",
+          "data": {
+            "variant": "minimal",
+            "eyebrow": "In their words",
+            "quote": "We forgot the camera was there, and then a month later we were crying at our kitchen table over a photo of my grandmother laughing. That is the whole thing, isn't it.",
+            "personName": "Sofia & Dara",
+            "personTitle": "Married at Blenheim Barn, October",
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "aboutImageText",
+          "data": {
+            "pretext": "The photographer",
+            "pretextEnabled": true,
+            "pretextStyle": "underline",
+            "pretextAlignment": "left",
+            "title": "I am Ren Marlow, and I shoot toward the edges of the day",
+            "description": "I photograph roughly eighteen weddings a year so that each one gets my full attention — the slow morning light, the toast that goes long, the last dance when the room finally softens. I work mostly on medium-format film with a digital body for the dark hours, and I stay out of the way until the moment asks me not to.",
+            "items": [
+              "Based in Kingston, NY; traveling across the Hudson Valley, Catskills, and greater New York",
+              "Medium-format film and available light, with discreet flash reserved for the dance floor",
+              "One photographer, one unhurried day — never a rotating team of shooters"
+            ],
+            "image": "",
+            "imagePosition": "left",
+            "splitRatio": "50-50",
+            "mobileStackOrder": "image-first",
+            "variant": "tall",
+            "mediaTreatment": "soft",
+            "textAlign": "left",
+            "showSecondaryButton": true,
+            "secondaryButtonText": "Check my date",
+            "secondaryButtonTextLink": { "linkType": "page", "pageSlug": "inquire" },
+            "backgroundColor": ""
+          }
+        },
+        {
+          "blockType": "contact_form",
+          "data": {
+            "title": "Tell me about your day",
+            "description": "Share the date, the place, and a little of how the two of you found each other. I answer every inquiry personally within two business days, and I only book one wedding per weekend.",
+            "submitText": "Send the details",
+            "successMessage": "Thank you — your note landed with me. I will write back personally within two business days.",
+            "cardStyle": "editorial",
+            "surfaceStyle": "white",
+            "backgroundColor": "palette:accent"
+          }
+        }
+      ]
+    },
+    {
+      "slug": "portfolio",
+      "title": "Portfolio",
+      "role": "gallery",
+      "blocks": [
+        {
+          "blockType": "gallery",
+          "data": {
+            "pretext": "Portfolio",
+            "pretextEnabled": true,
+            "pretextStyle": "underline",
+            "pretextAlignment": "center",
+            "title": "Full weddings, start to last light",
+            "subtitle": "A longer look at recent days — getting-ready rooms, ceremonies, the private minutes between, and the dinners that ran past midnight.",
+            "columns": 3,
+            "frameStyle": "gapless",
+            "mediaAspect": "square",
+            "showLightboxNav": true,
+            "showLightboxThumbs": true,
+            "autoScroll": false,
+            "backgroundColor": ""
+          }
+        },
+        {
+          "blockType": "stats",
+          "data": {
+            "pretext": "By the numbers",
+            "pretextEnabled": true,
+            "pretextStyle": "text",
+            "pretextAlignment": "center",
+            "title": "Eleven years behind the same eye",
+            "variant": "banner",
+            "items": [
+              { "value": "11", "label": "Years photographing weddings" },
+              { "value": "190+", "label": "Days documented, start to finish" },
+              { "value": "18", "label": "Weddings taken each year, no more" },
+              { "value": "48hr", "label": "Reply to every inquiry, personally" }
+            ],
+            "backgroundColor": "palette:primary"
+          }
+        },
+        {
+          "blockType": "servicesGrid",
+          "data": {
+            "pretext": "What a day includes",
+            "pretextEnabled": true,
+            "pretextStyle": "underline",
+            "pretextAlignment": "center",
+            "title": "How I photograph a wedding",
+            "subtitle": "Every collection is built around the same unhurried approach; the only thing that changes is how much of the day we spend together.",
+            "items": [
+              { "title": "Pre-wedding walk", "description": "We meet at your venue or a place that matters to the two of you, shoot for an hour, and get the nerves out long before the wedding day so the camera already feels familiar." },
+              { "title": "Full-day coverage", "description": "From the quiet of getting ready through the last song, I document the whole arc on medium-format film with a digital body held back for the dark reception hours." },
+              { "title": "Hand-edited film scans", "description": "Every frame is culled and color-graded by hand to hold warm skin tones and true blacks; I never batch-run presets or outsource the edit to anyone else." },
+              { "title": "Heirloom albums", "description": "Layflat albums are printed on cotton stock and bound in linen or leather in a small bindery in Beacon, sequenced by me so the book reads like the day actually felt." },
+              { "title": "Second shooter, on request", "description": "For larger weddings I bring one trusted second photographer so the ceremony is covered from two angles without turning your day into a crowd of cameras." },
+              { "title": "Private online gallery", "description": "Your finished images arrive in a password-protected gallery within four weeks, with print-ready files and a simple way to share favorites with family." }
+            ],
+            "ctaText": "Check my date",
+            "ctaTextLink": { "linkType": "page", "pageSlug": "inquire" },
+            "cardStyle": "editorial",
+            "surfaceStyle": "white",
+            "markerStyle": "numbered",
+            "spacingDensity": "spacious",
+            "textAlign": "left",
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "testimonials",
+          "data": {
+            "pretext": "From couples",
+            "pretextEnabled": true,
+            "pretextStyle": "underline",
+            "pretextAlignment": "center",
+            "title": "What it felt like to work together",
+            "subtitle": "A few notes from couples whose weddings I photographed over the last two seasons.",
+            "variant": "cards",
+            "items": [
+              { "name": "Sofia & Dara", "role": "Married at Blenheim Barn, October", "quote": "Ren caught my grandmother laughing during the toast — a frame none of us saw happen — and it is now the largest print in our apartment. He is invisible in the best way.", "rating": 5 },
+              { "name": "Marcus & Theo", "role": "City Hall elopement, Manhattan", "quote": "We had ninety minutes and a courthouse full of strangers. Ren turned that chaos into the most tender set of photos, then walked us to a diner for the last few frames. Perfect.", "rating": 5 },
+              { "name": "Priya & Anand", "role": "Vineyard wedding, Cayuga Lake", "quote": "It poured for our ceremony and I panicked. Ren just smiled and shot the rain, and those grey, wet, glowing photos are the ones we love most now.", "rating": 5 },
+              { "name": "Elena & Jack", "role": "Farmhouse wedding, Rhinebeck", "quote": "The film scans are unreal — warm and soft and true to how the light actually looked at golden hour. Our album from the Beacon bindery is a genuine heirloom." , "rating": 5 }
+            ],
+            "cardStyle": "editorial",
+            "surfaceStyle": "white",
+            "spacingDensity": "spacious",
+            "backgroundColor": ""
+          }
+        },
+        {
+          "blockType": "pricing",
+          "data": {
+            "pretext": "Collections",
+            "pretextEnabled": true,
+            "pretextStyle": "underline",
+            "pretextAlignment": "center",
+            "title": "Three ways to spend the day together",
+            "subtitle": "Every collection includes hand-edited film scans and a private gallery; the difference is how many hours we have and what you take home in print.",
+            "variant": "cards",
+            "tiers": [
+              {
+                "name": "The Elopement",
+                "price": "$3,200",
+                "period": "half day",
+                "description": "For city hall mornings and small ceremonies of twenty or fewer, start to a late lunch.",
+                "features": [
+                  "Up to five hours of coverage",
+                  "One photographer, medium-format film and digital",
+                  "Hand-edited private online gallery",
+                  "Around 350 finished images",
+                  "Print-ready high-resolution files"
+                ],
+                "highlighted": false,
+                "buttonText": "Check my date",
+                "buttonTextLink": { "linkType": "page", "pageSlug": "inquire" }
+              },
+              {
+                "name": "The Full Day",
+                "price": "$5,800",
+                "period": "wedding day",
+                "description": "My most-booked collection — getting ready through the last dance, unhurried.",
+                "features": [
+                  "Up to ten hours of coverage",
+                  "Pre-wedding walk included",
+                  "Hand-edited film scans and private gallery",
+                  "Around 700 finished images",
+                  "10x10 linen layflat album from the Beacon bindery",
+                  "Complimentary travel within the Hudson Valley"
+                ],
+                "highlighted": true,
+                "buttonText": "Check my date",
+                "buttonTextLink": { "linkType": "page", "pageSlug": "inquire" }
+              },
+              {
+                "name": "The Weekend",
+                "price": "$8,900",
+                "period": "two days",
+                "description": "For welcome dinners, ceremonies, and the slow morning-after breakfast.",
+                "features": [
+                  "Two days of coverage, up to sixteen hours total",
+                  "Second photographer for the ceremony",
+                  "Pre-wedding walk included",
+                  "Around 1,100 finished images",
+                  "12x12 leather-bound heirloom album",
+                  "Complimentary travel across the Northeast"
+                ],
+                "highlighted": false,
+                "buttonText": "Check my date",
+                "buttonTextLink": { "linkType": "page", "pageSlug": "inquire" }
+              }
+            ],
+            "cardStyle": "editorial",
+            "surfaceStyle": "white",
+            "spacingDensity": "spacious",
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "featuredQuote",
+          "data": {
+            "variant": "minimal",
+            "eyebrow": "How I work",
+            "quote": "I would rather miss a posed smile than a real one. So I stay quiet, I wait for the light, and I trust that the day already knows what it wants to be.",
+            "personName": "Ren Marlow",
+            "personTitle": "Photographer, Marlow & Fen",
+            "backgroundColor": ""
+          }
+        },
+        {
+          "blockType": "cta",
+          "data": {
+            "pretext": "Next step",
+            "pretextEnabled": true,
+            "pretextStyle": "pill",
+            "title": "Only one wedding a weekend, and dates go early",
+            "subtitle": "If your date feels right, tell me about it — I answer every inquiry myself within two business days.",
+            "buttonText": "Check my date",
+            "buttonTextLink": { "linkType": "page", "pageSlug": "inquire" },
+            "showPattern": false,
+            "backgroundColor": "palette:secondary"
+          }
+        }
+      ]
+    },
+    {
+      "slug": "inquire",
+      "title": "Inquire",
+      "role": "contact",
+      "blocks": [
+        {
+          "blockType": "contact_form",
+          "data": {
+            "pretext": "Inquire",
+            "pretextEnabled": true,
+            "pretextStyle": "underline",
+            "pretextAlignment": "center",
+            "title": "Let's see if your date is open",
+            "description": "Tell me the date, the venue if you have one, and a little about how the two of you found each other. I book one wedding per weekend, so early notes are best. Every message reaches me directly and I reply within two business days.",
+            "submitText": "Send my inquiry",
+            "successMessage": "Your note is with me — thank you. I will write back personally within two business days to talk dates and next steps.",
+            "cardStyle": "editorial",
+            "surfaceStyle": "white",
+            "backgroundColor": ""
+          }
+        },
+        {
+          "blockType": "faq",
+          "data": {
+            "pretext": "Before you write",
+            "pretextEnabled": true,
+            "pretextStyle": "underline",
+            "pretextAlignment": "center",
+            "title": "The questions couples ask first",
+            "subtitle": "A few honest answers about how I work, what things cost, and how far I travel.",
+            "items": [
+              { "question": "How many weddings do you take each year?", "answer": "Eighteen at most, and only one per weekend. I turn work away to keep this pace, which is why I ask couples to reach out as early as they can — popular fall Saturdays in the Hudson Valley are usually gone twelve to fifteen months ahead." },
+              { "question": "Where are you based and do you travel?", "answer": "I live in Kingston, New York and photograph across the Hudson Valley, the Catskills, and greater New York with no travel fee. For weddings elsewhere in the Northeast, travel is included in The Weekend collection and quoted simply for the others." },
+              { "question": "Do you really shoot film?", "answer": "Yes — most of the day is medium-format film for its warmth and forgiving skin tones. I carry a digital body for the ceremony if the church is dark and for the reception once the sun is down, so nothing is ever missed to grain or low light." },
+              { "question": "What do collections cost and what's required to book?", "answer": "Collections run from $3,200 for an elopement to $8,900 for a two-day weekend, all with hand-edited film scans and a private gallery. A signed agreement and a one-third retainer hold your date; the balance is due two weeks before the wedding." },
+              { "question": "When will we see our photos?", "answer": "A small preview set of ten to fifteen images arrives within one week of the wedding. Your full private gallery — every finished, hand-graded frame — is ready within four weeks, and albums follow four to six weeks after you approve the layout." },
+              { "question": "Do you bring a second photographer?", "answer": "A second shooter is included in The Weekend collection and available as an add-on for the others. For most weddings under 120 guests I work alone on purpose, because one quiet photographer disappears into the day far better than two." },
+              { "question": "What happens if you're sick or something goes wrong?", "answer": "I carry two camera bodies and back up every card the same night to two drives. In the rare case I truly cannot photograph your day, I draw on a small trusted network of Hudson Valley film photographers to cover it and still edit the final images myself." }
+            ],
+            "cardStyle": "minimal",
+            "surfaceStyle": "white",
+            "spacingDensity": "spacious",
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "contact",
+          "data": {
+            "pretext": "Elsewhere",
+            "pretextEnabled": true,
+            "pretextStyle": "underline",
+            "pretextAlignment": "center",
+            "title": "Or just say hello",
+            "subtitle": "If you would rather write directly or ring the studio, here is where to find me.",
+            "phone": "(845) 555-0142",
+            "email": "ren@marlowandfen.com",
+            "address": "The old typewriter shop, 214 Wall Street, Kingston, NY 12401 — by appointment",
+            "hours": "Studio by appointment, Tuesday to Friday, 10am to 4pm",
+            "cardStyle": "minimal",
+            "surfaceStyle": "white",
+            "spacingDensity": "spacious",
+            "backgroundColor": ""
+          }
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "tone": "minimal, evocative, quietly confident, warm, editorial",
+    "structureNotes": "The home page deliberately opens on a chrome-free fullImage hero and leads with images (gallery -> single minimal quote -> short about -> inquiry), skipping the generic services/testimonials/CTA stack so the work breathes; all commercial depth (stats, services, testimonials, pricing, FAQ) is pushed to the portfolio and inquire pages where a serious couple goes to decide.",
+    "tags": ["photographer", "wedding", "fine-art", "portfolio", "dark-mode", "gallery", "film-photography", "quiet-luxury", "hudson-valley", "editorial", "image-led", "minimal"]
+  }
+}

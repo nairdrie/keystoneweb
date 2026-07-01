@@ -467,6 +467,56 @@ CONTENT DEPTH — a thin site reads as unfinished. Treat these as minimums, not 
 `;
 
 /**
+ * A retrieved corpus exemplar, distilled to what the prompt needs: a tone/voice
+ * reference, design-token direction, and a few copy samples. Injected as a
+ * QUALITY benchmark, never as content to copy. The orchestrator maps a
+ * RetrievedExemplar into this shape so builder-schema stays decoupled from RAG.
+ */
+export interface ExemplarReference {
+  siteTitle: string;
+  category: string;
+  styleFamily: string;
+  voice: string;
+  tone?: string;
+  structureNotes?: string;
+  designTokens?: {
+    customColors?: { primary?: string; secondary?: string; accent?: string };
+    fonts?: { heading?: string; body?: string };
+    headerConfig?: Record<string, unknown>;
+    paletteMood?: string;
+  };
+  copyExemplars?: Array<{ blockType: string; sample: string }>;
+}
+
+export function renderExemplarForAi(exemplar?: ExemplarReference): string {
+  if (!exemplar) return '';
+  const t = exemplar.designTokens ?? {};
+  const tokenBits: string[] = [];
+  if (t.customColors && (t.customColors.primary || t.customColors.secondary || t.customColors.accent)) {
+    tokenBits.push(`palette ${JSON.stringify(t.customColors)}`);
+  }
+  if (t.fonts && (t.fonts.heading || t.fonts.body)) {
+    tokenBits.push(`fonts heading="${t.fonts.heading ?? ''}" body="${t.fonts.body ?? ''}"`);
+  }
+  if (t.paletteMood) tokenBits.push(`mood: ${t.paletteMood}`);
+
+  const copy = (exemplar.copyExemplars ?? [])
+    .slice(0, 8)
+    .map((c) => `  • ${c.blockType}: ${c.sample}`)
+    .join('\n');
+
+  return `
+REFERENCE EXEMPLAR (a curated, high-quality site in a related space — use it as a QUALITY, TONE, and STRUCTURE benchmark, NOT as content to copy):
+- Style family: ${exemplar.styleFamily}${exemplar.tone ? ` | tone: ${exemplar.tone}` : ''}
+- Brand voice reference: ${exemplar.voice}
+${exemplar.structureNotes ? `- Structural idea worth echoing: ${exemplar.structureNotes}\n` : ''}${tokenBits.length ? `- Design direction: ${tokenBits.join('; ')}\n` : ''}${copy ? `- Copy quality/tone samples (from a DIFFERENT business — match the depth and specificity, not the words):\n${copy}\n` : ''}
+HOW TO USE THIS EXEMPLAR:
+- Match its DEPTH, specificity, and confidence; adapt its tone and structural rhythm to THIS business.
+- Do NOT reuse its wording, brand name, headlines, prices, or invented numbers. Everything you write must be about the user's actual business.
+`;
+}
+
+/**
  * Phase A — Plan call.
  *
  * Tiny system prompt. The model picks the palette, fonts, header, site title,
@@ -474,7 +524,7 @@ CONTENT DEPTH — a thin site reads as unfinished. Treat these as minimums, not 
  * the AI-only blank baseline so public template demo content never leaks into
  * generated onboarding sites.
  */
-export function buildPlanSystemPrompt(wizardData: WizardData, availablePalettes: string[], seed: CreativeSeed, architecture?: SiteArchitecture): string {
+export function buildPlanSystemPrompt(wizardData: WizardData, availablePalettes: string[], seed: CreativeSeed, architecture?: SiteArchitecture, exemplar?: ExemplarReference): string {
   return `You are the planning step of a website-building AI. Your ONLY job is to choose a palette, fonts, header layout, site title, and brand voice. The deterministic architecture layer has already chosen pages and blocks.
 
 ${renderWizardBrief(wizardData)}
@@ -482,6 +532,8 @@ ${renderWizardBrief(wizardData)}
 ${architecture ? renderArchitectureForAi(architecture) : ''}
 
 ${renderCreativeSeed(seed)}
+
+${renderExemplarForAi(exemplar)}
 
 ${renderTemplateStyleProfilesForAi({
     styleIds: wizardData.styleIds,
@@ -537,7 +589,7 @@ RESPONSE FORMAT — output ONLY raw JSON, no markdown fences, no prose. Shape:
  * Given the plan from Phase A, produce 5-8 fully populated home blocks. The
  * call only emits one operation, so no operations list — just `{ blocks }`.
  */
-export function buildHomeSystemPrompt(plan: SitePlan, wizardData: WizardData, seed: CreativeSeed): string {
+export function buildHomeSystemPrompt(plan: SitePlan, wizardData: WizardData, seed: CreativeSeed, exemplar?: ExemplarReference): string {
   return `You are the home-page step of a website-building AI. Your ONLY job is to produce fully populated content for the approved Home blocks.
 
 ${renderWizardBrief(wizardData)}
@@ -560,6 +612,8 @@ ${renderCreativeSeed(seed)}
 ${ANTI_PATTERNS}
 
 ${CONTENT_DEPTH_RULES}
+
+${renderExemplarForAi(exemplar)}
 
 RULES:
 - Produce exactly the approved Home blocks above, in that order. Do not add, remove, rename, or substitute block types.
@@ -584,7 +638,7 @@ RESPONSE FORMAT — output ONLY raw JSON, no markdown fences, no prose. Shape:
  * Tiny scope: a single page's blocks. The model has plenty of attention
  * budget to write actually tailored copy.
  */
-export function buildPageSystemPrompt(plan: SitePlan, page: { slug: string; title: string; brief: string }, wizardData: WizardData, seed: CreativeSeed): string {
+export function buildPageSystemPrompt(plan: SitePlan, page: { slug: string; title: string; brief: string }, wizardData: WizardData, seed: CreativeSeed, exemplar?: ExemplarReference): string {
   return `You are the page-build step of a website-building AI. Your ONLY job is to produce fully populated content for the approved blocks on ONE specific page.
 
 ${renderWizardBrief(wizardData)}
@@ -609,6 +663,8 @@ ${renderCreativeSeed(seed)}
 ${ANTI_PATTERNS}
 
 ${CONTENT_DEPTH_RULES}
+
+${renderExemplarForAi(exemplar)}
 
 RULES:
 - Produce exactly the approved blocks for this page, in that order. Do not add, remove, rename, or substitute block types.

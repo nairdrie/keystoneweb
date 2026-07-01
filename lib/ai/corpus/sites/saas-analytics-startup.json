@@ -1,0 +1,519 @@
+{
+  "slug": "saas-analytics-startup",
+  "category": "saas",
+  "businessType": "services",
+  "styleFamily": "sharp-modern-structured",
+  "siteTitle": "Cardinal",
+  "voice": "Crisp, technical, and precise — a product-analytics company that talks in real numbers and never pads a sentence.",
+  "designTokens": {
+    "customColors": { "primary": "#0F172A", "secondary": "#6366F1", "accent": "#F1F5F9" },
+    "fonts": { "heading": "Space Grotesk", "body": "Inter" },
+    "headerConfig": {
+      "bgType": "white",
+      "logoPosition": "left",
+      "navPosition": "right",
+      "desktopMenuStyle": "inline",
+      "rightElement": "cta",
+      "sticky": true,
+      "layout": "default",
+      "navFontSize": "14px",
+      "navFontWeight": "500"
+    },
+    "paletteMood": "Slate ink on cool paper, cut through with one confident electric-indigo signal — engineering-grade calm, zero decoration."
+  },
+  "pages": [
+    {
+      "slug": "home",
+      "title": "Home",
+      "role": "home",
+      "blocks": [
+        {
+          "blockType": "hero",
+          "data": {
+            "cards": [
+              {
+                "id": "hero-1",
+                "content": {
+                  "title": { "enabled": true, "value": "Product analytics that ships answers, not dashboards", "align": "left" },
+                  "subtitle": { "enabled": true, "value": "Cardinal is an event-analytics platform for B2B product teams. Instrument once, query in plain SQL or point-and-click, and see funnels, retention, and revenue impact update in under two seconds — no data team required.", "align": "left" },
+                  "cta": { "enabled": true, "label": "Start a free 14-day trial", "link": { "linkType": "page", "pageSlug": "pricing" }, "align": "left" },
+                  "image": { "enabled": true, "url": "", "side": "right", "layout": "split" }
+                },
+                "background": {
+                  "type": "gradient",
+                  "gradient": { "from": "palette:accent", "to": "#ffffff", "angle": 135 }
+                }
+              }
+            ],
+            "transition": { "type": "fade", "intervalSec": 6, "pauseOnHover": true },
+            "height": {
+              "desktop": { "mode": "fitContent", "revealNext": 1 },
+              "tablet": { "mode": "fitContent", "revealNext": 1 },
+              "mobile": { "mode": "fitContent", "revealNext": 0 }
+            }
+          }
+        },
+        {
+          "blockType": "logoCloud",
+          "data": {
+            "title": "Trusted by product and growth teams shipping weekly",
+            "variant": "inline",
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "featuresList",
+          "data": {
+            "pretextEnabled": true,
+            "pretext": "Platform",
+            "pretextStyle": "pill",
+            "pretextAlignment": "left",
+            "title": "Instrument once, then answer anything",
+            "items": [
+              "Autocapture SDKs for web, iOS, Android, and server-side events — one snippet captures clicks, pageviews, and network calls with zero manual tagging.",
+              "Warehouse-native sync to Snowflake, BigQuery, and Redshift via reverse ETL, so your event data and your finance tables live in one queryable place.",
+              "Sub-two-second funnel and retention queries across 10 billion events, backed by a columnar store built on ClickHouse.",
+              "SQL editor and a no-code query builder side by side — analysts write raw SQL, PMs drag and drop, and both hit the same governed schema.",
+              "Cohort-based feature flags that read live behavior, so you can gate a rollout to users who did X but not Y without shipping a new build.",
+              "SOC 2 Type II, GDPR data-residency in EU and US regions, and row-level access controls scoped to team, so PII never leaves its lane."
+            ],
+            "markerStyle": "framed",
+            "cardStyle": "bordered",
+            "spacingDensity": "standard",
+            "textAlign": "left"
+          }
+        },
+        {
+          "blockType": "stats",
+          "data": {
+            "title": "Numbers our customers run on",
+            "variant": "banner",
+            "items": [
+              { "value": "1.4T", "label": "Events ingested per month across all workspaces" },
+              { "value": "1.8s", "label": "Median query time on billion-row funnels" },
+              { "value": "99.98%", "label": "Ingestion uptime over the trailing 12 months" },
+              { "value": "312", "label": "Product teams shipping on Cardinal today" }
+            ],
+            "backgroundColor": "palette:primary"
+          }
+        },
+        {
+          "blockType": "pricing",
+          "data": {
+            "pretextEnabled": true,
+            "pretext": "Pricing",
+            "pretextStyle": "pill",
+            "pretextAlignment": "center",
+            "title": "Priced per tracked event, not per seat",
+            "subtitle": "Invite your whole team for free — you only pay for the events you ingest. Annual billing shown; monthly is 20% higher.",
+            "variant": "cards",
+            "tiers": [
+              {
+                "name": "Launch",
+                "price": "$0",
+                "period": "/mo",
+                "description": "For pre-product-market-fit teams validating their first funnels.",
+                "features": [
+                  "Up to 1 million tracked events per month",
+                  "Unlimited seats and dashboards",
+                  "Web and mobile autocapture SDKs",
+                  "13-month data retention",
+                  "Community Slack support"
+                ],
+                "highlighted": false,
+                "buttonText": "Start for free",
+                "buttonTextLink": { "linkType": "page", "pageSlug": "pricing" }
+              },
+              {
+                "name": "Scale",
+                "price": "$450",
+                "period": "/mo",
+                "description": "For growth teams running retention and revenue analysis weekly.",
+                "features": [
+                  "Up to 25 million tracked events per month",
+                  "Warehouse sync (Snowflake, BigQuery, Redshift)",
+                  "SQL editor plus no-code query builder",
+                  "Cohort feature flags and experiments",
+                  "36-month data retention",
+                  "Email and priority chat support"
+                ],
+                "highlighted": true,
+                "buttonText": "Start a 14-day trial",
+                "buttonTextLink": { "linkType": "page", "pageSlug": "pricing" }
+              },
+              {
+                "name": "Enterprise",
+                "price": "Custom",
+                "period": "",
+                "description": "For orgs with governance, residency, and volume commitments.",
+                "features": [
+                  "Volume pricing beyond 25 million events",
+                  "EU or US data residency, SSO/SCIM, audit logs",
+                  "Row-level access controls and SOC 2 report",
+                  "Dedicated ingestion cluster and 99.99% SLA",
+                  "Named solutions engineer and onboarding",
+                  "Unlimited data retention"
+                ],
+                "highlighted": false,
+                "buttonText": "Talk to sales",
+                "buttonTextLink": { "linkType": "custom", "href": "mailto:sales@cardinal.dev" }
+              }
+            ],
+            "cardStyle": "bordered",
+            "spacingDensity": "standard"
+          }
+        },
+        {
+          "blockType": "faq",
+          "data": {
+            "pretextEnabled": true,
+            "pretext": "FAQ",
+            "pretextStyle": "outline",
+            "pretextAlignment": "left",
+            "title": "Questions engineering and finance both ask",
+            "subtitle": "The specifics on instrumentation, billing, data ownership, and what happens at the edges.",
+            "items": [
+              {
+                "question": "How long does instrumentation actually take?",
+                "answer": "Most teams see their first events within an hour. Drop the autocapture snippet in your web app or add the SDK to your mobile build, and clicks, pageviews, and screens flow in without manual tagging. Custom server-side events take a few lines per event."
+              },
+              {
+                "question": "What counts as a tracked event for billing?",
+                "answer": "Any single captured action — a pageview, click, custom event, or server call — counts as one event. Identify calls, alias calls, and dashboard queries are free. We show a live event counter in-app so there are no billing surprises at the end of the month."
+              },
+              {
+                "question": "Do we own our data, and can we get it out?",
+                "answer": "You own every event. Scale and Enterprise plans sync raw events into your own Snowflake, BigQuery, or Redshift instance in near real time. You can also export the full history as Parquet at any time, with no egress fees."
+              },
+              {
+                "question": "How is Cardinal different from a general BI tool?",
+                "answer": "BI tools query tables you've already modeled; Cardinal captures behavior and models funnels, retention, and paths for you. You can still drop into raw SQL, but you don't have to build the event pipeline, sessionization, or retention math yourself."
+              },
+              {
+                "question": "Is our data secure and compliant?",
+                "answer": "We're SOC 2 Type II certified and GDPR-compliant, with data-residency options in EU and US regions. PII is scoped by row-level access controls, encrypted at rest with AES-256, and never used to train shared models."
+              },
+              {
+                "question": "What happens if we exceed our event limit?",
+                "answer": "Ingestion never stops — we don't drop your data. Overages are billed at the same per-event rate as your plan, prorated to the day. If you're consistently over, we'll flag it and help you move to the tier that's cheaper for your volume."
+              },
+              {
+                "question": "Can analysts and PMs work in the same workspace?",
+                "answer": "Yes. Analysts write raw SQL against the governed event schema while PMs use the no-code builder, and both resolve to the same tables and definitions. Saved queries and metrics are shared, so there's one source of truth for a funnel's definition."
+              }
+            ],
+            "cardStyle": "minimal",
+            "spacingDensity": "standard",
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "cta",
+          "data": {
+            "title": "See your product's real funnel in an afternoon",
+            "subtitle": "Spin up a workspace, drop in the snippet, and watch your first retention curve fill in before your standup tomorrow.",
+            "buttonText": "Start a free 14-day trial",
+            "buttonTextLink": { "linkType": "page", "pageSlug": "pricing" },
+            "showPattern": true,
+            "backgroundColor": "palette:secondary"
+          }
+        }
+      ]
+    },
+    {
+      "slug": "product",
+      "title": "Product",
+      "role": "product",
+      "blocks": [
+        {
+          "blockType": "hero",
+          "data": {
+            "cards": [
+              {
+                "id": "product-hero-1",
+                "content": {
+                  "title": { "enabled": true, "value": "One event stream. Every question your team keeps asking.", "align": "left" },
+                  "subtitle": { "enabled": true, "value": "Cardinal captures behavior across web, mobile, and server, then turns it into funnels, retention, paths, and revenue impact you can query in seconds — from the same governed schema your analysts trust.", "align": "left" },
+                  "cta": { "enabled": true, "label": "See pricing and start free", "link": { "linkType": "page", "pageSlug": "pricing" }, "align": "left" },
+                  "image": { "enabled": true, "url": "", "side": "right", "layout": "split" }
+                },
+                "background": {
+                  "type": "gradient",
+                  "gradient": { "from": "#ffffff", "to": "palette:accent", "angle": 135 }
+                }
+              }
+            ],
+            "transition": { "type": "fade", "intervalSec": 6, "pauseOnHover": true },
+            "height": {
+              "desktop": { "mode": "fitContent", "revealNext": 1 },
+              "tablet": { "mode": "fitContent", "revealNext": 0 },
+              "mobile": { "mode": "fitContent", "revealNext": 0 }
+            }
+          }
+        },
+        {
+          "blockType": "featuresList",
+          "data": {
+            "pretextEnabled": true,
+            "pretext": "Capabilities",
+            "pretextStyle": "pill",
+            "pretextAlignment": "left",
+            "title": "Everything between the click and the answer",
+            "items": [
+              "Autocapture SDKs for web, iOS, Android, React Native, and server-side runtimes — one install captures interactions with zero manual event tagging.",
+              "A columnar store on ClickHouse that returns funnel, retention, and path queries across 10 billion events in under two seconds.",
+              "Reverse-ETL sync into Snowflake, BigQuery, and Redshift, so raw events and business tables sit together for joined analysis.",
+              "Side-by-side SQL editor and no-code builder resolving to one governed schema, so a funnel means the same thing to a PM and an analyst.",
+              "Session replay linked to any event, so you can jump from a drop-off in a funnel straight to the recording that caused it.",
+              "Cohort feature flags that evaluate live behavior at request time, letting you roll a feature out to users who hit a milestone without a redeploy.",
+              "Alerting on any metric with anomaly detection, routed to Slack or PagerDuty when a conversion rate breaks its 14-day band."
+            ],
+            "markerStyle": "framed",
+            "cardStyle": "bordered",
+            "spacingDensity": "standard",
+            "textAlign": "left"
+          }
+        },
+        {
+          "blockType": "servicesGrid",
+          "data": {
+            "pretextEnabled": true,
+            "pretext": "Workflows",
+            "pretextStyle": "outline",
+            "pretextAlignment": "left",
+            "title": "Built around the four questions product teams live in",
+            "subtitle": "Each workflow is a first-class object in Cardinal — saved, versioned, and shareable, not a screenshot pasted into a doc.",
+            "items": [
+              { "title": "Funnel analysis", "description": "Define a multi-step conversion path once, then break it down by any property, cohort, or time window. Drop-offs link straight to session replays so you can watch the exact moment users bail." },
+              { "title": "Retention curves", "description": "See day-1 through day-90 retention by acquisition source, plan, or feature adoption. Cardinal computes rolling, N-day, and unbounded retention without you writing the window math." },
+              { "title": "Path exploration", "description": "Trace the real routes users take before and after any event, ranked by frequency. Spot the dead-end screens and the surprise shortcuts your roadmap hasn't accounted for." },
+              { "title": "Revenue attribution", "description": "Join event behavior to your billing tables to see which features move MRR. Answer 'does using onboarding checklists correlate with upgrade' with one query, not a data-team ticket." }
+            ],
+            "ctaText": "Compare plans and features",
+            "ctaTextLink": { "linkType": "page", "pageSlug": "pricing" },
+            "markerStyle": "numbered",
+            "cardStyle": "bordered",
+            "spacingDensity": "standard",
+            "textAlign": "left",
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "stats",
+          "data": {
+            "title": "Performance the platform holds to",
+            "variant": "cards",
+            "items": [
+              { "value": "1.8s", "label": "Median query time on billion-row funnels" },
+              { "value": "10B+", "label": "Events scannable in a single query" },
+              { "value": "< 60min", "label": "From snippet to first live event, typical" },
+              { "value": "99.98%", "label": "Ingestion uptime, trailing 12 months" }
+            ],
+            "cardStyle": "bordered",
+            "spacingDensity": "standard"
+          }
+        },
+        {
+          "blockType": "testimonials",
+          "data": {
+            "pretextEnabled": true,
+            "pretext": "In production",
+            "pretextStyle": "text",
+            "pretextAlignment": "left",
+            "title": "What teams built the week they switched",
+            "subtitle": "Concrete wins from product leads who moved off spreadsheets and stitched-together tools.",
+            "variant": "cards",
+            "items": [
+              { "name": "Priya", "role": "Head of Product, fintech Series B", "quote": "We replaced a three-tool stack with Cardinal and cut our weekly metrics prep from a full afternoon to about ten minutes. The retention math we used to argue about is now one shared definition.", "rating": 5 },
+              { "name": "Marcus", "role": "Staff Data Engineer, dev-tools startup", "quote": "The reverse-ETL into BigQuery was live in a day. My analysts write SQL against the same schema the PMs point-and-click, so we finally stopped shipping two different numbers for the same funnel.", "rating": 5 },
+              { "name": "Aline", "role": "Growth PM, B2B marketplace", "quote": "Path exploration surfaced a dead-end onboarding screen we'd shipped and forgotten. We killed it, and week-1 activation went from 41% to 58% inside a month.", "rating": 5 },
+              { "name": "Devon", "role": "VP Engineering, HR SaaS", "quote": "Cohort feature flags reading live behavior let us gate a risky rollout to power users without a redeploy. That alone paid for the Scale plan several times over.", "rating": 4 }
+            ],
+            "cardStyle": "bordered",
+            "spacingDensity": "standard",
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "cta",
+          "data": {
+            "title": "Point Cardinal at your product and watch it fill in",
+            "subtitle": "Fourteen days, full platform, no credit card. Bring one funnel you've never been able to answer cleanly.",
+            "buttonText": "Start a free 14-day trial",
+            "buttonTextLink": { "linkType": "page", "pageSlug": "pricing" },
+            "showPattern": true,
+            "backgroundColor": "palette:secondary"
+          }
+        }
+      ]
+    },
+    {
+      "slug": "pricing",
+      "title": "Pricing",
+      "role": "pricing",
+      "blocks": [
+        {
+          "blockType": "hero",
+          "data": {
+            "cards": [
+              {
+                "id": "pricing-hero-1",
+                "content": {
+                  "title": { "enabled": true, "value": "Pay for events, invite everyone", "align": "center" },
+                  "subtitle": { "enabled": true, "value": "Seats are free on every Cardinal plan. You pay only for the events you ingest, so growing your team never grows your bill.", "align": "center" },
+                  "cta": { "enabled": false, "label": "", "link": { "linkType": "custom", "href": "" }, "align": "center" },
+                  "image": { "enabled": false, "url": "", "side": "right", "layout": "contained" }
+                },
+                "background": {
+                  "type": "gradient",
+                  "gradient": { "from": "palette:accent", "to": "#ffffff", "angle": 160 }
+                }
+              }
+            ],
+            "transition": { "type": "fade", "intervalSec": 6, "pauseOnHover": true },
+            "height": {
+              "desktop": { "mode": "fitContent", "revealNext": 0 },
+              "tablet": { "mode": "fitContent", "revealNext": 0 },
+              "mobile": { "mode": "fitContent", "revealNext": 0 }
+            }
+          }
+        },
+        {
+          "blockType": "pricing",
+          "data": {
+            "title": "Three plans, one per-event rate",
+            "subtitle": "Annual billing shown; monthly runs 20% higher. Every plan includes unlimited seats, dashboards, and autocapture SDKs.",
+            "variant": "cards",
+            "tiers": [
+              {
+                "name": "Launch",
+                "price": "$0",
+                "period": "/mo",
+                "description": "For pre-product-market-fit teams validating their first funnels.",
+                "features": [
+                  "Up to 1 million tracked events per month",
+                  "Unlimited seats and dashboards",
+                  "Web and mobile autocapture SDKs",
+                  "13-month data retention",
+                  "Community Slack support"
+                ],
+                "highlighted": false,
+                "buttonText": "Start for free",
+                "buttonTextLink": { "linkType": "custom", "href": "mailto:hello@cardinal.dev" }
+              },
+              {
+                "name": "Scale",
+                "price": "$450",
+                "period": "/mo",
+                "description": "For growth teams running retention and revenue analysis weekly.",
+                "features": [
+                  "Up to 25 million tracked events per month",
+                  "Warehouse sync (Snowflake, BigQuery, Redshift)",
+                  "SQL editor plus no-code query builder",
+                  "Cohort feature flags and experiments",
+                  "Session replay linked to events",
+                  "36-month data retention"
+                ],
+                "highlighted": true,
+                "buttonText": "Start a 14-day trial",
+                "buttonTextLink": { "linkType": "custom", "href": "mailto:hello@cardinal.dev" }
+              },
+              {
+                "name": "Enterprise",
+                "price": "Custom",
+                "period": "",
+                "description": "For orgs with governance, residency, and volume commitments.",
+                "features": [
+                  "Volume pricing beyond 25 million events",
+                  "EU or US data residency, SSO/SCIM, audit logs",
+                  "Row-level access controls and SOC 2 report",
+                  "Dedicated ingestion cluster and 99.99% SLA",
+                  "Named solutions engineer and onboarding",
+                  "Unlimited data retention"
+                ],
+                "highlighted": false,
+                "buttonText": "Talk to sales",
+                "buttonTextLink": { "linkType": "custom", "href": "mailto:sales@cardinal.dev" }
+              }
+            ],
+            "cardStyle": "bordered",
+            "spacingDensity": "spacious"
+          }
+        },
+        {
+          "blockType": "stats",
+          "data": {
+            "title": "What you're buying, in numbers",
+            "variant": "banner",
+            "items": [
+              { "value": "$0", "label": "Cost per seat on every plan, forever" },
+              { "value": "20%", "label": "Discount for annual over monthly billing" },
+              { "value": "14 days", "label": "Full-platform trial, no credit card" }
+            ],
+            "backgroundColor": "palette:primary"
+          }
+        },
+        {
+          "blockType": "faq",
+          "data": {
+            "pretextEnabled": true,
+            "pretext": "Billing FAQ",
+            "pretextStyle": "outline",
+            "pretextAlignment": "left",
+            "title": "The fine print, spelled out",
+            "subtitle": "How events, overages, upgrades, and cancellations actually work on your invoice.",
+            "items": [
+              {
+                "question": "What exactly counts as a tracked event?",
+                "answer": "Each captured action — a pageview, click, custom event, or server-side call — is one event. Identify, alias, and group calls are free, and running queries against your data never counts against your event limit."
+              },
+              {
+                "question": "What happens when I go over my event limit?",
+                "answer": "We keep ingesting — your data is never dropped. Overages bill at your plan's per-event rate, prorated to the day. If you're regularly over, we'll proactively recommend the tier that costs you less at your volume."
+              },
+              {
+                "question": "Can I change plans mid-cycle?",
+                "answer": "Yes. Upgrades take effect immediately and are prorated, so you only pay the difference for the days remaining. Downgrades apply at your next renewal so you keep the features you're paying for through the current period."
+              },
+              {
+                "question": "Is there really no per-seat charge?",
+                "answer": "Correct. Invite your whole product, growth, and analytics org at no cost on every plan, including the free Launch tier. We price on events because that's what actually drives our infrastructure cost — not headcount."
+              },
+              {
+                "question": "How does the 14-day trial work?",
+                "answer": "You get the full Scale plan with no credit card required. At the end of the trial you can pick a plan or drop to the free Launch tier — nothing auto-charges, and your data stays put either way."
+              },
+              {
+                "question": "What payment methods and terms do you support?",
+                "answer": "Launch and Scale are self-serve by credit card, billed monthly or annually. Enterprise supports invoicing, ACH, and wire with net-30 terms, plus annual and multi-year volume commitments."
+              },
+              {
+                "question": "What if we cancel — do we lose our data?",
+                "answer": "You can export your full event history as Parquet with no egress fee before you go. If you drop to the free tier instead, your data stays; if you fully cancel, we retain it for 30 days in case you return."
+              }
+            ],
+            "cardStyle": "minimal",
+            "spacingDensity": "standard",
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "cta",
+          "data": {
+            "title": "Still comparing? Bring us your hardest funnel question",
+            "subtitle": "Our solutions team will model it live on your own data during the trial, so you can see the answer before you decide.",
+            "buttonText": "Talk to sales",
+            "buttonTextLink": { "linkType": "custom", "href": "mailto:sales@cardinal.dev" },
+            "showPattern": true,
+            "backgroundColor": "palette:secondary"
+          }
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "tone": "crisp, technical, precise, no-fluff, engineering-grade",
+    "structureNotes": "Deliberately leads with a split product-framing hero into a customer logoCloud and a deep featuresList before any social proof, then routes funnel-of-belief through stats -> pricing -> faq -> cta — front-loading capability and hard numbers instead of the generic hero->services->testimonials->cta order, which suits a technical B2B buyer who wants proof before pitch.",
+    "tags": ["saas", "product-analytics", "b2b", "developer-tools", "sharp-modern", "slate-indigo", "usage-based-pricing", "structured", "technical"]
+  }
+}

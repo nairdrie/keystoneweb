@@ -1,0 +1,478 @@
+{
+  "slug": "craft-coffee-roaster",
+  "category": "coffee",
+  "businessType": "food",
+  "styleFamily": "bold-retro",
+  "siteTitle": "Third Gear Coffee Roasters",
+  "voice": "Playful, punchy, and confident — coffee-nerdy enough to name the varietal, friendly enough to hand you a cup and skip the lecture.",
+  "designTokens": {
+    "customColors": { "primary": "#1A1A1A", "secondary": "#E2711D", "accent": "#F2E8D5" },
+    "fonts": { "heading": "Space Grotesk", "body": "DM Sans" },
+    "headerConfig": {
+      "bgType": "custom",
+      "bgColor": "#1A1A1A",
+      "logoPosition": "left",
+      "navPosition": "right",
+      "desktopMenuStyle": "inline",
+      "rightElement": "cta",
+      "sticky": "always",
+      "layout": "default",
+      "navColor": "#F2E8D5",
+      "navFontWeight": "600",
+      "bannerEnabled": true,
+      "bannerText": "Fresh batch drops every Wednesday 7am — roasted in Riverside, shipped Canada-wide flat $8.",
+      "bannerBgType": "secondary"
+    },
+    "paletteMood": "Warm cream paper, a shot of burnt-orange energy, and near-black ink — a 1970s diner menu that learned to pull a killer espresso."
+  },
+  "pages": [
+    {
+      "slug": "home",
+      "title": "Home",
+      "role": "home",
+      "blocks": [
+        {
+          "blockType": "hero",
+          "data": {
+            "cards": [
+              {
+                "id": "hero-1",
+                "content": {
+                  "title": { "enabled": true, "value": "Loud beans. Quiet mornings.", "align": "center" },
+                  "subtitle": { "enabled": true, "value": "Third Gear is a two-barrel craft roaster and cafe on Riverside Ave, roasting small single-origin lots and a stubbornly good house blend for people who take coffee seriously and themselves less so.", "align": "center" },
+                  "cta": { "enabled": true, "label": "Shop the fresh batch", "link": { "linkType": "page", "pageSlug": "shop" }, "align": "center" },
+                  "image": { "enabled": false, "url": "", "side": "right", "layout": "contained" }
+                },
+                "background": {
+                  "type": "gradient",
+                  "gradient": { "from": "palette:accent", "to": "#ffffff", "angle": 135 }
+                }
+              }
+            ],
+            "transition": { "type": "fade", "intervalSec": 6, "pauseOnHover": true },
+            "height": {
+              "desktop": { "mode": "fitScreen", "valuePx": 720, "revealNext": 1 },
+              "tablet": { "mode": "fitContent", "valuePx": 600, "revealNext": 1 },
+              "mobile": { "mode": "fitContent", "valuePx": 520, "revealNext": 0 }
+            }
+          }
+        },
+        {
+          "blockType": "stats",
+          "data": {
+            "title": "The roast board",
+            "variant": "banner",
+            "backgroundColor": "palette:primary",
+            "items": [
+              { "value": "3", "label": "Roast levels — Bright, Balanced, Deep" },
+              { "value": "9", "label": "Single origins on rotation" },
+              { "value": "48 hrs", "label": "From roast day to your door" },
+              { "value": "2011", "label": "Roasting on Riverside since" }
+            ],
+            "pretextEnabled": true,
+            "pretext": "Where we stand",
+            "pretextStyle": "pill",
+            "pretextAlignment": "center"
+          }
+        },
+        {
+          "blockType": "tabBar",
+          "data": {
+            "tabStyle": "pills",
+            "tabAlign": "center",
+            "activeColor": "palette:secondary",
+            "bgColor": "palette:accent",
+            "items": [
+              { "id": "tab-bright", "label": "Bright & fruity", "linkType": "custom", "href": "/shop", "pageId": "", "blockId": "" },
+              { "id": "tab-balanced", "label": "Balanced & sweet", "linkType": "custom", "href": "/shop", "pageId": "", "blockId": "" },
+              { "id": "tab-deep", "label": "Deep & chocolatey", "linkType": "custom", "href": "/shop", "pageId": "", "blockId": "" },
+              { "id": "tab-decaf", "label": "Sugarcane decaf", "linkType": "custom", "href": "/shop", "pageId": "", "blockId": "" }
+            ]
+          }
+        },
+        {
+          "blockType": "productGrid",
+          "data": {
+            "variant": "grid",
+            "featuredOnly": true,
+            "showSeeMore": true,
+            "seeMoreLabel": "Browse every origin & subscription",
+            "seeMoreHref": "/shop"
+          }
+        },
+        {
+          "blockType": "servicesGrid",
+          "data": {
+            "title": "More than a bag of beans",
+            "subtitle": "We roast to order, dial in your gear, and keep the good stuff arriving so you never white-knuckle a Monday again.",
+            "backgroundColor": "palette:accent",
+            "items": [
+              { "title": "Single-origin lots", "description": "Micro-lots from Huila, Yirgacheffe, and Nariño, roasted in 2kg batches and rested three days so the flavor lands where we mapped it." },
+              { "title": "The house subscription", "description": "Pick a cadence and a roast level; we roast your bag the morning it ships, so it hits your kitchen days off the roaster, not months." },
+              { "title": "Wholesale for cafes", "description": "Consistent espresso lots, weekly delivery across the city, and a rep who actually answers texts when your grinder drifts." },
+              { "title": "Home brew dial-in", "description": "Bring your setup or book a bench session; we tune grind, dose, and ratio for your exact gear until the cup sings." },
+              { "title": "The Riverside cafe", "description": "Order at the bar, watch the roaster run behind the glass, and grab a still-warm bag on your way out the door." },
+              { "title": "Gear & merch", "description": "Hand-picked grinders, drippers, and Third Gear enamel mugs we actually use on the bar every single shift." }
+            ],
+            "markerStyle": "numbered",
+            "cardStyle": "offset",
+            "spacingDensity": "standard"
+          }
+        },
+        {
+          "blockType": "featuredQuote",
+          "data": {
+            "variant": "split",
+            "eyebrow": "From the roaster",
+            "quote": "Great coffee isn't a secret recipe. It's a farmer who nailed the harvest, a green buyer who paid for it, and a roaster who's honest enough not to burn it. We just try not to be the weak link.",
+            "personName": "Marisol Vega",
+            "personTitle": "Founder & Head Roaster",
+            "personContext": "Roasting on Riverside since 2011",
+            "personImage": "",
+            "imagePosition": "left",
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "deliveryLinks",
+          "data": {
+            "title": "Want it hot and now?",
+            "subtitle": "Drinks and pastries from the Riverside cafe, delivered across the east side. Bags of beans ship from the shop page.",
+            "backgroundColor": "palette:accent",
+            "links": [
+              { "id": "del-ubereats", "platform": "ubereats", "label": "Order on Uber Eats", "url": "https://www.ubereats.com", "enabled": true },
+              { "id": "del-doordash", "platform": "doordash", "label": "Order on DoorDash", "url": "https://www.doordash.com", "enabled": true },
+              { "id": "del-skip", "platform": "skipthedishes", "label": "Order on SkipTheDishes", "url": "https://www.skipthedishes.com", "enabled": true }
+            ],
+            "pretextEnabled": true,
+            "pretext": "Cafe delivery",
+            "pretextStyle": "outline",
+            "pretextAlignment": "center"
+          }
+        },
+        {
+          "blockType": "testimonials",
+          "data": {
+            "title": "The regulars have opinions",
+            "subtitle": "And they are, thankfully, mostly positive ones about the coffee.",
+            "variant": "cards",
+            "items": [
+              { "name": "Dev", "role": "Subscriber, 3 years", "quote": "The Huila Pink Bourbon showed up on a Thursday still warm from the drum. My French press has never tasted like strawberry jam before and now I can't go back.", "rating": 5 },
+              { "name": "Renata", "role": "Owner, Loom Cafe", "quote": "We switched our espresso to Third Gear's Balanced lot and pulls got shockingly consistent. When our grinder drifted on a Saturday, Marisol texted back a dial-in fix in ten minutes.", "rating": 5 },
+              { "name": "Tomas", "role": "Weekend bar regular", "quote": "I came in for a flat white, watched them roast a batch behind the glass, and left with a bag of the Yirgacheffe and way too many opinions about grind size.", "rating": 5 },
+              { "name": "Priya", "role": "Home brewer", "quote": "Booked a dial-in session convinced my new grinder was broken. Turns out it was me. Twenty minutes later my pour-overs actually taste like the tasting notes on the bag." , "rating": 5 }
+            ],
+            "cardStyle": "playful",
+            "spacingDensity": "standard"
+          }
+        },
+        {
+          "blockType": "faq",
+          "data": {
+            "title": "Coffee questions, answered",
+            "subtitle": "The stuff people actually ask us across the bar on a busy Saturday.",
+            "items": [
+              { "question": "How fresh is the coffee when it ships?", "answer": "We roast to order on our fresh-batch day every Wednesday and ship within 48 hours of the roast. Most subscribers get their bag three to five days off the roaster, which is when it's genuinely at its best." },
+              { "question": "Whole bean or ground?", "answer": "Every bag defaults to whole bean because that's how it stays fresh. At checkout you can pick a grind for espresso, pour-over, French press, or drip and we'll dial it on our grinder before it goes out." },
+              { "question": "Where do you ship, and what does it cost?", "answer": "We ship Canada-wide for a flat $8, and orders over $60 ship free. Local east-side orders can also be picked up at the Riverside cafe within a day, usually the same afternoon." },
+              { "question": "How does the subscription work?", "answer": "Choose your roast level, bag size, and a cadence of every one, two, or four weeks. Your bag is roasted the morning it ships, and you can pause, skip, or swap origins any time from your account with no lock-in." },
+              { "question": "What roast levels do you offer?", "answer": "Three: Bright for fruit-forward single origins, Balanced for our everyday sweet-spot cup, and Deep for a chocolatey, low-acid roast. Each bag lists exactly where it falls so there are no surprises." },
+              { "question": "Do you sell to cafes and offices?", "answer": "Yes. We run weekly wholesale delivery across the city with consistent espresso lots, loaner equipment options, and staff training. Email wholesale@thirdgearcoffee.ca and we'll set up a tasting." },
+              { "question": "Do you have decaf?", "answer": "We do — a sugarcane-process Colombian decaf that keeps most of the sweetness and body without the caffeine. It's on the shop page year-round and available by subscription too." }
+            ],
+            "cardStyle": "bordered",
+            "spacingDensity": "standard"
+          }
+        },
+        {
+          "blockType": "cta",
+          "data": {
+            "title": "Skip the guessing. Get good coffee on repeat.",
+            "subtitle": "Start a subscription today and your first bag ships from Wednesday's fresh batch — roasted, rested, and on its way in 48 hours.",
+            "buttonText": "Start my subscription",
+            "buttonTextLink": { "linkType": "page", "pageSlug": "shop" },
+            "showPattern": true,
+            "backgroundColor": "palette:secondary"
+          }
+        }
+      ]
+    },
+    {
+      "slug": "shop",
+      "title": "Shop",
+      "role": "shop",
+      "blocks": [
+        {
+          "blockType": "hero",
+          "data": {
+            "cards": [
+              {
+                "id": "shop-hero",
+                "content": {
+                  "title": { "enabled": true, "value": "The whole roast board", "align": "center" },
+                  "subtitle": { "enabled": true, "value": "Single-origin lots, the house blend, sugarcane decaf, and subscriptions — all roasted in small batches on Riverside and shipped within 48 hours.", "align": "center" },
+                  "cta": { "enabled": false, "label": "", "link": { "linkType": "page", "pageSlug": "shop" }, "align": "center" },
+                  "image": { "enabled": false, "url": "", "side": "right", "layout": "contained" }
+                },
+                "background": {
+                  "type": "gradient",
+                  "gradient": { "from": "palette:accent", "to": "#ffffff", "angle": 120 }
+                }
+              }
+            ],
+            "transition": { "type": "none", "intervalSec": 6, "pauseOnHover": true },
+            "height": {
+              "desktop": { "mode": "fitContent", "valuePx": 420, "revealNext": 1 },
+              "tablet": { "mode": "fitContent", "valuePx": 380, "revealNext": 1 },
+              "mobile": { "mode": "fitContent", "valuePx": 340, "revealNext": 0 }
+            }
+          }
+        },
+        {
+          "blockType": "productGrid",
+          "data": {
+            "variant": "gridWithSidebar",
+            "showSeeMore": false,
+            "seeMoreLabel": "",
+            "seeMoreHref": ""
+          }
+        },
+        {
+          "blockType": "pricing",
+          "data": {
+            "title": "Subscribe and save the scramble",
+            "subtitle": "Pick a plan, pick a roast level, and never run dry mid-week again. Pause or cancel any time.",
+            "variant": "cards",
+            "backgroundColor": "palette:accent",
+            "tiers": [
+              {
+                "name": "The Solo",
+                "price": "$18",
+                "period": "per bag / delivery",
+                "description": "One 340g bag on the cadence you choose — perfect for a single serious drinker.",
+                "features": [
+                  "One 340g bag per delivery",
+                  "Every 1, 2, or 4 weeks",
+                  "Choose Bright, Balanced, or Deep",
+                  "Roasted the morning it ships",
+                  "Pause, skip, or swap any time"
+                ],
+                "highlighted": false,
+                "buttonText": "Start The Solo",
+                "buttonTextLink": { "linkType": "page", "pageSlug": "shop" }
+              },
+              {
+                "name": "The Household",
+                "price": "$32",
+                "period": "per delivery",
+                "description": "Two bags, mix and match roasts, with free shipping baked in for the whole-family habit.",
+                "features": [
+                  "Two 340g bags per delivery",
+                  "Mix two different roasts or origins",
+                  "Free Canada-wide shipping",
+                  "Every 1, 2, or 4 weeks",
+                  "Early access to limited micro-lots",
+                  "Roasted the morning it ships"
+                ],
+                "highlighted": true,
+                "buttonText": "Start The Household",
+                "buttonTextLink": { "linkType": "page", "pageSlug": "shop" }
+              },
+              {
+                "name": "The Office",
+                "price": "$120",
+                "period": "per delivery",
+                "description": "Five bags for the team, with dial-in support so the break-room grinder finally behaves.",
+                "features": [
+                  "Five 340g bags per delivery",
+                  "Free priority shipping",
+                  "Weekly, bi-weekly, or monthly",
+                  "Grinder dial-in over a call",
+                  "Invoicing and net-30 terms",
+                  "A rep who answers texts"
+                ],
+                "highlighted": false,
+                "buttonText": "Set up The Office",
+                "buttonTextLink": { "linkType": "custom", "href": "mailto:wholesale@thirdgearcoffee.ca" }
+              }
+            ],
+            "cardStyle": "offset",
+            "spacingDensity": "standard"
+          }
+        },
+        {
+          "blockType": "featuresList",
+          "data": {
+            "title": "Every bag, no matter the plan",
+            "items": [
+              "Roasted in 2kg batches on our 1970s-rebuilt Probat drum",
+              "Roast date stamped on the bag — never a best-before guess",
+              "Traceable to farm or co-op, with the price we paid printed inside",
+              "Rested three days before it ships so the flavor is dialed",
+              "Resealable, degassing valve bags to keep it fresh at home",
+              "Flat $8 shipping Canada-wide, free over $60"
+            ],
+            "markerStyle": "framed",
+            "cardStyle": "minimal",
+            "spacingDensity": "standard"
+          }
+        },
+        {
+          "blockType": "cta",
+          "data": {
+            "title": "Not sure where to start? Grab the sampler.",
+            "subtitle": "Three 100g bags — one from each roast level — so you can find your cup before you commit to a subscription.",
+            "buttonText": "Add the three-roast sampler",
+            "buttonTextLink": { "linkType": "page", "pageSlug": "shop" },
+            "showPattern": true,
+            "backgroundColor": "palette:secondary"
+          }
+        }
+      ]
+    },
+    {
+      "slug": "our-story",
+      "title": "Our Story",
+      "role": "about",
+      "blocks": [
+        {
+          "blockType": "hero",
+          "data": {
+            "cards": [
+              {
+                "id": "story-hero",
+                "content": {
+                  "title": { "enabled": true, "value": "A garage, a rebuilt drum, and a lot of Wednesdays", "align": "center" },
+                  "subtitle": { "enabled": true, "value": "How a spare-parts Probat and a stubborn habit turned into the little roaster on Riverside Ave.", "align": "center" },
+                  "cta": { "enabled": false, "label": "", "link": { "linkType": "page", "pageSlug": "our-story" }, "align": "center" },
+                  "image": { "enabled": false, "url": "", "side": "right", "layout": "contained" }
+                },
+                "background": {
+                  "type": "gradient",
+                  "gradient": { "from": "palette:accent", "to": "#ffffff", "angle": 130 }
+                }
+              }
+            ],
+            "transition": { "type": "none", "intervalSec": 6, "pauseOnHover": true },
+            "height": {
+              "desktop": { "mode": "fitContent", "valuePx": 440, "revealNext": 1 },
+              "tablet": { "mode": "fitContent", "valuePx": 380, "revealNext": 1 },
+              "mobile": { "mode": "fitContent", "valuePx": 340, "revealNext": 0 }
+            }
+          }
+        },
+        {
+          "blockType": "aboutImageText",
+          "data": {
+            "title": "It started with a drum nobody else wanted",
+            "description": "In 2011 Marisol Vega hauled a dead 1970s Probat out of a shuttered bakery, spent a winter rebuilding it in a Riverside garage, and started roasting two kilos at a time for friends who'd pay in cash and honest feedback. The garage overflowed, the cafe opened three years later, and we've kept the same rule ever since: roast small, roast honest, and never ship a bag we wouldn't brew ourselves.",
+            "items": [
+              "Two-barrel roaster, no giant automated lines",
+              "Direct relationships with farms in Huila and Nariño",
+              "The original rebuilt Probat still runs every batch"
+            ],
+            "image": "",
+            "imagePosition": "right",
+            "splitRatio": "50-50",
+            "mobileStackOrder": "image-first",
+            "variant": "landscape",
+            "mediaTreatment": "framed",
+            "textAlign": "left",
+            "imageCaption": "The rebuilt Probat on its first roast day, 2011.",
+            "pretextEnabled": true,
+            "pretext": "Since 2011",
+            "pretextStyle": "pill",
+            "pretextAlignment": "left"
+          }
+        },
+        {
+          "blockType": "aboutImageText",
+          "data": {
+            "title": "We pay for the good stuff, and we tell you what it cost",
+            "description": "Every micro-lot we buy is traceable to a farm or co-op, and we print the green price we paid on the inside of the bag. It's not a marketing flex — it's the whole point. Good coffee starts with a farmer who nailed the harvest and got paid fairly for it, and our job is to not be the weak link between their work and your kitchen.",
+            "items": [
+              "Green price printed inside every bag",
+              "Multi-year relationships, not one-off spot buys",
+              "Seasonal lots so you drink coffee at its peak"
+            ],
+            "image": "",
+            "imagePosition": "left",
+            "splitRatio": "60-40",
+            "mobileStackOrder": "text-first",
+            "variant": "square",
+            "mediaTreatment": "soft",
+            "textAlign": "left",
+            "backgroundColor": "palette:accent",
+            "pretextEnabled": true,
+            "pretext": "Sourcing",
+            "pretextStyle": "outline",
+            "pretextAlignment": "left"
+          }
+        },
+        {
+          "blockType": "timeline",
+          "data": {
+            "title": "Third gear, engaged",
+            "subtitle": "The short version of a long habit.",
+            "variant": "centered",
+            "items": [
+              { "title": "The garage batches", "organization": "Riverside Ave garage", "dateRange": "2011", "description": "Marisol rebuilds a dead 1970s Probat and starts roasting two kilos at a time for friends and neighbours.", "tags": ["origins", "rebuilt Probat"] },
+              { "title": "The first wholesale account", "organization": "Loom Cafe", "dateRange": "2013", "description": "A neighbourhood cafe puts our Balanced lot on their espresso bar; word travels down the east side fast.", "tags": ["wholesale", "espresso"] },
+              { "title": "The Riverside cafe opens", "organization": "Third Gear Coffee Roasters", "dateRange": "2014", "description": "We knock a hole in the wall so guests can watch the drum run, and start pulling shots to order.", "tags": ["cafe", "milestone"] },
+              { "title": "Subscriptions go live", "organization": "Third Gear online", "dateRange": "2018", "description": "Fresh-batch Wednesdays become a shipping ritual, sending roast-to-order bags across Canada.", "tags": ["subscription", "shipping"] },
+              { "title": "Direct-trade micro-lots", "organization": "Huila & Nariño partners", "dateRange": "2021", "description": "We lock in multi-year relationships with two Colombian producers and start printing the green price inside the bag.", "tags": ["sourcing", "transparency"] }
+            ],
+            "cardStyle": "editorial",
+            "spacingDensity": "standard"
+          }
+        },
+        {
+          "blockType": "gallery",
+          "data": {
+            "title": "Inside the Riverside shop",
+            "subtitle": "Roast day, the bar, and the mess in between.",
+            "columns": 3,
+            "frameStyle": "editorial",
+            "mediaAspect": "square",
+            "showLightboxNav": true,
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "team",
+          "data": {
+            "title": "The crew behind the drum",
+            "subtitle": "Small shop, big opinions, zero attitude at the bar.",
+            "variant": "cards",
+            "columns": 3,
+            "showBio": true,
+            "members": [
+              { "name": "Marisol Vega", "role": "Founder & Head Roaster", "bio": "Rebuilt the original Probat by hand and still runs every fresh-batch Wednesday personally.", "image": "" },
+              { "name": "Andre Okafor", "role": "Green Buyer & Wholesale", "bio": "Handles the farm relationships and can talk harvest lots until your coffee goes cold.", "image": "" },
+              { "name": "Sasha Lindqvist", "role": "Cafe Lead & Trainer", "bio": "Runs the bar, dials in the espresso daily, and teaches the home-brew bench sessions.", "image": "" }
+            ]
+          }
+        },
+        {
+          "blockType": "contact",
+          "data": {
+            "title": "Come by, or say hi",
+            "subtitle": "Find us on Riverside Ave, or reach out about wholesale and dial-in sessions.",
+            "phone": "(555) 214-0071",
+            "email": "hello@thirdgearcoffee.ca",
+            "address": "418 Riverside Ave, East Side",
+            "hours": "Mon-Fri 7am-4pm, Sat-Sun 8am-3pm",
+            "cardStyle": "bordered",
+            "spacingDensity": "standard",
+            "backgroundColor": "palette:accent"
+          }
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "tone": "playful, punchy, confident, coffee-nerdy, friendly",
+    "structureNotes": "Home deliberately breaks the generic hero->services->testimonials->cta pattern by leading with a punchy centered hero, then a stats banner and tabBar 'roast board' moment, then product-first commerce (productGrid) before any narrative, pushing servicesGrid, a single featuredQuote, deliveryLinks, testimonials, and faq below the fold to keep the beans front and center.",
+    "tags": ["coffee", "roaster", "cafe", "ecommerce", "subscription", "bold-retro", "high-contrast", "playful", "food", "products", "single-origin"]
+  }
+}

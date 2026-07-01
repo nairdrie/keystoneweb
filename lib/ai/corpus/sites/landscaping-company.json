@@ -1,0 +1,395 @@
+{
+  "slug": "landscaping-company",
+  "category": "landscaping",
+  "businessType": "services",
+  "styleFamily": "natural-earthy-trust",
+  "siteTitle": "Cedar & Slate Landscapes",
+  "voice": "Dependable, craftsmanly, and quietly proud — a family-run crew that talks about soil, seasons, and stonework the way a good neighbor would.",
+  "designTokens": {
+    "customColors": { "primary": "#2A2620", "secondary": "#2F5233", "accent": "#E9E5DC" },
+    "fonts": { "heading": "Merriweather", "body": "Source Sans 3" },
+    "headerConfig": {
+      "bgType": "white",
+      "logoPosition": "left",
+      "navPosition": "right",
+      "desktopMenuStyle": "inline",
+      "rightElement": "cta",
+      "sticky": true,
+      "layout": "default"
+    },
+    "paletteMood": "Weathered stone and deep evergreen with warm bark undertones — grounded, seasonal, and unhurried."
+  },
+  "pages": [
+    {
+      "slug": "home",
+      "title": "Home",
+      "role": "home",
+      "blocks": [
+        {
+          "blockType": "hero",
+          "data": {
+            "cards": [
+              {
+                "id": "hero-1",
+                "content": {
+                  "title": { "enabled": true, "value": "Gardens built to last the seasons in the Fraser Valley", "align": "left" },
+                  "subtitle": { "enabled": true, "value": "Cedar & Slate is a family-run landscaping and garden-design crew in Langley, BC, designing, installing, and maintaining residential yards — from perennial borders to dry-laid flagstone patios.", "align": "left" },
+                  "cta": { "enabled": true, "label": "Book a free on-site estimate", "link": { "linkType": "page", "pageSlug": "estimate" }, "align": "left" },
+                  "image": { "enabled": true, "url": "", "side": "right", "layout": "split" }
+                },
+                "background": {
+                  "type": "gradient",
+                  "gradient": { "from": "palette:accent", "to": "#ffffff", "angle": 135 }
+                }
+              }
+            ],
+            "transition": { "type": "fade", "intervalSec": 6, "pauseOnHover": true },
+            "height": {
+              "desktop": { "mode": "fitScreen", "valuePx": 720, "revealNext": 1 },
+              "tablet": { "mode": "fitContent", "valuePx": 560, "revealNext": 0 },
+              "mobile": { "mode": "fitContent", "valuePx": 480, "revealNext": 0 }
+            }
+          }
+        },
+        {
+          "blockType": "gallery",
+          "data": {
+            "pretext": "Before & after",
+            "pretextEnabled": true,
+            "pretextStyle": "underline",
+            "pretextAlignment": "left",
+            "title": "Yards we've reshaped, one weekend at a time",
+            "subtitle": "A few Langley and Fort Langley properties we took from tired lawn to living garden — hover any image to see the transformation up close.",
+            "columns": 3,
+            "frameStyle": "editorial",
+            "mediaAspect": "landscape",
+            "showLightboxNav": true,
+            "showLightboxThumbs": true,
+            "showSeeMore": true,
+            "seeMore": "See the full project archive",
+            "seeMoreLink": { "linkType": "page", "pageSlug": "projects" },
+            "backgroundColor": ""
+          }
+        },
+        {
+          "blockType": "servicesGrid",
+          "data": {
+            "pretext": "What we do",
+            "pretextEnabled": true,
+            "pretextStyle": "text",
+            "pretextAlignment": "left",
+            "title": "Four hands on every job, from first sketch to final rake",
+            "subtitle": "We keep the crew small on purpose — the same people who design your garden are the ones planting it and coming back to prune it.",
+            "items": [
+              { "title": "Garden design & planting plans", "description": "We measure your sun, soil, and drainage, then hand-draw a planting plan built around species that thrive in Zone 8 coastal BC — native sword fern and salal for shade, lavender and rudbeckia for the hot south beds. You get a colour plan by mail before a single shovel moves." },
+              { "title": "Full landscape installation", "description": "Our crew handles grading, amended-soil beds, irrigation lines, and every plant in the ground with a two-season replacement guarantee. We stage the work so your yard is usable each evening, never a mud pit for weeks on end." },
+              { "title": "Seasonal maintenance & pruning", "description": "Monthly or bi-weekly visits covering spring cutbacks, summer deadheading, fall leaf clearing, and dormant-season structural pruning of Japanese maples and fruit trees. We track each property's plants in a shared care log so nothing gets missed." },
+              { "title": "Hardscaping & dry-laid stone", "description": "Flagstone patios, basalt steppers, cedar raised beds, and mortarless retaining walls built to shed our winter rain. We source local Fraser Valley basalt and reclaimed granite so the stonework looks like it was always part of the property." },
+              { "title": "Drainage & regrading", "description": "French drains, dry creek beds, and re-sloped beds that pull standing water away from foundations — the fix most Valley yards actually need before anything else gets planted. We solve the water first, then make it beautiful." },
+              { "title": "Lawn renovation & native lawn alternatives", "description": "Core aeration, overseeding with a coastal shade blend, and for water-conscious clients, micro-clover and yarrow lawns that stay green through the August dry spell without a sprinkler running daily." }
+            ],
+            "ctaText": "See how a project comes together",
+            "ctaTextLink": { "linkType": "page", "pageSlug": "projects" },
+            "cardStyle": "editorial",
+            "surfaceStyle": "accent",
+            "markerStyle": "numbered",
+            "spacingDensity": "spacious",
+            "textAlign": "left",
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "timeline",
+          "data": {
+            "pretext": "How it works",
+            "pretextEnabled": true,
+            "pretextStyle": "pill",
+            "pretextAlignment": "center",
+            "title": "From first walk-through to the final watering-in",
+            "subtitle": "Every project moves through the same five steps, so you always know what's happening in your yard and what comes next.",
+            "variant": "centered",
+            "items": [
+              { "title": "On-site walk & free estimate", "organization": "Week 1", "dateRange": "Day 1", "description": "We spend an hour in your yard with a moisture meter and a tape, talk through how you actually use the space, and leave you with a written estimate — no charge, no pressure.", "tags": ["site visit", "soil check", "budget"] },
+              { "title": "Design & planting plan", "organization": "Weeks 2–3", "dateRange": "Design phase", "description": "You receive a hand-drawn layout, a plant list with photos, and a materials breakdown. We revise once at no cost until the plan feels like yours.", "tags": ["drawings", "plant list", "one free revision"] },
+              { "title": "Ground prep & hardscaping", "organization": "Install week 1", "dateRange": "Build phase", "description": "Grading, drainage, edging, and any stone or cedar structures go in first, while the beds are still open and easy to work.", "tags": ["grading", "drainage", "stonework"] },
+              { "title": "Planting & irrigation", "organization": "Install week 2", "dateRange": "Build phase", "description": "Amended soil, every plant set by hand, mulch, and drip lines tuned to each zone. We walk you through the watering schedule before we leave.", "tags": ["planting", "mulch", "drip irrigation"] },
+              { "title": "Season-one check-ins", "organization": "Months 1–12", "dateRange": "After install", "description": "We come back at the 30-day and end-of-season marks to adjust, replace anything under the guarantee, and set your maintenance rhythm.", "tags": ["follow-up", "guarantee", "care log"] }
+            ],
+            "cardStyle": "soft",
+            "surfaceStyle": "white",
+            "spacingDensity": "standard",
+            "backgroundColor": ""
+          }
+        },
+        {
+          "blockType": "stats",
+          "data": {
+            "title": "A local crew with a lot of Valley springs behind us",
+            "variant": "banner",
+            "items": [
+              { "value": "17", "label": "years landscaping the Fraser Valley" },
+              { "value": "480+", "label": "residential gardens designed & installed" },
+              { "value": "2 seasons", "label": "plant replacement guarantee on every install" },
+              { "value": "48 hrs", "label": "average reply to an estimate request" }
+            ],
+            "spacingDensity": "standard",
+            "textAlign": "center",
+            "backgroundColor": "palette:primary"
+          }
+        },
+        {
+          "blockType": "featuredQuote",
+          "data": {
+            "variant": "split",
+            "eyebrow": "From a Fort Langley client",
+            "quote": "They spent the first visit just watching where the water pooled, then built a dry creek bed that solved a problem three other companies wanted to bury under sod. Two winters later the back garden finally drains — and it's the prettiest part of our yard.",
+            "personName": "Marianne D.",
+            "personTitle": "Homeowner, Fort Langley",
+            "personContext": "Full backyard regrade, dry creek bed, and native shade border",
+            "personImage": "",
+            "imagePosition": "left",
+            "backgroundColor": ""
+          }
+        },
+        {
+          "blockType": "cta",
+          "data": {
+            "pretext": "No cost, no pressure",
+            "pretextEnabled": true,
+            "pretextStyle": "outline",
+            "pretextAlignment": "center",
+            "title": "Walk your yard with us before the next planting window",
+            "subtitle": "Spring and early-fall install slots fill fast in Langley — book a free on-site estimate and we'll tell you honestly what your yard needs first.",
+            "buttonText": "Book a free on-site estimate",
+            "buttonTextLink": { "linkType": "page", "pageSlug": "estimate" },
+            "showPattern": true,
+            "backgroundColor": "palette:secondary"
+          }
+        }
+      ]
+    },
+    {
+      "slug": "projects",
+      "title": "Projects",
+      "role": "portfolio",
+      "blocks": [
+        {
+          "blockType": "hero",
+          "data": {
+            "cards": [
+              {
+                "id": "proj-hero",
+                "content": {
+                  "title": { "enabled": true, "value": "Projects across the Valley, from courtyard to acreage", "align": "left" },
+                  "subtitle": { "enabled": true, "value": "A closer look at Langley, Aldergrove, and Fort Langley gardens we've designed and built — and the services behind each transformation.", "align": "left" },
+                  "cta": { "enabled": true, "label": "Start your own estimate", "link": { "linkType": "page", "pageSlug": "estimate" }, "align": "left" },
+                  "image": { "enabled": true, "url": "", "side": "right", "layout": "split" }
+                },
+                "background": {
+                  "type": "gradient",
+                  "gradient": { "from": "#ffffff", "to": "palette:accent", "angle": 135 }
+                }
+              }
+            ],
+            "transition": { "type": "fade", "intervalSec": 6, "pauseOnHover": true },
+            "height": {
+              "desktop": { "mode": "manual", "valuePx": 520, "revealNext": 0 },
+              "tablet": { "mode": "fitContent", "valuePx": 440, "revealNext": 0 },
+              "mobile": { "mode": "fitContent", "valuePx": 400, "revealNext": 0 }
+            }
+          }
+        },
+        {
+          "blockType": "gallery",
+          "data": {
+            "pretext": "Selected work",
+            "pretextEnabled": true,
+            "pretextStyle": "underline",
+            "pretextAlignment": "left",
+            "title": "Twelve gardens, twelve very different backyards",
+            "subtitle": "Shade borders, sun-baked slopes, tight townhouse courtyards, and a full acreage front — each solved with the plants and stone the site actually wanted.",
+            "columns": 3,
+            "frameStyle": "poster",
+            "mediaAspect": "portrait",
+            "showLightboxNav": true,
+            "showLightboxThumbs": true,
+            "showSeeMore": false,
+            "autoScroll": false,
+            "backgroundColor": ""
+          }
+        },
+        {
+          "blockType": "servicesGrid",
+          "data": {
+            "pretext": "Behind the work",
+            "pretextEnabled": true,
+            "pretextStyle": "text",
+            "pretextAlignment": "left",
+            "title": "The services these projects were built from",
+            "subtitle": "Most gardens on this page combined two or three of these — here's what each one involves when we quote it.",
+            "items": [
+              { "title": "Design & planting plans", "description": "A hand-drawn layout matched to your light and soil, with a photo plant list so you know exactly what's going where before we plant it. Ideal for owners who want to see the vision before committing." },
+              { "title": "Landscape installation", "description": "Soil amendment, planting, mulch, and irrigation delivered by the same small crew, staged so your yard stays usable through the build and backed by our two-season plant guarantee." },
+              { "title": "Hardscaping & stonework", "description": "Dry-laid flagstone patios, basalt steppers, cedar raised beds, and mortarless retaining walls in local Fraser Valley stone that ages into the garden rather than standing apart from it." },
+              { "title": "Drainage solutions", "description": "French drains, dry creek beds, and regrading that move winter water away from the house — usually the first thing we fix on a Valley property and the one that protects everything planted after." },
+              { "title": "Seasonal maintenance", "description": "Scheduled pruning, deadheading, leaf clearing, and bed edging on a bi-weekly or monthly rhythm, with a per-property care log so the garden keeps improving year over year." },
+              { "title": "Lawn renovation & alternatives", "description": "Aeration and overseeding for tired lawns, or low-water micro-clover and yarrow lawns for owners tired of summer watering restrictions and August brown-out." }
+            ],
+            "ctaText": "Get a quote on your project",
+            "ctaTextLink": { "linkType": "page", "pageSlug": "estimate" },
+            "cardStyle": "bordered",
+            "surfaceStyle": "white",
+            "markerStyle": "accentLine",
+            "spacingDensity": "standard",
+            "textAlign": "left",
+            "backgroundColor": ""
+          }
+        },
+        {
+          "blockType": "testimonials",
+          "data": {
+            "pretext": "Neighbours' words",
+            "pretextEnabled": true,
+            "pretextStyle": "text",
+            "pretextAlignment": "center",
+            "title": "What Valley homeowners say after a season or two",
+            "subtitle": "We'd rather you hear it from the people whose yards we come back to every year.",
+            "variant": "cards",
+            "items": [
+              { "name": "Tom & Priya", "role": "Willoughby, Langley", "quote": "Our townhouse courtyard was a concrete box. They built cedar raised beds, a small basalt water feature, and a fern wall — now it's where we have coffee every morning.", "rating": 5 },
+              { "name": "Dana R.", "role": "Aldergrove acreage", "quote": "They planted a 40-metre native hedgerow along our property line for privacy and pollinators. Two years on it's full of bees and the deer leave it alone, exactly like they promised.", "rating": 5 },
+              { "name": "The Okafor family", "role": "Murrayville, Langley", "quote": "The flagstone patio they laid hasn't shifted through two freeze-thaw winters. You can tell it was dry-laid properly instead of just dropped on sand.", "rating": 5 },
+              { "name": "Sylvie B.", "role": "Fort Langley", "quote": "I'd fired two other maintenance crews before Cedar & Slate. Their care log means the same problems don't come back — my hydrangeas have never looked better.", "rating": 5 }
+            ],
+            "cardStyle": "soft",
+            "surfaceStyle": "accent",
+            "spacingDensity": "standard",
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "cta",
+          "data": {
+            "title": "See your own yard on this page next season",
+            "subtitle": "Book a free walk-through and we'll sketch what's possible — most estimates come back within two business days.",
+            "buttonText": "Request a free estimate",
+            "buttonTextLink": { "linkType": "page", "pageSlug": "estimate" },
+            "showPattern": false,
+            "backgroundColor": "palette:secondary"
+          }
+        }
+      ]
+    },
+    {
+      "slug": "estimate",
+      "title": "Free Estimate",
+      "role": "contact",
+      "blocks": [
+        {
+          "blockType": "hero",
+          "data": {
+            "cards": [
+              {
+                "id": "est-hero",
+                "content": {
+                  "title": { "enabled": true, "value": "Tell us about your yard and we'll bring the ideas", "align": "left" },
+                  "subtitle": { "enabled": true, "value": "Fill in a few details and we'll book a free on-site visit anywhere in Langley, Fort Langley, Aldergrove, or Abbotsford. No cost, and no obligation to hire us.", "align": "left" },
+                  "cta": { "enabled": false, "label": "", "link": { "linkType": "section" }, "align": "left" },
+                  "image": { "enabled": true, "url": "", "side": "right", "layout": "split" }
+                },
+                "background": {
+                  "type": "gradient",
+                  "gradient": { "from": "palette:accent", "to": "#ffffff", "angle": 135 }
+                }
+              }
+            ],
+            "transition": { "type": "none", "intervalSec": 6, "pauseOnHover": false },
+            "height": {
+              "desktop": { "mode": "fitContent", "valuePx": 440, "revealNext": 1 },
+              "tablet": { "mode": "fitContent", "valuePx": 400, "revealNext": 0 },
+              "mobile": { "mode": "fitContent", "valuePx": 360, "revealNext": 0 }
+            }
+          }
+        },
+        {
+          "blockType": "estimateForm",
+          "data": {
+            "title": "Get your free landscaping estimate",
+            "description": "The more you tell us, the more useful our first visit will be. We read every request ourselves — you'll hear back from Owen or Rachel, not a call centre.",
+            "submitText": "Send my estimate request",
+            "successMessage": "Thanks — we've got it. Owen or Rachel will reach out within two business days to book your free on-site visit.",
+            "variant": "calculator",
+            "fields": [
+              { "id": "project_type", "label": "What are you hoping to do?", "type": "select", "required": true, "options": ["New garden design & planting", "Full landscape installation", "Patio, path, or stonework", "Drainage or regrading", "Ongoing maintenance", "Lawn renovation or alternative", "Not sure yet — need advice"] },
+              { "id": "yard_size", "label": "Approximate area to work on (sq ft)", "type": "number", "required": false, "unit": "sq ft" },
+              { "id": "sun", "label": "How much sun does the space get?", "type": "select", "required": false, "options": ["Full sun (6+ hrs)", "Part sun / part shade", "Mostly shade", "A mix across the yard"] },
+              { "id": "timeline", "label": "When would you like to start?", "type": "select", "required": false, "options": ["This season if possible", "Next planting window", "Just planning ahead", "Flexible"] },
+              { "id": "details", "label": "Anything else about your yard or wish list?", "type": "textarea", "required": false }
+            ],
+            "pricingEnabled": true,
+            "pricingBasePrice": 350000,
+            "pricingCurrency": "CAD",
+            "pricingRangeSpread": 0.4,
+            "pricingDisclaimer": "This is a rough planning range only, based on typical Fraser Valley projects of this type. Your real quote comes after we've walked the yard — there's no charge for that visit.",
+            "showName": true,
+            "showEmail": true,
+            "showPhone": true,
+            "showAddress": true,
+            "showPreferredDate": true,
+            "showMessage": false,
+            "cardStyle": "elevated",
+            "surfaceStyle": "white"
+          }
+        },
+        {
+          "blockType": "faq",
+          "data": {
+            "pretext": "Good to know",
+            "pretextEnabled": true,
+            "pretextStyle": "underline",
+            "pretextAlignment": "left",
+            "title": "Questions Valley homeowners ask before they call",
+            "subtitle": "If yours isn't here, put it in the form above and we'll answer it in our reply.",
+            "items": [
+              { "question": "Is the on-site estimate really free?", "answer": "Yes. We come out, walk the yard, talk through options, and leave you with a written estimate at no charge. We only bill once you've approved a plan and we've started work." },
+              { "question": "What areas do you serve?", "answer": "We work across Langley, Fort Langley, Aldergrove, Murrayville, and parts of Abbotsford. If you're just outside that ring, ask — we sometimes take projects a little further for the right fit." },
+              { "question": "How much does a typical project cost?", "answer": "Small refresh plantings often land in the low thousands, while a full design-and-install with stonework runs higher. The calculator above gives a rough range; your real number depends on soil, access, and materials, which is exactly what the free visit sorts out." },
+              { "question": "When's the best time to plant?", "answer": "Coastal BC gives us two strong windows — early spring and early fall, when roots establish before heat or frost. We can install in summer too, but those beds need closer watering, which we'll factor into the plan." },
+              { "question": "Do you guarantee the plants?", "answer": "Every install includes a two-season replacement guarantee on the plants we supply and plant. If something we put in doesn't make it through establishment and it isn't down to neglect, we replace it." },
+              { "question": "Can you just maintain a garden someone else designed?", "answer": "Absolutely. Plenty of our maintenance clients inherited their gardens. We'll do a first assessment visit, build a care log for the property, and take it from there on a bi-weekly or monthly schedule." },
+              { "question": "How soon can you start?", "answer": "In peak spring and fall our install calendar books three to five weeks out, so the earlier you request an estimate the better your odds of hitting the planting window. Maintenance and small jobs we can usually slot in faster." }
+            ],
+            "cardStyle": "minimal",
+            "surfaceStyle": "accent",
+            "spacingDensity": "standard",
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "contact",
+          "data": {
+            "pretext": "Reach us directly",
+            "pretextEnabled": true,
+            "pretextStyle": "text",
+            "pretextAlignment": "left",
+            "title": "Or just pick up the phone",
+            "subtitle": "We keep shop hours through the growing season and answer messages ourselves in the off-season.",
+            "phone": "(604) 555-0182",
+            "email": "hello@cedarandslate.ca",
+            "address": "Shop & yard: 219 Glover Road, Fort Langley, BC",
+            "hours": "Mon–Fri 7:30am–5pm · Sat 8am–noon (Mar–Oct) · Closed Sun",
+            "cardStyle": "bordered",
+            "surfaceStyle": "white",
+            "spacingDensity": "standard",
+            "backgroundColor": ""
+          }
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "tone": "dependable, craftsmanly, local, seasons-aware, unhurried",
+    "structureNotes": "Home leads with an image-forward split hero straight into a before/after gallery to prove craft before pitching services, then servicesGrid, a process timeline, banner stats, exactly one featuredQuote, and a closing estimate CTA — deliberately front-loading visual proof and process over the generic hero->services->testimonials->cta order.",
+    "tags": ["landscaping", "garden-design", "hardscaping", "maintenance", "residential", "earthy", "natural", "trust", "seasonal", "local-services", "fraser-valley", "before-after-gallery", "free-estimate"]
+  }
+}

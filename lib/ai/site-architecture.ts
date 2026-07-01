@@ -1,8 +1,10 @@
 import {
   getBuilderBlockDisplayName,
   resolveBuilderBlock,
+  resolveBuilderBlockByType,
   type KeystoneBlockDisplayName,
 } from '@/lib/builder/existing-blocks';
+import type { RetrievedExemplar } from './rag/types';
 
 export type ArchitectureBusinessType = 'services' | 'products' | 'portfolio' | 'nonprofit' | 'other';
 
@@ -67,6 +69,135 @@ export function buildSiteArchitecture(input: SiteArchitectureInput): SiteArchite
   architecture = addCompatibleRequestedPages(architecture, requested, category);
 
   return architecture;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Retrieval-driven architecture (RAG). This is the "unlocked skeleton": instead
+// of collapsing every business into one of a handful of hardcoded shapes, the
+// page/block structure comes from a retrieved corpus exemplar. Structure now
+// VARIES per site (different pages, block sets, and orderings) while staying
+// within valid, resolvable block types. Falls back to the deterministic builder
+// if the exemplar yields nothing usable.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const BLOCK_PURPOSES: Record<string, string> = {
+  hero: 'Set the positioning and primary action.',
+  servicesGrid: 'Present the core services or offerings.',
+  featuresList: 'Explain differentiators and trust factors.',
+  aboutImageText: 'Tell the story, approach, or people behind the business.',
+  testimonials: 'Add social proof.',
+  featuredQuote: 'Add a strong quote, statement, or single testimonial.',
+  stats: 'Show scannable credibility numbers.',
+  faq: 'Answer common questions.',
+  pricing: 'Show packages, plans, or price ranges.',
+  cta: 'Drive the next action.',
+  gallery: 'Show work, product, or space.',
+  carousel: 'Highlight selected moments, projects, or items.',
+  productGrid: 'Show products from the managed catalog.',
+  menu: 'Show the managed menu.',
+  deliveryLinks: 'Offer ordering or delivery links.',
+  booking: 'Let visitors book via the managed flow.',
+  team: 'Introduce the people.',
+  timeline: 'Show milestones, experience, or process steps.',
+  logoCloud: 'Show partners, clients, or press.',
+  tabBar: 'Provide in-page navigation or a schedule.',
+  contact: 'Show contact details and hours.',
+  contact_form: 'Collect inquiries.',
+  estimateForm: 'Collect quote requests.',
+  map: 'Show the location.',
+  blog: 'Show the managed article feed.',
+  events: 'Show upcoming events.',
+  resources: 'Share helpful links or documents.',
+  video: 'Embed a video.',
+};
+
+function purposeForBlock(blockType: string): string {
+  return BLOCK_PURPOSES[blockType] ?? 'Support this section of the page.';
+}
+
+function blocksFromTypes(blockTypes: string[] | undefined): ArchitectureBlock[] {
+  const out: ArchitectureBlock[] = [];
+  for (const bt of blockTypes ?? []) {
+    const resolved = resolveBuilderBlockByType(bt);
+    if (!resolved) continue; // silently drop unknown block types
+    out.push({
+      displayName: resolved.displayName,
+      blockType: resolved.internalType,
+      purpose: purposeForBlock(resolved.internalType),
+      required: false,
+    });
+  }
+  return out;
+}
+
+/**
+ * Build a full site architecture from a retrieved corpus exemplar. The exemplar
+ * supplies the page set + per-page block composition; requested pages are still
+ * merged in. Returns the deterministic architecture if nothing valid maps.
+ */
+export function buildArchitectureFromExemplar(
+  exemplar: RetrievedExemplar,
+  input: SiteArchitectureInput,
+): SiteArchitecture {
+  const requested = normalizeRequestedPages(input.requestedPageIds, input.requestedPageLabels);
+  const category =
+    normalizeCategory(input.category) ||
+    normalizeCategory(exemplar.category) ||
+    inferCategory(input.description, input.requestedPageLabels);
+  const businessType =
+    normalizeBusinessType(input.businessType) ||
+    normalizeBusinessType(exemplar.businessType) ||
+    inferBusinessType(category, input.description);
+  const categoryLabel = labelForCategory(category);
+
+  const mapped: ArchitecturePage[] = [];
+  for (const p of exemplar.pages ?? []) {
+    const blocks = blocksFromTypes(p.blockTypes);
+    if (blocks.length === 0) continue;
+    const title = p.title || titleFromSlug(p.slug);
+    const isHome = p.slug === 'home' || p.role === 'home';
+    const brief = isHome
+      ? exemplar.structureNotes || `Introduce ${exemplar.siteTitle || categoryLabel} with a strong first impression and a clear next step.`
+      : `${title} page for the ${categoryLabel.toLowerCase()} site.`;
+    mapped.push(
+      compactArchitecturePage(
+        page(p.slug, title, p.displayName || title, p.role || p.slug, brief, blocks),
+      ),
+    );
+  }
+
+  if (mapped.length === 0) {
+    // Nothing usable in the exemplar — fall back to the deterministic pipeline.
+    return buildSiteArchitecture(input);
+  }
+
+  let homeIdx = mapped.findIndex((p) => p.slug === 'home' || p.role === 'home');
+  if (homeIdx === -1) homeIdx = 0;
+  const home: ArchitecturePage = { ...mapped[homeIdx], slug: 'home', role: 'home' };
+  const pages = mapped.filter((_, i) => i !== homeIdx);
+
+  const allTypes = new Set<string>(
+    [...home.blocks, ...pages.flatMap((p) => p.blocks)].map((b) => b.blockType),
+  );
+
+  const architecture: SiteArchitecture = {
+    businessType,
+    category,
+    categoryLabel,
+    home,
+    pages,
+    managedContent: {
+      products: allTypes.has('productGrid'),
+      menu: allTypes.has('menu'),
+      booking: allTypes.has('booking') || requested.has('booking'),
+      blog: allTypes.has('blog'),
+      events: allTypes.has('events'),
+      membership: allTypes.has('membershipGate') || requested.has('membership'),
+    },
+    forbiddenBlockTypes: [],
+  };
+
+  return addCompatibleRequestedPages(architecture, requested, category);
 }
 
 export function renderArchitectureForAi(architecture: SiteArchitecture): string {
@@ -635,6 +766,24 @@ function inferCategory(description?: string | null, labels?: string[] | null): s
     ['photographer', /\b(photo|photographer|portfolio)\b/],
     ['nonprofit', /\b(nonprofit|non[_ ]profit|charity|foundation|association|community)\b/],
     ['blog', /\b(blog|publication|newsletter|articles)\b/],
+    // Appended long-tail patterns — only fire when none of the above match, so
+    // existing behaviour is preserved while more of the tail escapes "general".
+    ['dental', /\b(dental|dentist|orthodont|teeth|oral care)\b/],
+    ['legal', /\b(law firm|lawyer|attorney|legal|solicitor|counsel|litigation|paralegal)\b/],
+    ['medical', /\b(clinic|medical|doctor|physician|health care|healthcare|chiropract|dermatolog|optometr|veterinar|vet clinic)\b/],
+    ['realestate', /\b(real estate|realtor|realty|property|properties|mortgage|brokerage)\b/],
+    ['landscaping', /\b(landscap|lawn|garden|hardscap|tree service|irrigation)\b/],
+    ['saas', /\b(saas|software|app|platform|api|analytics|dashboard|developer|b2b tech)\b/],
+    ['wellness', /\b(wellness|meditation|mindfulness|therapy|counsel(l?)ing|holistic|acupunctur)\b/],
+    ['automotive', /\b(auto|automotive|mechanic|car repair|garage|tire|detailing|body shop)\b/],
+    ['cleaning', /\b(cleaning|janitorial|maid|housekeep|carpet clean)\b/],
+    ['catering', /\b(catering|caterer|private chef|meal prep)\b/],
+    ['events', /\b(event|wedding planner|party|venue|dj|florist|florals)\b/],
+    ['education', /\b(tutor|tutoring|school|academy|course|education|learning|music lesson)\b/],
+    ['pet', /\b(pet|dog|grooming|veterinary|kennel|boarding)\b/],
+    ['construction', /\b(construction|contractor|remodel|renovation|builder|roofing|carpentry|general contractor)\b/],
+    ['realestate', /\b(interior design|home staging|architect|architecture studio)\b/],
+    ['agency', /\b(marketing agency|creative agency|branding|advertising|seo agency|social media agency)\b/],
   ];
   return checks.find(([, pattern]) => pattern.test(text))?.[0] ?? 'general';
 }
@@ -656,6 +805,7 @@ function labelForCategory(category: string): string {
     nonprofit: 'Non-Profit',
     realestate: 'Real Estate',
     restaurant: 'Restaurant',
+    saas: 'SaaS',
     general: 'General',
   };
   return labels[category] ?? titleFromSlug(category.replace(/_/g, '-'));

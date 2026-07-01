@@ -1,0 +1,349 @@
+{
+  "slug": "yoga-wellness-studio",
+  "category": "wellness",
+  "businessType": "booking",
+  "styleFamily": "soft-botanical-calm",
+  "siteTitle": "Fernrow Yoga",
+  "voice": "Calm, grounded, and unpretentious — a neighborhood studio that speaks like a knowing friend, never a wellness brand shouting about transformation.",
+  "designTokens": {
+    "customColors": { "primary": "#3A4133", "secondary": "#7C8B6F", "accent": "#F3F1E7" },
+    "fonts": { "heading": "Sora", "body": "Inter" },
+    "headerConfig": {
+      "bgType": "white",
+      "layout": "centeredAboveNav",
+      "logoPosition": "center",
+      "navPosition": "center",
+      "desktopMenuStyle": "inline",
+      "rightElement": "cta",
+      "sticky": "always",
+      "navFontSize": "0.95rem",
+      "navFontWeight": "500"
+    },
+    "paletteMood": "Sun-warmed sage and oat-cream with a whisper of clay pink — like linen curtains and a potted fern in morning light."
+  },
+  "pages": [
+    {
+      "slug": "home",
+      "title": "Home",
+      "role": "home",
+      "blocks": [
+        {
+          "blockType": "hero",
+          "data": {
+            "cards": [
+              {
+                "id": "hero-1",
+                "content": {
+                  "title": { "enabled": true, "value": "A quiet studio for a busy neighborhood", "align": "left" },
+                  "subtitle": { "enabled": true, "value": "Fernrow is a small yoga and wellness studio on Alberni Street in Vancouver's West End — vinyasa, restorative, and prenatal classes in a bright, plant-filled room with room for sixteen mats.", "align": "left" },
+                  "cta": { "enabled": true, "label": "See this week's schedule", "link": { "linkType": "page", "pageSlug": "classes" }, "align": "left" },
+                  "image": { "enabled": true, "url": "", "side": "right", "layout": "split" }
+                },
+                "background": {
+                  "type": "gradient",
+                  "gradient": { "from": "palette:accent", "to": "#ffffff", "angle": 135 }
+                }
+              }
+            ],
+            "transition": { "type": "fade", "intervalSec": 6, "pauseOnHover": true },
+            "height": {
+              "desktop": { "mode": "fitContent", "revealNext": 1 },
+              "tablet": { "mode": "fitContent", "revealNext": 1 },
+              "mobile": { "mode": "fitContent", "revealNext": 0 }
+            }
+          }
+        },
+        {
+          "blockType": "aboutImageText",
+          "data": {
+            "pretext": "Our philosophy",
+            "pretextEnabled": true,
+            "pretextStyle": "underline",
+            "pretextAlignment": "left",
+            "title": "Yoga that meets you where your week left off",
+            "description": "Fernrow started in 2016 above the old flower shop on Alberni, and we've kept the whole thing deliberately small. There's no wall of mirrors, no leaderboards, no upsell at the door. Just cork floors that stay warm underfoot, a teacher who knows your name by the third visit, and permission to have an off day. We think a class should feel like exhaling after holding your breath on the SkyTrain — not one more thing to be good at.",
+            "items": [
+              "Small classes capped at 16 mats so teachers can actually adjust and see you",
+              "Cork flooring, wool bolsters, and props for every body — nothing to buy at the door",
+              "A come-as-you-are room: no experience, no flexibility, and no matching outfit required"
+            ],
+            "image": "",
+            "imagePosition": "left",
+            "splitRatio": "50-50",
+            "mobileStackOrder": "image-first",
+            "variant": "tall",
+            "mediaTreatment": "soft",
+            "textAlign": "left",
+            "imageCaption": "The Alberni Street room, mid-morning",
+            "backgroundColor": ""
+          }
+        },
+        {
+          "blockType": "servicesGrid",
+          "data": {
+            "pretext": "Class types",
+            "pretextEnabled": true,
+            "pretextStyle": "pill",
+            "pretextAlignment": "left",
+            "title": "Six ways to spend an hour on the mat",
+            "subtitle": "From a brisk 7am mobility class to Sunday candlelit restorative, here's the range we teach. Every one is drop-in friendly, and teachers cue a slower and a stronger option for each pose so a first-timer and a ten-year regular share the same room happily.",
+            "items": [
+              { "title": "Slow Flow Vinyasa", "description": "A breath-led sequence that builds heat gradually and lingers in each shape a beat longer than most flow classes. Our most popular class, and the easiest place to start if you've never taken vinyasa before." },
+              { "title": "Restorative & Yin", "description": "Ninety minutes of long, propped holds by candlelight on Sunday evenings. You'll use four bolsters and a wool blanket and likely leave a little wobbly, in the best way." },
+              { "title": "Prenatal Yoga", "description": "A gentle, second- and third-trimester-safe practice focused on hips, breath, and the low back, taught by Priya, who is also a registered doula. Partners welcome for the final two weeks before a due date." },
+              { "title": "Morning Mobility", "description": "A brisk 45-minute 7am class built around joint mobility and simple strength — designed for stiff desk bodies and people who want to be at work by nine." },
+              { "title": "Gentle Foundations", "description": "A truly beginner-paced class that breaks down alignment, breath, and the twelve poses that show up everywhere else. No flow, no rush, lots of questions encouraged." },
+              { "title": "Candlelit Meditation", "description": "A 30-minute seated and reclined practice with guided breathwork and a long closing rest. Free for members, and the quietest half hour in the West End on a Thursday." }
+            ],
+            "ctaText": "View class times and book",
+            "ctaTextLink": { "linkType": "page", "pageSlug": "classes" },
+            "cardStyle": "soft",
+            "surfaceStyle": "white",
+            "markerStyle": "accentLine",
+            "spacingDensity": "spacious",
+            "textAlign": "left",
+            "backgroundColor": ""
+          }
+        },
+        {
+          "blockType": "stats",
+          "data": {
+            "title": "Ten years on Alberni Street",
+            "variant": "banner",
+            "items": [
+              { "value": "2016", "label": "Year we opened above the flower shop" },
+              { "value": "16", "label": "Mats per class, on purpose" },
+              { "value": "40+", "label": "Classes on the schedule each week" },
+              { "value": "7", "label": "Teachers, all 500-hour certified" }
+            ],
+            "spacingDensity": "standard",
+            "backgroundColor": "palette:primary"
+          }
+        },
+        {
+          "blockType": "testimonials",
+          "data": {
+            "pretext": "From the community",
+            "pretextEnabled": true,
+            "pretextStyle": "text",
+            "title": "What regulars say after a few weeks",
+            "subtitle": "Most people find Fernrow because a neighbour dragged them along — here's what a few of them told us once they'd stayed.",
+            "variant": "cards",
+            "items": [
+              { "name": "Dani", "role": "Slow Flow regular, two years", "quote": "I came in with a cranky lower back from cycling to work and left the first Slow Flow class feeling like someone had unclenched my whole spine. Maya actually watched me and gave me a strap instead of a correction. I've barely missed a Tuesday since.", "rating": 5 },
+              { "name": "Theo", "role": "Morning Mobility, most weekdays", "quote": "I'm a developer who sits eleven hours a day and I'm about as flexible as a fence post. The 7am mobility class is the only reason my hips still work. It's 45 minutes, it's not precious about it, and I'm at my desk by nine.", "rating": 5 },
+              { "name": "Priyanka", "role": "Took the prenatal series", "quote": "I did Priya's prenatal class from week 18 right up to my due date. She's a doula, so it was practical and calm, never woo — the hip work genuinely got me through late pregnancy and I made two friends I still see at baby yoga.", "rating": 5 },
+              { "name": "Marcus", "role": "Sunday Restorative", "quote": "I was skeptical that lying on bolsters counted as anything. Then I slept through the night for the first time in months. Now Sunday Restorative is non-negotiable — it's the reset before the work week that I didn't know I needed.", "rating": 5 }
+            ],
+            "cardStyle": "editorial",
+            "surfaceStyle": "accent",
+            "spacingDensity": "standard",
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "cta",
+          "data": {
+            "title": "Your first class is $10 — mat and props included",
+            "subtitle": "New to Fernrow? Come try any class on the schedule for ten dollars. Borrow a mat, arrive five minutes early, and tell the teacher it's your first time — we'll take it from there.",
+            "buttonText": "Book your intro class",
+            "buttonTextLink": { "linkType": "page", "pageSlug": "book" },
+            "showPattern": true,
+            "backgroundColor": "palette:secondary"
+          }
+        }
+      ]
+    },
+    {
+      "slug": "classes",
+      "title": "Classes & Pricing",
+      "role": "services",
+      "blocks": [
+        {
+          "blockType": "hero",
+          "data": {
+            "cards": [
+              {
+                "id": "classes-hero",
+                "content": {
+                  "title": { "enabled": true, "value": "Classes for every body and every kind of week", "align": "left" },
+                  "subtitle": { "enabled": true, "value": "From a brisk 7am mobility class to candlelit restorative on Sunday nights — here's what we teach, and how to pay for it without a fuss.", "align": "left" },
+                  "cta": { "enabled": true, "label": "Book any class", "link": { "linkType": "page", "pageSlug": "book" }, "align": "left" },
+                  "image": { "enabled": true, "url": "", "side": "right", "layout": "split" }
+                },
+                "background": {
+                  "type": "gradient",
+                  "gradient": { "from": "#ffffff", "to": "palette:accent", "angle": 135 }
+                }
+              }
+            ],
+            "transition": { "type": "fade", "intervalSec": 6, "pauseOnHover": true },
+            "height": {
+              "desktop": { "mode": "fitContent", "revealNext": 0 },
+              "tablet": { "mode": "fitContent", "revealNext": 0 },
+              "mobile": { "mode": "fitContent", "revealNext": 0 }
+            }
+          }
+        },
+        {
+          "blockType": "servicesGrid",
+          "data": {
+            "pretext": "On the schedule",
+            "pretextEnabled": true,
+            "pretextStyle": "pill",
+            "pretextAlignment": "left",
+            "title": "The full timetable, class by class",
+            "subtitle": "Six classes run through the week, most of them daily. Teachers cue a slower and a stronger option for every pose, so the same room works whether it's your first week or your tenth year.",
+            "items": [
+              { "title": "Slow Flow Vinyasa", "description": "A breath-led sequence that builds heat gradually and holds each shape a beat longer than most flow classes. 60 minutes, our most popular class, and the easiest place to begin." },
+              { "title": "Restorative & Yin", "description": "Ninety minutes of long, propped holds by candlelight on Sunday evenings. Four bolsters, a wool blanket, and a very slow exhale into the week." },
+              { "title": "Prenatal Yoga", "description": "A second- and third-trimester-safe practice for hips, breath, and the low back, taught by Priya, a registered doula. Partners welcome in the final fortnight." },
+              { "title": "Morning Mobility", "description": "A brisk 45-minute 7am class built around joint mobility and simple strength — made for stiff desk bodies who want to be at work by nine." },
+              { "title": "Gentle Foundations", "description": "A genuinely beginner-paced class breaking down alignment, breath, and the twelve poses that show up everywhere else. Questions actively encouraged." },
+              { "title": "Candlelit Meditation", "description": "A 30-minute seated and reclined practice with guided breathwork and a long closing rest. Free for members, Thursdays at 6:30." }
+            ],
+            "ctaText": "Book any class",
+            "ctaTextLink": { "linkType": "page", "pageSlug": "book" },
+            "cardStyle": "soft",
+            "surfaceStyle": "white",
+            "markerStyle": "accentLine",
+            "spacingDensity": "spacious",
+            "textAlign": "left",
+            "backgroundColor": ""
+          }
+        },
+        {
+          "blockType": "pricing",
+          "data": {
+            "pretext": "Memberships & packs",
+            "pretextEnabled": true,
+            "pretextStyle": "outline",
+            "title": "Pay how it suits your life",
+            "subtitle": "No sign-up fees, no annual lock-in, and you can pause your membership for up to eight weeks a year — for travel, a new baby, or just a quiet stretch.",
+            "variant": "cards",
+            "tiers": [
+              {
+                "name": "Class Pack",
+                "price": "$150",
+                "period": "for 10 classes",
+                "description": "For the once-or-twice-a-week yogi who likes to keep it flexible. Buy ten, use them whenever.",
+                "features": [
+                  "10 classes to use across any class type",
+                  "Credits never expire",
+                  "Shareable with a partner or friend",
+                  "Free mat and prop use, always",
+                  "$15 per class — cheaper than drop-in"
+                ],
+                "highlighted": false,
+                "buttonText": "Buy a class pack",
+                "buttonTextLink": { "linkType": "page", "pageSlug": "book" }
+              },
+              {
+                "name": "Fernrow Membership",
+                "price": "$135",
+                "period": "per month",
+                "description": "Our best value for anyone coming twice a week or more. Unlimited classes and the little extras that make the studio home.",
+                "features": [
+                  "Unlimited classes, every class type",
+                  "Free Candlelit Meditation on Thursdays",
+                  "Book up to 14 days ahead of drop-ins",
+                  "Pause anytime, up to 8 weeks a year",
+                  "10% off workshops and the retail shelf",
+                  "Bring a friend free once a month"
+                ],
+                "highlighted": true,
+                "buttonText": "Start a membership",
+                "buttonTextLink": { "linkType": "page", "pageSlug": "book" }
+              },
+              {
+                "name": "Drop-In",
+                "price": "$22",
+                "period": "per class",
+                "description": "No commitment at all. Perfect for visitors, the curious, and people testing whether Tuesday mornings are really their thing.",
+                "features": [
+                  "One class, any type on the schedule",
+                  "First class is just $10",
+                  "Mat and props included",
+                  "Reserve your spot online",
+                  "No account or membership needed"
+                ],
+                "highlighted": false,
+                "buttonText": "Book a drop-in",
+                "buttonTextLink": { "linkType": "page", "pageSlug": "book" }
+              }
+            ],
+            "cardStyle": "elevated",
+            "surfaceStyle": "white",
+            "spacingDensity": "spacious",
+            "backgroundColor": "palette:accent"
+          }
+        }
+      ]
+    },
+    {
+      "slug": "book",
+      "title": "Book a Class",
+      "role": "booking",
+      "blocks": [
+        {
+          "blockType": "hero",
+          "data": {
+            "cards": [
+              {
+                "id": "book-hero",
+                "content": {
+                  "title": { "enabled": true, "value": "Reserve your mat", "align": "left" },
+                  "subtitle": { "enabled": true, "value": "Pick a class below and grab one of the sixteen spots. First time at Fernrow? Choose any class, arrive five minutes early, and we'll set you up with a mat and props.", "align": "left" },
+                  "cta": { "enabled": false, "label": "", "link": { "linkType": "custom", "href": "" }, "align": "left" },
+                  "image": { "enabled": true, "url": "", "side": "right", "layout": "split" }
+                },
+                "background": {
+                  "type": "gradient",
+                  "gradient": { "from": "palette:accent", "to": "#ffffff", "angle": 135 }
+                }
+              }
+            ],
+            "transition": { "type": "fade", "intervalSec": 6, "pauseOnHover": true },
+            "height": {
+              "desktop": { "mode": "fitContent", "revealNext": 1 },
+              "tablet": { "mode": "fitContent", "revealNext": 0 },
+              "mobile": { "mode": "fitContent", "revealNext": 0 }
+            }
+          }
+        },
+        {
+          "blockType": "booking",
+          "data": {}
+        },
+        {
+          "blockType": "faq",
+          "data": {
+            "pretext": "Before you come",
+            "pretextEnabled": true,
+            "pretextStyle": "underline",
+            "title": "The things everyone asks before their first class",
+            "subtitle": "If your question isn't here, call the studio at (604) 555-0182 and Maya or whoever's at the desk will happily talk you through it.",
+            "items": [
+              { "question": "I've never done yoga — which class should I start with?", "answer": "Gentle Foundations or Slow Flow Vinyasa are the two best doors in. Foundations breaks everything down at a beginner pace, while Slow Flow moves a little more but is still very welcoming. Tell the teacher it's your first time and they'll keep an eye on you." },
+              { "question": "What should I bring and wear?", "answer": "Just yourself and something comfy you can move in — leggings or shorts and a t-shirt are perfect. We provide mats, bolsters, blocks, straps, and blankets, so there's nothing to buy. There's water on tap and cubbies for your things." },
+              { "question": "How early should I arrive?", "answer": "Aim to arrive about ten minutes before your first class and five minutes before after that. It gives you time to sign in, stash your shoes at the door, roll out a mat, and settle in before we begin. We lock the door once class starts so the room stays calm." },
+              { "question": "What does my first class cost?", "answer": "Your very first class at Fernrow is $10, and that includes mat and prop use. After that you can pay drop-in at $22, buy a 10-class pack for $150, or start an unlimited membership at $135 a month. There are no sign-up fees." },
+              { "question": "What's your cancellation policy?", "answer": "You can cancel a booking for free up to four hours before class starts, right from your account. Cancel later than that and the class comes out of your pack or counts as a late cancel on your membership — it just helps us offer the spot to someone on the waitlist." },
+              { "question": "I'm pregnant — can I come to a regular class?", "answer": "We recommend the dedicated Prenatal class from your second trimester on, as it's built specifically for a changing body. If you have an established practice and want to join a general class, please check with Priya first and let your teacher know so they can offer modifications." },
+              { "question": "Where are you, and is there parking?", "answer": "We're at 1140 Alberni Street in Vancouver's West End, up the stairs above the flower shop. There's metered street parking on Alberni and Bute, a pay lot half a block west, and we're a five-minute walk from Burrard Station if you'd rather leave the car at home." }
+            ],
+            "cardStyle": "soft",
+            "surfaceStyle": "accent",
+            "spacingDensity": "standard",
+            "backgroundColor": "palette:accent"
+          }
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "tone": "calm, grounded, welcoming, unpretentious, warm",
+    "structureNotes": "The home page leads split hero into a philosophy aboutImageText and class servicesGrid before any social proof, so the studio's ethos and offering land first; testimonials and CTA close rather than open, and pricing/booking/faq are split across dedicated classes and book pages — deliberately avoiding the generic hero->services->testimonials->cta single-page pattern.",
+    "tags": ["wellness", "yoga", "studio", "booking", "botanical", "calm", "sage", "vancouver", "prenatal", "restorative", "membership", "neighborhood"]
+  }
+}

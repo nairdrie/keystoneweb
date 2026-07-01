@@ -1,0 +1,475 @@
+{
+  "slug": "boutique-fitness-gym",
+  "category": "fitness",
+  "businessType": "booking",
+  "styleFamily": "energetic-dark-neon",
+  "siteTitle": "IRONLINE Strength Club",
+  "voice": "Bold, direct, second-person coaching that treats every session like the clock is running and you're the athlete.",
+  "designTokens": {
+    "customColors": { "primary": "#121212", "secondary": "#C6FF00", "accent": "#f6f7f2" },
+    "fonts": { "heading": "Sora", "body": "Inter" },
+    "headerConfig": {
+      "bgType": "transparent",
+      "logoPosition": "left",
+      "navPosition": "right",
+      "desktopMenuStyle": "inline",
+      "rightElement": "cta",
+      "sticky": "always",
+      "layout": "default",
+      "overlay": true,
+      "navFontWeight": "600",
+      "navFontSize": "0.95rem"
+    },
+    "paletteMood": "Blacked-out gym floor under a single neon-lime work light: heavy charcoal, one electric accent, nothing soft."
+  },
+  "pages": [
+    {
+      "slug": "home",
+      "title": "Home",
+      "role": "home",
+      "blocks": [
+        {
+          "blockType": "hero",
+          "data": {
+            "cards": [
+              {
+                "id": "hero-1",
+                "content": {
+                  "title": { "enabled": true, "value": "45 Minutes. Zero Standing Around.", "align": "left" },
+                  "subtitle": { "enabled": true, "value": "IRONLINE is a small-group strength and conditioning gym in Bushwick, Brooklyn, running coached barbell and metabolic classes capped at 14 people so you always get hands on the bar.", "align": "left" },
+                  "cta": { "enabled": true, "label": "Claim your free week", "link": { "linkType": "page", "pageSlug": "join" }, "align": "left" },
+                  "image": { "enabled": false, "url": "", "side": "right", "layout": "split" }
+                },
+                "background": {
+                  "type": "image",
+                  "image": { "url": "" },
+                  "overlay": { "color": "#121212", "opacity": 0.62 }
+                }
+              }
+            ],
+            "transition": { "type": "fade", "intervalSec": 6, "pauseOnHover": true },
+            "height": {
+              "desktop": { "mode": "fitScreen", "valuePx": 720, "revealNext": 1 },
+              "tablet": { "mode": "manual", "valuePx": 600, "revealNext": 1 },
+              "mobile": { "mode": "manual", "valuePx": 560, "revealNext": 0 }
+            }
+          }
+        },
+        {
+          "blockType": "stats",
+          "data": {
+            "title": "The Numbers On The Whiteboard",
+            "variant": "banner",
+            "items": [
+              { "value": "9", "label": "Years coaching lifters on Flushing Ave" },
+              { "value": "14", "label": "Athletes max per class, always" },
+              { "value": "62", "label": "Classes on the schedule each week" },
+              { "value": "1,900+", "label": "Members who've earned their first pull-up here" }
+            ],
+            "backgroundColor": "palette:primary",
+            "spacingDensity": "standard",
+            "textAlign": "center"
+          }
+        },
+        {
+          "blockType": "servicesGrid",
+          "data": {
+            "pretextEnabled": true,
+            "pretext": "The Programs",
+            "pretextStyle": "pill",
+            "pretextAlignment": "left",
+            "title": "Pick Your Lane, Then Show Up",
+            "subtitle": "Every class is coached start to finish, scaled to whoever walks through the door, and built off a 12-week strength cycle so your numbers actually move.",
+            "items": [
+              { "title": "IRONLINE Strength", "description": "Barbell-focused hour built on squat, press, deadlift and Olympic-lift variations. You'll follow a written 12-week progression and log every set so the weight climbs on purpose, not by feel." },
+              { "title": "Engine (Conditioning)", "description": "45 minutes of rowing, assault-bike, and kettlebell intervals designed to raise your work capacity. Heart-rate zones are called out loud so you know when to push and when to breathe." },
+              { "title": "Hybrid 60", "description": "A blended session that pairs a heavy lower-body lift with a metabolic finisher. Built for members training for Hyrox, obstacle races, or just wanting to lift heavy and still gas out." },
+              { "title": "Foundations (Beginner)", "description": "A four-week onboarding block that teaches the hinge, squat, brace and barbell setup before you join open classes. No experience assumed, no ego allowed on the floor." },
+              { "title": "Open Gym", "description": "Two-hour unstructured blocks with a coach on the floor to spot, cue, and program-check. Use our platforms, rig, and specialty bars to hit accessory work on your own terms." },
+              { "title": "Mobility & Recovery", "description": "A Sunday-only 40-minute session of loaded stretching, breathwork, and soft-tissue work to keep your hips, shoulders, and ankles moving for the week ahead." }
+            ],
+            "ctaText": "See the full weekly schedule",
+            "ctaTextLink": { "linkType": "page", "pageSlug": "programs" },
+            "markerStyle": "numbered",
+            "cardStyle": "slab",
+            "spacingDensity": "standard",
+            "textAlign": "left",
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "tabBar",
+          "data": {
+            "tabStyle": "pills",
+            "tabAlign": "center",
+            "activeColor": "palette:secondary",
+            "bgColor": "palette:primary",
+            "items": [
+              { "id": "tab-programs", "label": "All Programs", "linkType": "page", "href": "/programs", "pageId": "", "blockId": "" },
+              { "id": "tab-schedule", "label": "Weekly Schedule", "linkType": "page", "href": "/programs", "pageId": "", "blockId": "" },
+              { "id": "tab-join", "label": "Memberships", "linkType": "page", "href": "/join", "pageId": "", "blockId": "" },
+              { "id": "tab-free", "label": "Free Week", "linkType": "page", "href": "/join", "pageId": "", "blockId": "" }
+            ]
+          }
+        },
+        {
+          "blockType": "testimonials",
+          "data": {
+            "pretextEnabled": true,
+            "pretext": "From The Floor",
+            "pretextStyle": "outline",
+            "title": "What 45 Minutes A Day Actually Does",
+            "subtitle": "These are members who started where you're standing right now, most of them unsure they belonged in a barbell gym at all.",
+            "variant": "cards",
+            "items": [
+              { "name": "Marcus D.", "role": "Member since 2021, deadlifts 405", "quote": "I came in unable to squat below parallel without my knees caving. Coach Renata rebuilt my setup in Foundations and eighteen months later I pulled 405 at a member meet. The programming is genuinely written, not made up on the spot.", "rating": 5 },
+              { "name": "Priya S.", "role": "Engine regular, 6am crew", "quote": "The 6am Engine class is the only reason I train consistently. It's 45 minutes, the coaches call your heart-rate zones out loud, and I'm at my desk by 7:30 having already done the hardest thing of my day.", "rating": 5 },
+              { "name": "Jordan T.", "role": "Hybrid 60, Hyrox finisher", "quote": "I signed up eight weeks out from my first Hyrox. The Hybrid 60 sessions mapped almost exactly to race demands, and I finished under 90 minutes. Nobody else in Bushwick is programming like this.", "rating": 5 },
+              { "name": "Ana G.", "role": "Member since 2022", "quote": "Fourteen people a class means the coach actually knows my name and my weak side. I've trained at big-box gyms for a decade and never once got corrected on my hinge until I came here.", "rating": 5 }
+            ],
+            "cardStyle": "glow",
+            "spacingDensity": "standard"
+          }
+        },
+        {
+          "blockType": "pricing",
+          "data": {
+            "pretextEnabled": true,
+            "pretext": "Membership",
+            "pretextStyle": "pill",
+            "title": "No Contracts, No Initiation Fee",
+            "subtitle": "Every membership includes coached classes, program tracking in the IRONLINE app, and open-gym access. Cancel any time with 30 days notice.",
+            "variant": "cards",
+            "tiers": [
+              {
+                "name": "2x Weekly",
+                "price": "$149",
+                "period": "/month",
+                "description": "For the lifter building a habit around a busy week, guaranteed two coached sessions.",
+                "features": [
+                  "8 coached classes per month",
+                  "Full access to the IRONLINE training app",
+                  "Foundations onboarding included",
+                  "Body-comp scan every 12 weeks",
+                  "Freeze up to 30 days a year"
+                ],
+                "highlighted": false,
+                "buttonText": "Start 2x weekly",
+                "buttonTextLink": { "linkType": "page", "pageSlug": "join" }
+              },
+              {
+                "name": "Unlimited",
+                "price": "$219",
+                "period": "/month",
+                "description": "Our most popular membership, for members who train four-plus days and want open gym too.",
+                "features": [
+                  "Unlimited coached classes",
+                  "Unlimited open-gym access",
+                  "Full IRONLINE training app + weekly program",
+                  "Foundations onboarding included",
+                  "Body-comp scan every 8 weeks",
+                  "One free guest pass each month"
+                ],
+                "highlighted": true,
+                "buttonText": "Go unlimited",
+                "buttonTextLink": { "linkType": "page", "pageSlug": "join" }
+              },
+              {
+                "name": "Open Gym Only",
+                "price": "$99",
+                "period": "/month",
+                "description": "For the experienced lifter who runs their own program but wants our platforms and coaches nearby.",
+                "features": [
+                  "Unlimited open-gym access",
+                  "Specialty bars, platforms, and full rig",
+                  "Coach on the floor for form checks",
+                  "IRONLINE app access",
+                  "No coached-class enrollment"
+                ],
+                "highlighted": false,
+                "buttonText": "Get open gym",
+                "buttonTextLink": { "linkType": "page", "pageSlug": "join" }
+              }
+            ],
+            "cardStyle": "slab",
+            "spacingDensity": "standard",
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "cta",
+          "data": {
+            "title": "Your First Week Is On Us",
+            "subtitle": "Come train five classes over seven days, meet the coaches, and hit a real barbell before you spend a dollar. Bring the free-week pass to the Flushing Ave door.",
+            "buttonText": "Claim your free week",
+            "buttonTextLink": { "linkType": "page", "pageSlug": "join" },
+            "showPattern": true,
+            "backgroundColor": "palette:secondary"
+          }
+        }
+      ]
+    },
+    {
+      "slug": "programs",
+      "title": "Programs",
+      "role": "services",
+      "blocks": [
+        {
+          "blockType": "hero",
+          "data": {
+            "cards": [
+              {
+                "id": "prog-hero",
+                "content": {
+                  "title": { "enabled": true, "value": "Six Ways To Train. One Standard.", "align": "left" },
+                  "subtitle": { "enabled": true, "value": "Whether you're chasing a first pull-up or a 500-pound deadlift, every IRONLINE class is coached, scaled, and built off the same 12-week strength cycle running on the whiteboard.", "align": "left" },
+                  "cta": { "enabled": true, "label": "Book your intro session", "link": { "linkType": "page", "pageSlug": "join" }, "align": "left" },
+                  "image": { "enabled": false, "url": "", "side": "right", "layout": "split" }
+                },
+                "background": {
+                  "type": "image",
+                  "image": { "url": "" },
+                  "overlay": { "color": "#121212", "opacity": 0.58 }
+                }
+              }
+            ],
+            "height": {
+              "desktop": { "mode": "manual", "valuePx": 480, "revealNext": 1 },
+              "tablet": { "mode": "manual", "valuePx": 420, "revealNext": 1 },
+              "mobile": { "mode": "manual", "valuePx": 400, "revealNext": 0 }
+            }
+          }
+        },
+        {
+          "blockType": "servicesGrid",
+          "data": {
+            "pretextEnabled": true,
+            "pretext": "The Programs",
+            "pretextStyle": "pill",
+            "pretextAlignment": "left",
+            "title": "Every Class, Explained",
+            "subtitle": "No mystery workouts. Here's exactly what each session on the schedule asks of you and what it builds.",
+            "items": [
+              { "title": "IRONLINE Strength", "description": "Barbell-focused hour built on squat, press, deadlift and Olympic-lift variations. You'll follow a written 12-week progression and log every set so the weight climbs on purpose, not by feel." },
+              { "title": "Engine (Conditioning)", "description": "45 minutes of rowing, assault-bike, and kettlebell intervals designed to raise your work capacity. Heart-rate zones are called out loud so you know when to push and when to breathe." },
+              { "title": "Hybrid 60", "description": "A blended session that pairs a heavy lower-body lift with a metabolic finisher. Built for members training for Hyrox, obstacle races, or just wanting to lift heavy and still gas out." },
+              { "title": "Foundations (Beginner)", "description": "A four-week onboarding block that teaches the hinge, squat, brace and barbell setup before you join open classes. No experience assumed, no ego allowed on the floor." },
+              { "title": "Open Gym", "description": "Two-hour unstructured blocks with a coach on the floor to spot, cue, and program-check. Use our platforms, rig, and specialty bars to hit accessory work on your own terms." },
+              { "title": "Mobility & Recovery", "description": "A Sunday-only 40-minute session of loaded stretching, breathwork, and soft-tissue work to keep your hips, shoulders, and ankles moving for the week ahead." }
+            ],
+            "ctaText": "Claim your free week",
+            "ctaTextLink": { "linkType": "page", "pageSlug": "join" },
+            "markerStyle": "numbered",
+            "cardStyle": "slab",
+            "spacingDensity": "spacious",
+            "textAlign": "left",
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "tabBar",
+          "data": {
+            "tabStyle": "underline",
+            "tabAlign": "stretch",
+            "activeColor": "palette:secondary",
+            "bgColor": "palette:primary",
+            "items": [
+              { "id": "day-mon", "label": "Mon", "linkType": "custom", "href": "#monday", "pageId": "", "blockId": "" },
+              { "id": "day-tue", "label": "Tue", "linkType": "custom", "href": "#tuesday", "pageId": "", "blockId": "" },
+              { "id": "day-wed", "label": "Wed", "linkType": "custom", "href": "#wednesday", "pageId": "", "blockId": "" },
+              { "id": "day-thu", "label": "Thu", "linkType": "custom", "href": "#thursday", "pageId": "", "blockId": "" },
+              { "id": "day-fri", "label": "Fri", "linkType": "custom", "href": "#friday", "pageId": "", "blockId": "" },
+              { "id": "day-sat", "label": "Sat", "linkType": "custom", "href": "#saturday", "pageId": "", "blockId": "" },
+              { "id": "day-sun", "label": "Sun", "linkType": "custom", "href": "#sunday", "pageId": "", "blockId": "" }
+            ]
+          }
+        },
+        {
+          "blockType": "featuresList",
+          "data": {
+            "pretextEnabled": true,
+            "pretext": "Weekly Rhythm",
+            "pretextStyle": "outline",
+            "title": "A Typical Week On Flushing Ave",
+            "items": [
+              "Monday: Strength (lower) at 6am, 12pm, 5:30pm, 6:45pm; Engine at 7am and 5:30pm",
+              "Tuesday: Strength (upper) at 6am, 12pm, 6pm; Foundations at 7pm; Open Gym 2-4pm",
+              "Wednesday: Hybrid 60 at 6am, 5:30pm, 6:45pm; Engine at 12pm; Mobility prep at 8pm",
+              "Thursday: Strength (full) at 6am, 12pm, 5:30pm; Engine at 6:45pm; Foundations at 7pm",
+              "Friday: Strength (lower) at 6am, 12pm, 5:30pm; Engine at 7am; Open Gym 3-5pm",
+              "Saturday: Hybrid 60 at 8am and 9:15am; Engine at 10:30am; Open Gym 11am-1pm",
+              "Sunday: Mobility & Recovery at 9am and 10am; Open Gym 11am-1pm"
+            ],
+            "markerStyle": "framed",
+            "cardStyle": "slab",
+            "spacingDensity": "standard",
+            "textAlign": "left"
+          }
+        },
+        {
+          "blockType": "cta",
+          "data": {
+            "title": "Not Sure Where To Start?",
+            "subtitle": "Book a free 20-minute consult with a coach. We'll watch you move, talk goals, and put you in the right class, no pressure to sign anything.",
+            "buttonText": "Book a consult call",
+            "buttonTextLink": { "linkType": "page", "pageSlug": "join" },
+            "showPattern": true,
+            "backgroundColor": "palette:secondary"
+          }
+        }
+      ]
+    },
+    {
+      "slug": "join",
+      "title": "Join",
+      "role": "pricing",
+      "blocks": [
+        {
+          "blockType": "hero",
+          "data": {
+            "cards": [
+              {
+                "id": "join-hero",
+                "content": {
+                  "title": { "enabled": true, "value": "Train Free For A Week. Decide After.", "align": "left" },
+                  "subtitle": { "enabled": true, "value": "Five classes, seven days, zero cost. Meet the coaches, load a real barbell, and see if IRONLINE is your gym before you ever put in a card.", "align": "left" },
+                  "cta": { "enabled": true, "label": "Claim your free week", "link": { "linkType": "custom", "href": "mailto:front@ironlinestrength.com?subject=Free%20Week%20Pass" }, "align": "left" },
+                  "image": { "enabled": false, "url": "", "side": "right", "layout": "split" }
+                },
+                "background": {
+                  "type": "image",
+                  "image": { "url": "" },
+                  "overlay": { "color": "#121212", "opacity": 0.6 }
+                }
+              }
+            ],
+            "height": {
+              "desktop": { "mode": "manual", "valuePx": 480, "revealNext": 1 },
+              "tablet": { "mode": "manual", "valuePx": 420, "revealNext": 1 },
+              "mobile": { "mode": "manual", "valuePx": 400, "revealNext": 0 }
+            }
+          }
+        },
+        {
+          "blockType": "pricing",
+          "data": {
+            "pretextEnabled": true,
+            "pretext": "Membership",
+            "pretextStyle": "pill",
+            "title": "No Contracts, No Initiation Fee",
+            "subtitle": "Every membership includes coached classes, program tracking in the IRONLINE app, and open-gym access. Cancel any time with 30 days notice.",
+            "variant": "cards",
+            "tiers": [
+              {
+                "name": "2x Weekly",
+                "price": "$149",
+                "period": "/month",
+                "description": "For the lifter building a habit around a busy week, guaranteed two coached sessions.",
+                "features": [
+                  "8 coached classes per month",
+                  "Full access to the IRONLINE training app",
+                  "Foundations onboarding included",
+                  "Body-comp scan every 12 weeks",
+                  "Freeze up to 30 days a year"
+                ],
+                "highlighted": false,
+                "buttonText": "Start 2x weekly",
+                "buttonTextLink": { "linkType": "page", "pageSlug": "join" }
+              },
+              {
+                "name": "Unlimited",
+                "price": "$219",
+                "period": "/month",
+                "description": "Our most popular membership, for members who train four-plus days and want open gym too.",
+                "features": [
+                  "Unlimited coached classes",
+                  "Unlimited open-gym access",
+                  "Full IRONLINE training app + weekly program",
+                  "Foundations onboarding included",
+                  "Body-comp scan every 8 weeks",
+                  "One free guest pass each month"
+                ],
+                "highlighted": true,
+                "buttonText": "Go unlimited",
+                "buttonTextLink": { "linkType": "page", "pageSlug": "join" }
+              },
+              {
+                "name": "Open Gym Only",
+                "price": "$99",
+                "period": "/month",
+                "description": "For the experienced lifter who runs their own program but wants our platforms and coaches nearby.",
+                "features": [
+                  "Unlimited open-gym access",
+                  "Specialty bars, platforms, and full rig",
+                  "Coach on the floor for form checks",
+                  "IRONLINE app access",
+                  "No coached-class enrollment"
+                ],
+                "highlighted": false,
+                "buttonText": "Get open gym",
+                "buttonTextLink": { "linkType": "page", "pageSlug": "join" }
+              }
+            ],
+            "cardStyle": "slab",
+            "spacingDensity": "standard",
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "faq",
+          "data": {
+            "pretextEnabled": true,
+            "pretext": "Before You Join",
+            "pretextStyle": "outline",
+            "title": "Straight Answers, No Sales Pitch",
+            "subtitle": "The questions we get at the front desk on Flushing Ave every single week.",
+            "items": [
+              { "question": "I've never touched a barbell. Am I going to embarrass myself?", "answer": "No. Everyone starts in Foundations, a four-week onboarding block that teaches the squat, hinge, and barbell setup before you join open classes. Coaches scale every movement, and classes cap at 14 so you're never lost in a crowd." },
+              { "question": "How much does membership cost and is there a contract?", "answer": "Memberships run $99 to $219 a month with no contract and no initiation fee. You can freeze or cancel any time with 30 days notice, and your first week is completely free." },
+              { "question": "Where exactly are you and is there parking?", "answer": "We're on Flushing Ave in Bushwick, Brooklyn, a six-minute walk from the Flushing Ave M station. Street parking is free after 6pm, and there's a paid lot on Bogart Street two blocks away." },
+              { "question": "What are your hours?", "answer": "Coached classes run 6am to 8pm weekdays and 8am to 1pm on weekends, with open-gym blocks layered in. Sunday is mobility and recovery only, from 9am to 1pm." },
+              { "question": "Do I need to be in shape before I start?", "answer": "Absolutely not. Roughly a third of our members had never lifted before joining. The whole point of coached, scaled classes is that we meet you exactly where you are and progress you from there." },
+              { "question": "How does the free week work?", "answer": "Book online, show up, and train up to five classes over seven days at no cost. You'll get a full Foundations-style intro on your first visit, meet the coaches, and try every program style before deciding anything." },
+              { "question": "Can I freeze my membership if I travel or get injured?", "answer": "Yes. Every membership includes up to 30 freeze days a year, and we extend that with a doctor's note for injury or medical leave. Just email the front desk 48 hours before you want the freeze to start." },
+              { "question": "Do you have showers and lockers?", "answer": "Yes, two full locker rooms with showers, towel service, and day-use lockers. Bring your own lock or grab a rental at the desk for two dollars." }
+            ],
+            "cardStyle": "slab",
+            "spacingDensity": "standard"
+          }
+        },
+        {
+          "blockType": "contact",
+          "data": {
+            "pretextEnabled": true,
+            "pretext": "Come By",
+            "pretextStyle": "pill",
+            "title": "Find Us On Flushing Ave",
+            "subtitle": "Walk in, watch a class, and talk to a coach, no appointment needed during open-gym hours.",
+            "phone": "(718) 555-0142",
+            "email": "front@ironlinestrength.com",
+            "address": "312 Flushing Ave, Brooklyn, NY 11205",
+            "hours": "Mon-Fri 6am-8pm, Sat 8am-1pm, Sun 9am-1pm",
+            "cardStyle": "slab",
+            "spacingDensity": "standard"
+          }
+        },
+        {
+          "blockType": "cta",
+          "data": {
+            "title": "Stop Reading. Start Lifting.",
+            "subtitle": "Your free week is waiting. Book it now, show up on Flushing Ave, and find out what 45 focused minutes a day actually does.",
+            "buttonText": "Claim your free week",
+            "buttonTextLink": { "linkType": "custom", "href": "mailto:front@ironlinestrength.com?subject=Free%20Week%20Pass" },
+            "showPattern": true,
+            "backgroundColor": "palette:secondary"
+          }
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "tone": "bold, motivating, direct, second-person, high-momentum",
+    "structureNotes": "Home deliberately front-loads a palette:primary stats banner immediately after the hero to establish authority through numbers before selling programs, and inserts a tabBar nav strip mid-page instead of ending on the generic services->testimonials->cta flow, giving the dense energetic pacing the brief asked for.",
+    "tags": ["fitness", "gym", "boutique-fitness", "strength-training", "conditioning", "booking", "dark-neon", "energetic", "brooklyn", "second-person", "high-intensity", "membership"]
+  }
+}

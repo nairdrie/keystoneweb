@@ -1,0 +1,406 @@
+{
+  "slug": "corporate-law-firm",
+  "category": "legal",
+  "businessType": "services",
+  "styleFamily": "quiet-luxury",
+  "siteTitle": "Halstead & Roe",
+  "voice": "Precise, understated, and quietly authoritative — the counsel of a firm that lets its record speak and never oversells.",
+  "designTokens": {
+    "customColors": { "primary": "#14213D", "secondary": "#B08D57", "accent": "#F5F3EF" },
+    "fonts": { "heading": "Libre Baskerville", "body": "Source Sans 3" },
+    "headerConfig": {
+      "bgType": "white",
+      "logoPosition": "center",
+      "navPosition": "center",
+      "desktopMenuStyle": "inline",
+      "rightElement": "none",
+      "sticky": true,
+      "layout": "centeredAboveNav",
+      "navFontSize": "0.95rem",
+      "navFontWeight": "500"
+    },
+    "paletteMood": "Ink navy and muted gold on warm off-white — a lawyer's oak-panelled restraint, not a startup's neon."
+  },
+  "pages": [
+    {
+      "slug": "home",
+      "title": "Home",
+      "role": "home",
+      "blocks": [
+        {
+          "blockType": "hero",
+          "data": {
+            "cards": [
+              {
+                "id": "hero-main",
+                "content": {
+                  "title": { "enabled": true, "value": "Halstead & Roe", "align": "center" },
+                  "subtitle": { "enabled": true, "value": "A boutique corporate law firm on Bay Street, Toronto, advising founders, boards, and private companies through financings, acquisitions, and the disputes that decide a business.", "align": "center" },
+                  "cta": { "enabled": true, "label": "Book a consultation", "link": { "linkType": "page", "pageSlug": "contact" }, "align": "center" },
+                  "image": { "enabled": false, "url": "", "side": "right", "layout": "contained" }
+                },
+                "background": {
+                  "type": "gradient",
+                  "gradient": { "from": "palette:accent", "to": "#ffffff", "angle": 160 }
+                }
+              }
+            ],
+            "transition": { "type": "fade", "intervalSec": 6, "pauseOnHover": true },
+            "height": {
+              "desktop": { "mode": "manual", "valuePx": 620, "revealNext": 1 },
+              "tablet": { "mode": "fitContent", "revealNext": 1 },
+              "mobile": { "mode": "fitContent", "revealNext": 0 }
+            }
+          }
+        },
+        {
+          "blockType": "stats",
+          "data": {
+            "title": "The record behind the counsel",
+            "variant": "banner",
+            "textAlign": "center",
+            "items": [
+              { "value": "28", "label": "Years advising Canadian private companies" },
+              { "value": "640+", "label": "M&A and financing matters closed" },
+              { "value": "$4.2B", "label": "Aggregate deal value shepherded to close" },
+              { "value": "9", "label": "Jurisdictions coordinated for cross-border work" }
+            ],
+            "pretext": "By the numbers",
+            "pretextEnabled": true,
+            "pretextStyle": "underline",
+            "backgroundColor": "palette:primary"
+          }
+        },
+        {
+          "blockType": "servicesGrid",
+          "data": {
+            "title": "Practice areas",
+            "subtitle": "We keep a deliberately narrow practice so that every matter is handled by a partner who has closed one like it before.",
+            "pretext": "What we do",
+            "pretextEnabled": true,
+            "pretextStyle": "outline",
+            "markerStyle": "numbered",
+            "cardStyle": "editorial",
+            "surfaceStyle": "white",
+            "spacingDensity": "spacious",
+            "textAlign": "left",
+            "items": [
+              { "title": "Mergers & Acquisitions", "description": "We act for buyers and sellers in share and asset transactions from $2M to $250M, running diligence, negotiating the purchase agreement, and managing closing mechanics through to the post-closing adjustment." },
+              { "title": "Venture & Growth Financing", "description": "We paper priced equity rounds, SAFEs, and convertible notes for founders and investors, and we hold the cap table so the next round opens clean rather than requiring a cleanup." },
+              { "title": "Corporate Governance", "description": "We serve as outside general counsel to boards, drafting shareholder agreements, unanimous shareholder agreements, and the resolutions that keep decisions defensible when a deal or dispute later scrutinizes them." },
+              { "title": "Commercial Contracts", "description": "We draft and negotiate the master services, licensing, distribution, and supply agreements that carry recurring revenue, with an eye to indemnities and limitation of liability rather than boilerplate." },
+              { "title": "Shareholder & Commercial Disputes", "description": "We litigate oppression claims, shareholder deadlocks, and breach-of-contract actions in the Ontario Superior Court, and we settle most of them before trial when settlement serves the client." },
+              { "title": "Corporate Reorganizations", "description": "We design and implement estate freezes, holding-company structures, and amalgamations in concert with your accountant to move value tax-efficiently ahead of a sale or succession." }
+            ],
+            "ctaText": "See all practice areas",
+            "ctaTextLink": { "linkType": "page", "pageSlug": "practice-areas" },
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "team",
+          "data": {
+            "title": "The partners",
+            "subtitle": "Four partners, no associates layered between you and the lawyer who knows your file. You work with the name on the door.",
+            "variant": "cards",
+            "columns": 2,
+            "showBio": true,
+            "pretext": "Who you work with",
+            "pretextEnabled": true,
+            "pretextStyle": "text",
+            "members": [
+              { "name": "Margaret Halstead, K.C.", "role": "Founding Partner — M&A", "bio": "Called to the Ontario bar in 1998, Margaret has led private-company sales north of $200M and chairs the firm's diligence committee; clients keep her number for the 6 a.m. call before a board vote.", "image": "" },
+              { "name": "David Roe", "role": "Partner — Financings & Governance", "bio": "David advises venture-backed founders from seed through Series C and sits as outside general counsel to eleven company boards across Ontario's technology and manufacturing sectors.", "image": "" },
+              { "name": "Priya Sandhu", "role": "Partner — Commercial Litigation", "bio": "A former Crown counsel, Priya runs the firm's disputes practice and has argued oppression and shareholder-deadlock matters through to judgment in the Ontario Superior Court and Court of Appeal.", "image": "" },
+              { "name": "Thomas Okonkwo", "role": "Partner — Reorganizations & Tax-Adjacent", "bio": "Thomas structures estate freezes and holding-company reorganizations alongside clients' accountants, and has quietly become the partner the others call when a deal needs a clean corporate structure before signing.", "image": "" }
+            ],
+            "backgroundColor": ""
+          }
+        },
+        {
+          "blockType": "featuredQuote",
+          "data": {
+            "variant": "split",
+            "eyebrow": "From a client",
+            "quote": "We interviewed three Bay Street firms and one downtown boutique. Halstead & Roe was the only one where a partner, not a summer student, walked our board through the risk in the purchase agreement — line by line, in plain language, the night before we signed. We closed on schedule and without a single post-closing surprise.",
+            "personName": "Elaine Vasquez",
+            "personTitle": "General Counsel, Meridian Freight Systems",
+            "personContext": "Retained Halstead & Roe on the $84M sale of Meridian's logistics division, 2024",
+            "personImage": "",
+            "imagePosition": "left",
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "cta",
+          "data": {
+            "title": "Bring us the matter, not just the question.",
+            "subtitle": "A first consultation is 45 minutes with a partner, at no charge, to tell you whether you have a problem worth paying us to solve — and often to tell you that you don't.",
+            "buttonText": "Book a consultation",
+            "buttonTextLink": { "linkType": "page", "pageSlug": "contact" },
+            "showPattern": false,
+            "backgroundColor": "palette:secondary"
+          }
+        }
+      ]
+    },
+    {
+      "slug": "practice-areas",
+      "title": "Practice Areas",
+      "role": "services",
+      "blocks": [
+        {
+          "blockType": "hero",
+          "data": {
+            "cards": [
+              {
+                "id": "pa-hero",
+                "content": {
+                  "title": { "enabled": true, "value": "Practice areas", "align": "center" },
+                  "subtitle": { "enabled": true, "value": "Six areas, one standard. We take a matter only when a partner here has closed one like it and can carry it personally to conclusion.", "align": "center" },
+                  "cta": { "enabled": false, "label": "", "link": { "linkType": "page", "pageSlug": "contact" }, "align": "center" },
+                  "image": { "enabled": false, "url": "", "side": "right", "layout": "contained" }
+                },
+                "background": {
+                  "type": "gradient",
+                  "gradient": { "from": "palette:accent", "to": "#ffffff", "angle": 160 }
+                }
+              }
+            ],
+            "transition": { "type": "none", "intervalSec": 6, "pauseOnHover": true },
+            "height": {
+              "desktop": { "mode": "manual", "valuePx": 420, "revealNext": 1 },
+              "tablet": { "mode": "fitContent", "revealNext": 1 },
+              "mobile": { "mode": "fitContent", "revealNext": 0 }
+            }
+          }
+        },
+        {
+          "blockType": "servicesGrid",
+          "data": {
+            "title": "What we handle",
+            "subtitle": "Each description names the concrete work — because the difference between firms is not the practice list, it is who does the work and how far they take it.",
+            "pretext": "Scope",
+            "pretextEnabled": true,
+            "pretextStyle": "outline",
+            "markerStyle": "numbered",
+            "cardStyle": "editorial",
+            "surfaceStyle": "white",
+            "spacingDensity": "spacious",
+            "textAlign": "left",
+            "items": [
+              { "title": "Mergers & Acquisitions", "description": "We act for buyers and sellers in share and asset transactions from $2M to $250M, running diligence, negotiating the purchase agreement, and managing closing mechanics through to the post-closing adjustment." },
+              { "title": "Venture & Growth Financing", "description": "We paper priced equity rounds, SAFEs, and convertible notes for founders and investors, and we hold the cap table so the next round opens clean rather than requiring a cleanup." },
+              { "title": "Corporate Governance", "description": "We serve as outside general counsel to boards, drafting shareholder agreements, unanimous shareholder agreements, and the resolutions that keep decisions defensible when a deal or dispute later scrutinizes them." },
+              { "title": "Commercial Contracts", "description": "We draft and negotiate the master services, licensing, distribution, and supply agreements that carry recurring revenue, with an eye to indemnities and limitation of liability rather than boilerplate." },
+              { "title": "Shareholder & Commercial Disputes", "description": "We litigate oppression claims, shareholder deadlocks, and breach-of-contract actions in the Ontario Superior Court, and we settle most of them before trial when settlement serves the client." },
+              { "title": "Corporate Reorganizations", "description": "We design and implement estate freezes, holding-company structures, and amalgamations in concert with your accountant to move value tax-efficiently ahead of a sale or succession." }
+            ],
+            "ctaText": "Discuss your matter",
+            "ctaTextLink": { "linkType": "page", "pageSlug": "contact" },
+            "backgroundColor": ""
+          }
+        },
+        {
+          "blockType": "faq",
+          "data": {
+            "title": "Questions clients ask first",
+            "subtitle": "The practical questions we hear before an engagement letter is signed, answered plainly.",
+            "pretext": "Before you retain us",
+            "pretextEnabled": true,
+            "pretextStyle": "underline",
+            "cardStyle": "minimal",
+            "surfaceStyle": "accent",
+            "spacingDensity": "standard",
+            "items": [
+              { "question": "How do you bill — hourly or fixed fee?", "answer": "Most transactional work is quoted as a fixed fee once we understand scope, so you are not watching the clock during negotiations. Disputes and open-ended advisory work are billed hourly at partner rates of $525 to $675, with a monthly statement itemized by task." },
+              { "question": "What is the first consultation, and does it cost anything?", "answer": "The first meeting is 45 minutes with a partner at no charge. Its purpose is to tell you whether your matter needs a lawyer at all, and if so, to scope it. We would rather decline a small matter than take a fee for work you can handle yourself." },
+              { "question": "Do you act for companies outside Toronto and Ontario?", "answer": "We are called in Ontario and handle Ontario-governed matters directly. For deals touching British Columbia, Alberta, Quebec, or the United States, we coordinate trusted co-counsel in nine jurisdictions and remain the single point of contact so you are not managing a committee." },
+              { "question": "How small a company do you take on?", "answer": "We regularly act for founder-led companies raising their first priced round and for owner-operated businesses under $10M in revenue. What matters is that the matter is one of our six practice areas, not the size of the company." },
+              { "question": "How long does a typical acquisition take to close?", "answer": "A straightforward private-company share purchase runs six to ten weeks from signed letter of intent to closing, assuming diligence turns up no surprises. We tell you at the outset which items are most likely to move that timeline and manage them first." },
+              { "question": "Will I work with a partner or be handed to a junior?", "answer": "You work with the partner you retain. We keep no associate layer, so the lawyer who scoped your matter is the one who negotiates it and sits at the closing table. That is the point of a four-partner firm." },
+              { "question": "Can you work alongside our existing accountant or tax advisor?", "answer": "Yes, and we prefer to. Reorganizations and freezes in particular are done in concert with your accountant's tax plan, and we treat that advisor as part of the team rather than a competitor for the file." },
+              { "question": "What happens if a matter needs to go to court?", "answer": "Priya Sandhu leads our disputes practice and litigates in the Ontario Superior Court and Court of Appeal, so a matter that escalates stays in the building. We advise on the cost and odds candidly, because most disputes are better settled than tried." }
+            ],
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "cta",
+          "data": {
+            "title": "If your matter is one of the six, we should talk.",
+            "subtitle": "Tell us what you are facing and we will tell you honestly whether we are the right firm for it.",
+            "buttonText": "Book a consultation",
+            "buttonTextLink": { "linkType": "page", "pageSlug": "contact" },
+            "showPattern": false,
+            "backgroundColor": "palette:secondary"
+          }
+        }
+      ]
+    },
+    {
+      "slug": "attorneys",
+      "title": "Attorneys",
+      "role": "about",
+      "blocks": [
+        {
+          "blockType": "hero",
+          "data": {
+            "cards": [
+              {
+                "id": "att-hero",
+                "content": {
+                  "title": { "enabled": true, "value": "The partners", "align": "center" },
+                  "subtitle": { "enabled": true, "value": "Four partners who built the firm to stay small on purpose. When you retain Halstead & Roe, you retain the person whose name is on the letterhead.", "align": "center" },
+                  "cta": { "enabled": false, "label": "", "link": { "linkType": "page", "pageSlug": "contact" }, "align": "center" },
+                  "image": { "enabled": false, "url": "", "side": "right", "layout": "contained" }
+                },
+                "background": {
+                  "type": "gradient",
+                  "gradient": { "from": "palette:accent", "to": "#ffffff", "angle": 160 }
+                }
+              }
+            ],
+            "transition": { "type": "none", "intervalSec": 6, "pauseOnHover": true },
+            "height": {
+              "desktop": { "mode": "manual", "valuePx": 420, "revealNext": 1 },
+              "tablet": { "mode": "fitContent", "revealNext": 1 },
+              "mobile": { "mode": "fitContent", "revealNext": 0 }
+            }
+          }
+        },
+        {
+          "blockType": "team",
+          "data": {
+            "title": "Partners of the firm",
+            "subtitle": "Each partner keeps a deliberately limited docket so that no client is ever the least important matter on the desk.",
+            "variant": "cards",
+            "columns": 2,
+            "showBio": true,
+            "pretext": "Counsel",
+            "pretextEnabled": true,
+            "pretextStyle": "text",
+            "members": [
+              { "name": "Margaret Halstead, K.C.", "role": "Founding Partner — Mergers & Acquisitions", "bio": "Called to the Ontario bar in 1998 and appointed King's Counsel in 2021, Margaret founded the firm in 2003 after a decade at a national firm's M&A group. She has led private-company sales north of $200M, chairs the firm's diligence committee, and is the partner clients call at 6 a.m. before a board vote.", "image": "" },
+              { "name": "David Roe", "role": "Partner — Financings & Governance", "bio": "David joined as a founding partner and built the firm's financing practice from a single seed round in 2005. He advises venture-backed founders from seed through Series C, sits as outside general counsel to eleven company boards, and teaches a governance seminar to first-time directors each spring.", "image": "" },
+              { "name": "Priya Sandhu", "role": "Partner — Commercial Litigation", "bio": "A former Crown counsel who joined the firm in 2012, Priya runs the disputes practice and has argued oppression and shareholder-deadlock matters through to judgment in the Ontario Superior Court and the Court of Appeal for Ontario. She is candid about odds because she has seen how trials end.", "image": "" },
+              { "name": "Thomas Okonkwo", "role": "Partner — Corporate Reorganizations", "bio": "Thomas structures estate freezes and holding-company reorganizations alongside clients' accountants and made partner in 2016. He has quietly become the partner the others call when a deal needs a clean corporate structure before signing, and he holds the CPA designation in addition to his LL.B.", "image": "" }
+            ],
+            "backgroundColor": ""
+          }
+        },
+        {
+          "blockType": "featuredQuote",
+          "data": {
+            "variant": "minimal",
+            "eyebrow": "How we practise",
+            "quote": "The best legal advice a client receives is often the sentence that talks them out of a fight. We are paid to be right, not to be busy.",
+            "personName": "Margaret Halstead, K.C.",
+            "personTitle": "Founding Partner",
+            "personContext": "The rule she gave the firm at its founding in 2003, and the one she still opens diligence meetings with",
+            "personImage": "",
+            "imagePosition": "left",
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "cta",
+          "data": {
+            "title": "Speak with a partner directly.",
+            "subtitle": "No intake queue, no gatekeeper. Reach the partner whose practice fits your matter.",
+            "buttonText": "Book a consultation",
+            "buttonTextLink": { "linkType": "page", "pageSlug": "contact" },
+            "showPattern": false,
+            "backgroundColor": "palette:secondary"
+          }
+        }
+      ]
+    },
+    {
+      "slug": "contact",
+      "title": "Contact",
+      "role": "contact",
+      "blocks": [
+        {
+          "blockType": "hero",
+          "data": {
+            "cards": [
+              {
+                "id": "contact-hero",
+                "content": {
+                  "title": { "enabled": true, "value": "Book a consultation", "align": "center" },
+                  "subtitle": { "enabled": true, "value": "Forty-five minutes with a partner, at no charge, to scope your matter honestly. Our office is on Bay Street; most first meetings happen there or by secure video.", "align": "center" },
+                  "cta": { "enabled": false, "label": "", "link": { "linkType": "page", "pageSlug": "contact" }, "align": "center" },
+                  "image": { "enabled": false, "url": "", "side": "right", "layout": "contained" }
+                },
+                "background": {
+                  "type": "gradient",
+                  "gradient": { "from": "palette:accent", "to": "#ffffff", "angle": 160 }
+                }
+              }
+            ],
+            "transition": { "type": "none", "intervalSec": 6, "pauseOnHover": true },
+            "height": {
+              "desktop": { "mode": "manual", "valuePx": 400, "revealNext": 1 },
+              "tablet": { "mode": "fitContent", "revealNext": 1 },
+              "mobile": { "mode": "fitContent", "revealNext": 0 }
+            }
+          }
+        },
+        {
+          "blockType": "contact",
+          "data": {
+            "title": "Halstead & Roe LLP",
+            "subtitle": "Reach us during business hours, or send the details of your matter and a partner will respond within one business day.",
+            "phone": "(416) 555-0142",
+            "email": "counsel@halsteadroe.ca",
+            "address": "Suite 2810, 150 Bay Street, Toronto, ON M5J 2X6",
+            "hours": "Monday to Friday, 8:30 a.m. to 6:00 p.m. ET. After-hours calls for active closings are returned the same evening.",
+            "pretext": "Where to find us",
+            "pretextEnabled": true,
+            "pretextStyle": "underline",
+            "cardStyle": "editorial",
+            "surfaceStyle": "white",
+            "spacingDensity": "standard",
+            "backgroundColor": ""
+          }
+        },
+        {
+          "blockType": "contact_form",
+          "data": {
+            "title": "Tell us about your matter",
+            "description": "Share enough for us to route you to the right partner. Please do not include confidential details until an engagement is confirmed — this form is not privileged.",
+            "submitText": "Request a consultation",
+            "successMessage": "Thank you. A partner will review your note and respond within one business day.",
+            "cardStyle": "editorial",
+            "surfaceStyle": "accent",
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "map",
+          "data": {
+            "title": "Our office",
+            "address": "150 Bay Street, Toronto, ON M5J 2X6",
+            "locations": [
+              { "label": "Halstead & Roe LLP", "address": "Suite 2810, 150 Bay Street, Toronto, ON M5J 2X6", "description": "In the financial district, a short walk from Union Station. Visitor parking beneath the tower." }
+            ],
+            "mapProvider": "maptiler",
+            "mapHeight": 420,
+            "mapZoom": 15,
+            "mapStyle": "light",
+            "markerLabel": "Halstead & Roe LLP",
+            "showMapDirections": true,
+            "showCardDirections": true,
+            "showLocationCards": true
+          }
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "tone": "precise, authoritative, understated, no-hype, patrician",
+    "structureNotes": "Home deliberately leads minimal-hero -> credibility stats -> practice-areas grid -> named team -> a single general-counsel client quote -> consultation CTA, deferring social proof behind capability and people because a boutique firm sells partner access and record, not a wall of testimonials in the generic hero->services->testimonials->cta order.",
+    "tags": ["legal", "law-firm", "corporate-law", "boutique", "quiet-luxury", "professional-services", "toronto", "m-and-a", "authority", "services", "faq", "team", "stats"]
+  }
+}

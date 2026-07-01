@@ -1,0 +1,403 @@
+{
+  "slug": "handmade-jewelry-shop",
+  "category": "handmade",
+  "businessType": "products",
+  "styleFamily": "quiet-luxury",
+  "siteTitle": "Alder & Ore",
+  "voice": "Elegant and intimate, speaking to the hand of the maker and the weight of the metal — refined but never cold.",
+  "designTokens": {
+    "customColors": { "primary": "#2B2B2B", "secondary": "#CBB48B", "accent": "#F3E7E4" },
+    "fonts": { "heading": "Cormorant Garamond", "body": "Inter" },
+    "headerConfig": {
+      "bgType": "white",
+      "logoPosition": "center",
+      "navPosition": "center",
+      "desktopMenuStyle": "inline",
+      "rightElement": "none",
+      "sticky": true,
+      "layout": "centeredAboveNav",
+      "navFontSize": "13px",
+      "navFontWeight": "500",
+      "navColor": "#2B2B2B"
+    },
+    "paletteMood": "Warm blush and soft gold against deep charcoal — a jeweler's bench at golden hour."
+  },
+  "pages": [
+    {
+      "slug": "home",
+      "title": "Home",
+      "role": "home",
+      "blocks": [
+        {
+          "blockType": "hero",
+          "data": {
+            "cards": [
+              {
+                "id": "hero-1",
+                "content": {
+                  "title": { "enabled": true, "value": "Fine jewelry, made one piece at a time in Providence", "align": "center" },
+                  "subtitle": { "enabled": true, "value": "Alder & Ore is a small studio on the second floor of a Fox Point mill, hand-forging solid 14k gold and reclaimed diamonds into pieces meant to be worn every day and passed down after.", "align": "center" },
+                  "cta": { "enabled": true, "label": "Shop the collection", "link": { "linkType": "page", "pageSlug": "shop" }, "align": "center" },
+                  "image": { "enabled": false, "url": "", "side": "right", "layout": "contained" }
+                },
+                "background": {
+                  "type": "gradient",
+                  "gradient": { "from": "palette:accent", "to": "#ffffff", "angle": 165 }
+                }
+              }
+            ],
+            "transition": { "type": "fade", "intervalSec": 6, "pauseOnHover": true },
+            "height": {
+              "desktop": { "mode": "manual", "valuePx": 620, "revealNext": 1 },
+              "tablet": { "mode": "fitContent", "valuePx": 560, "revealNext": 0 },
+              "mobile": { "mode": "fitContent", "valuePx": 480, "revealNext": 0 }
+            }
+          }
+        },
+        {
+          "blockType": "productGrid",
+          "data": {
+            "variant": "grid",
+            "featuredOnly": true,
+            "showSeeMore": true,
+            "seeMoreLabel": "View the full collection",
+            "seeMoreHref": "/shop"
+          }
+        },
+        {
+          "blockType": "aboutImageText",
+          "data": {
+            "pretextEnabled": true,
+            "pretext": "The Maker",
+            "pretextStyle": "underline",
+            "pretextAlignment": "left",
+            "title": "Everything begins at the bench, in a room the size of a kitchen",
+            "description": "Alder & Ore is the work of Marguerite Odell, who left a production line in Rhode Island's jewelry district in 2016 to make things the slow way instead. Every ring is sawn, filed, and set by hand — no CAD-grown copies, no drop-shipping. She casts in solid 14k and 18k gold, sets stones bench-side under a loupe, and finishes each piece with a hand-stamped hallmark on the inside of the band.",
+            "items": [
+              "Solid recycled 14k and 18k gold — never plated, never filled",
+              "Conflict-free and reclaimed diamonds and sapphires",
+              "Each piece hallmarked and signed on the inner band",
+              "Made to order in 2 to 3 weeks, resizable for life"
+            ],
+            "image": "",
+            "imagePosition": "left",
+            "splitRatio": "50-50",
+            "mobileStackOrder": "image-first",
+            "variant": "tall",
+            "mediaTreatment": "soft",
+            "textAlign": "left",
+            "imageCaption": "Marguerite at the bench, Fox Point studio",
+            "showSecondaryButton": true,
+            "secondaryButtonText": "Read the full story",
+            "secondaryButtonTextLink": { "linkType": "page", "pageSlug": "about" },
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "featuredQuote",
+          "data": {
+            "variant": "split",
+            "eyebrow": "Why solid gold",
+            "quote": "A plated ring wears through in a year and ends up in a drawer. I would rather make one piece you keep than ten you replace — so I only work in solid metal and stones I can trace.",
+            "personName": "Marguerite Odell",
+            "personTitle": "Founder & goldsmith",
+            "personContext": "Alder & Ore, Providence RI",
+            "personImage": "",
+            "imagePosition": "right",
+            "backgroundColor": ""
+          }
+        },
+        {
+          "blockType": "gallery",
+          "data": {
+            "pretextEnabled": true,
+            "pretext": "In Wear",
+            "pretextStyle": "underline",
+            "title": "How the pieces live on real hands",
+            "subtitle": "Photographs sent in by the people who wear them — stacked signet rings, an anniversary band worn thin, a pair of hoops that hasn't come off since it left the studio.",
+            "columns": 3,
+            "frameStyle": "editorial",
+            "mediaAspect": "portrait",
+            "showLightboxNav": true,
+            "showLightboxThumbs": true,
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "testimonials",
+          "data": {
+            "title": "What people say once they've worn it a while",
+            "subtitle": "A few notes from clients who came for one piece and stayed for a whole jewelry box.",
+            "variant": "cards",
+            "items": [
+              { "name": "Dana", "role": "Commissioned engagement ring", "quote": "Marguerite reset my grandmother's diamond into a low bezel band so I could actually wash dishes in it. Two years of daily wear and it still looks like the day I got it.", "rating": 5 },
+              { "name": "Priya", "role": "Signet ring buyer", "quote": "I wanted something small and heavy that felt like it had always been mine. The hand-carved signet does exactly that — and the hallmark inside is such a quiet, lovely detail.", "rating": 5 },
+              { "name": "Elliot", "role": "Anniversary gift", "quote": "I emailed with a vague idea and a budget. She sent three hand-sketched options within a week and never once tried to talk me up a tier. The hoops arrived in a hand-stamped box.", "rating": 5 },
+              { "name": "Sofia", "role": "Wedding band pair", "quote": "We drove down from Boston to size our bands in the studio. Watching her file the edges by hand made the whole thing feel earned. They match but aren't identical, which we love.", "rating": 5 }
+            ],
+            "cardStyle": "editorial",
+            "surfaceStyle": "accent",
+            "spacingDensity": "spacious",
+            "backgroundColor": ""
+          }
+        },
+        {
+          "blockType": "faq",
+          "data": {
+            "title": "Before you order",
+            "subtitle": "The questions we get most about materials, timing, sizing, and repairs.",
+            "items": [
+              { "question": "How long does a made-to-order piece take?", "answer": "Most rings, hoops, and pendants ship 2 to 3 weeks after your order, since each one is cast and finished after you buy. Custom and commissioned work runs 4 to 6 weeks depending on stone sourcing. You'll get an exact date at checkout." },
+              { "question": "What metals and stones do you actually use?", "answer": "Everything is solid recycled 14k or 18k gold — no plating, no gold-fill, no silver dressed up to look like gold. Diamonds and sapphires are either reclaimed or certified conflict-free, and I'll tell you the origin of any stone before it goes in a setting." },
+              { "question": "Can you resize a ring later?", "answer": "Yes. Every ring bought from Alder & Ore is resizable for life at no charge for the first sizing within a year, and at cost of gold after that. Ship it back to the Providence studio and it returns in about two weeks." },
+              { "question": "Do you do custom and commissioned work?", "answer": "Often. Roughly a third of what leaves the bench is custom — resetting a family stone, redrawing a signet, building an engagement ring from a rough sketch. Email the studio with what you have in mind and a budget, and you'll get hand-drawn options back within a week." },
+              { "question": "Can I see pieces in person?", "answer": "The Fox Point studio is open by appointment on Thursdays and Saturdays, and I take a table at the Providence Flea a few Sundays each season. Booking a studio visit is the best way to try on sizes before a commission." },
+              { "question": "What's your return and repair policy?", "answer": "Ready-to-ship pieces can be returned within 30 days unworn. Made-to-order and custom work isn't returnable, but it's covered by a lifetime repair guarantee against manufacturing faults — a lost stone from a defect or a cracked solder joint is fixed free." },
+              { "question": "Do you ship outside the US?", "answer": "Yes, insured worldwide. International orders ship tracked and are declared at full value; any customs duties are the buyer's responsibility. Reach out before ordering and I'll quote shipping to your country." }
+            ],
+            "cardStyle": "minimal",
+            "surfaceStyle": "accent",
+            "spacingDensity": "standard",
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "cta",
+          "data": {
+            "pretextEnabled": true,
+            "pretext": "The List",
+            "pretextStyle": "text",
+            "title": "New pieces drop in small batches. Hear first.",
+            "subtitle": "Join the list for early access to seasonal releases, restocks of the signets, and the occasional one-off made from a single reclaimed stone. No more than one note a month.",
+            "buttonText": "Join the list",
+            "buttonTextLink": { "linkType": "custom", "href": "#subscribe" },
+            "showPattern": true,
+            "backgroundColor": "palette:secondary"
+          }
+        }
+      ]
+    },
+    {
+      "slug": "shop",
+      "title": "Shop",
+      "role": "shop",
+      "blocks": [
+        {
+          "blockType": "hero",
+          "data": {
+            "cards": [
+              {
+                "id": "shop-hero",
+                "content": {
+                  "title": { "enabled": true, "value": "The collection", "align": "center" },
+                  "subtitle": { "enabled": true, "value": "Solid-gold rings, signets, hoops, and pendants — made to order in the Fox Point studio and hallmarked by hand. Every piece resizable for life.", "align": "center" },
+                  "cta": { "enabled": false, "label": "", "link": { "linkType": "page", "pageSlug": "shop" }, "align": "center" },
+                  "image": { "enabled": false, "url": "", "side": "right", "layout": "contained" }
+                },
+                "background": {
+                  "type": "gradient",
+                  "gradient": { "from": "#ffffff", "to": "palette:accent", "angle": 160 }
+                }
+              }
+            ],
+            "transition": { "type": "none", "intervalSec": 6, "pauseOnHover": true },
+            "height": {
+              "desktop": { "mode": "fitContent", "valuePx": 360, "revealNext": 1 },
+              "tablet": { "mode": "fitContent", "valuePx": 320, "revealNext": 0 },
+              "mobile": { "mode": "fitContent", "valuePx": 280, "revealNext": 0 }
+            }
+          }
+        },
+        {
+          "blockType": "productGrid",
+          "data": {
+            "variant": "gridWithSidebar",
+            "showSeeMore": false
+          }
+        },
+        {
+          "blockType": "featuresList",
+          "data": {
+            "pretextEnabled": true,
+            "pretext": "Every Order",
+            "pretextStyle": "underline",
+            "title": "What comes with every piece",
+            "items": [
+              "Solid recycled 14k or 18k gold, never plated or filled",
+              "Reclaimed or certified conflict-free diamonds and sapphires",
+              "Hand-stamped hallmark and signature inside the band",
+              "Free first resizing within a year, resizable for life after",
+              "Lifetime repair guarantee against manufacturing faults",
+              "Insured shipping and a hand-stamped studio box"
+            ],
+            "cardStyle": "minimal",
+            "surfaceStyle": "accent",
+            "markerStyle": "accentLine",
+            "spacingDensity": "standard",
+            "textAlign": "left",
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "stats",
+          "data": {
+            "title": "A small studio, by the numbers",
+            "variant": "banner",
+            "items": [
+              { "value": "2016", "label": "Year the bench opened in Fox Point" },
+              { "value": "1,400+", "label": "Pieces forged and hallmarked by hand" },
+              { "value": "2–3 wks", "label": "Typical made-to-order lead time" },
+              { "value": "100%", "label": "Recycled gold, always solid" }
+            ],
+            "surfaceStyle": "primary",
+            "spacingDensity": "standard",
+            "textAlign": "center",
+            "backgroundColor": "palette:primary"
+          }
+        },
+        {
+          "blockType": "cta",
+          "data": {
+            "title": "Have a stone you want reset?",
+            "subtitle": "Bring a family diamond, an old band, or just a sketch. Commissioned work is about a third of what leaves the bench, and it starts with an email and a budget.",
+            "buttonText": "Start a commission",
+            "buttonTextLink": { "linkType": "page", "pageSlug": "about" },
+            "showPattern": false,
+            "backgroundColor": "palette:secondary"
+          }
+        }
+      ]
+    },
+    {
+      "slug": "about",
+      "title": "About",
+      "role": "about",
+      "blocks": [
+        {
+          "blockType": "aboutImageText",
+          "data": {
+            "pretextEnabled": true,
+            "pretext": "The Studio",
+            "pretextStyle": "underline",
+            "pretextAlignment": "left",
+            "title": "From a production line to a one-woman bench",
+            "description": "Marguerite Odell spent four years casting other people's designs in Rhode Island's jewelry district before she rented a small room above a mill in Fox Point and hung her own sign. Alder & Ore is named for the two things she keeps on the bench: an alder-wood ring mandrel worn smooth by use, and the ore-red patina of the torch flame. She works alone, which means the person who answers your email is the same person who files the edges of your ring.",
+            "items": [
+              "Trained in production casting in Providence's jewelry district",
+              "Founded Alder & Ore in a Fox Point mill studio in 2016",
+              "Sole goldsmith — sawing, setting, and finishing by hand",
+              "Open by appointment Thursdays and Saturdays"
+            ],
+            "image": "",
+            "imagePosition": "right",
+            "splitRatio": "40-60",
+            "mobileStackOrder": "image-first",
+            "variant": "tall",
+            "mediaTreatment": "soft",
+            "textAlign": "left",
+            "imageCaption": "The bench, second floor, Fox Point",
+            "showSecondaryButton": false,
+            "backgroundColor": ""
+          }
+        },
+        {
+          "blockType": "aboutImageText",
+          "data": {
+            "pretextEnabled": true,
+            "pretext": "The Materials",
+            "pretextStyle": "underline",
+            "pretextAlignment": "left",
+            "title": "Why it's always solid, always traceable",
+            "description": "Nothing that leaves this studio is plated or gold-filled — a decision that costs more and takes longer, and the whole point. The gold is recycled and refined domestically, so no new ore is mined for a wedding band. Diamonds are reclaimed from older pieces or bought certified conflict-free, and Marguerite will tell you the origin of any stone before it's set. What that adds up to is a piece you can wear in the shower, at the sink, and for the next fifty years.",
+            "items": [
+              "Recycled 14k and 18k gold, refined in the US",
+              "Reclaimed and certified conflict-free stones",
+              "No plating, no filling, no shortcuts",
+              "Lifetime repair and resizing on everything"
+            ],
+            "image": "",
+            "imagePosition": "left",
+            "splitRatio": "60-40",
+            "mobileStackOrder": "text-first",
+            "variant": "square",
+            "mediaTreatment": "framed",
+            "textAlign": "left",
+            "imageCaption": "Reclaimed diamonds, waiting to be set",
+            "showSecondaryButton": true,
+            "secondaryButtonText": "Shop the collection",
+            "secondaryButtonTextLink": { "linkType": "page", "pageSlug": "shop" },
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "timeline",
+          "data": {
+            "pretextEnabled": true,
+            "pretext": "The Path",
+            "pretextStyle": "underline",
+            "title": "How Alder & Ore got to the bench",
+            "subtitle": "A short history of one goldsmith and the room she works in.",
+            "variant": "centered",
+            "items": [
+              { "title": "Apprentice caster", "organization": "Providence jewelry district", "dateRange": "2012 – 2016", "description": "Learned production casting and stone-setting on a factory line, turning out hundreds of identical pieces a week for other people's labels.", "tags": ["casting", "setting"] },
+              { "title": "Rented the Fox Point studio", "organization": "Alder & Ore", "dateRange": "2016", "description": "Took a small room above a mill, bought a used bench and a torch, and started selling signet rings at the Providence Flea on Sundays.", "tags": ["founding", "signets"] },
+              { "title": "First engagement commissions", "organization": "Alder & Ore", "dateRange": "2018", "description": "Word spread about the low-set bezel bands, and custom engagement and reset work grew into a third of the studio's orders.", "tags": ["custom", "engagement"] },
+              { "title": "Switched to fully recycled gold", "organization": "Alder & Ore", "dateRange": "2020", "description": "Moved every casting to domestically refined recycled gold and committed to reclaimed or certified stones across the whole collection.", "tags": ["recycled", "sustainability"] },
+              { "title": "1,400th hallmarked piece", "organization": "Alder & Ore", "dateRange": "2025", "description": "Still a one-woman bench, still hand-stamping a signature inside every band — now with a small waitlist for seasonal drops.", "tags": ["milestone"] }
+            ],
+            "cardStyle": "editorial",
+            "surfaceStyle": "white",
+            "spacingDensity": "standard",
+            "backgroundColor": ""
+          }
+        },
+        {
+          "blockType": "gallery",
+          "data": {
+            "pretextEnabled": true,
+            "pretext": "The Bench",
+            "pretextStyle": "underline",
+            "title": "Inside the studio",
+            "subtitle": "The mandrel, the loupe, the torch, and the drawer of half-finished bands — the tools and mess behind every finished piece.",
+            "columns": 3,
+            "frameStyle": "editorial",
+            "mediaAspect": "landscape",
+            "showLightboxNav": true,
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "contact",
+          "data": {
+            "title": "Visit the studio or start a commission",
+            "subtitle": "Open by appointment on Thursdays and Saturdays. Email first and I'll send sizing options and a few hand-drawn sketches before you commit to anything.",
+            "phone": "(401) 555-0164",
+            "email": "hello@alderandore.studio",
+            "address": "212 Wickenden St, 2nd Fl, Fox Point, Providence, RI 02903",
+            "hours": "By appointment — Thu & Sat, 11am–5pm",
+            "cardStyle": "minimal",
+            "surfaceStyle": "white",
+            "spacingDensity": "standard",
+            "backgroundColor": ""
+          }
+        },
+        {
+          "blockType": "cta",
+          "data": {
+            "title": "See what's on the bench right now",
+            "subtitle": "The current collection of signets, bands, hoops, and pendants — all solid gold, all made to order and shipped in 2 to 3 weeks.",
+            "buttonText": "Shop the collection",
+            "buttonTextLink": { "linkType": "page", "pageSlug": "shop" },
+            "showPattern": true,
+            "backgroundColor": "palette:secondary"
+          }
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "tone": "elegant, intimate, refined, materials-focused, artisanal",
+    "structureNotes": "Leads product-forward (minimal hero straight into productGrid) rather than services-first, then earns trust through the maker's story, a single owner quote, and in-wear gallery before any social proof — inverting the generic hero->services->testimonials->cta template for an e-commerce jewelry brand where the objects and the hand behind them carry the pitch.",
+    "tags": ["handmade", "jewelry", "e-commerce", "products", "quiet-luxury", "goldsmith", "minimal", "blush-and-gold", "made-to-order", "sustainable", "providence"]
+  }
+}

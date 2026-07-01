@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "template:previews": "node scripts/generate-template-previews.mjs",
+    "rag:index": "node scripts/index-builder-corpus.mjs",
     "test:ai-builder": "node scripts/verify-ai-builder-capabilities.mjs && node scripts/verify-ai-generated-preset-fixtures.mjs",
     "test:blocks": "node scripts/verify-block-regressions.mjs && node scripts/verify-layout-settings.mjs && node scripts/verify-estimate-quote.mjs && node scripts/verify-settings-schemas.mjs",
     "test:marketing": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-marketing-bidding.mjs",

@@ -1,0 +1,398 @@
+{
+  "slug": "artisan-bakery",
+  "category": "bakery",
+  "businessType": "food",
+  "styleFamily": "warm-editorial-craft",
+  "siteTitle": "Ember & Rye",
+  "voice": "Warm, sensory, and unhurried — a neighborhood baker who talks about flour, fire, and the four o'clock hour like they matter, because they do.",
+  "designTokens": {
+    "customColors": { "primary": "#3B2B22", "secondary": "#C1613A", "accent": "#FAF3E8" },
+    "fonts": { "heading": "Fraunces", "body": "Karla" },
+    "headerConfig": {
+      "bgType": "white",
+      "logoPosition": "center",
+      "navPosition": "center",
+      "desktopMenuStyle": "inline",
+      "rightElement": "none",
+      "sticky": true,
+      "layout": "centeredAboveNav"
+    },
+    "paletteMood": "Stone-ground cream, terracotta crust, and deep cocoa crumb — the exact colors of a loaf pulled at dawn."
+  },
+  "pages": [
+    {
+      "slug": "home",
+      "title": "Home",
+      "role": "home",
+      "blocks": [
+        {
+          "blockType": "hero",
+          "data": {
+            "variant": "fullImage",
+            "cards": [
+              {
+                "id": "hero-morning",
+                "content": {
+                  "title": { "enabled": true, "value": "Bread made the slow way, on Alder Street", "align": "center" },
+                  "subtitle": { "enabled": true, "value": "Ember & Rye is a wood-fired neighborhood bakery in the Bishop's Mill quarter of Portland, turning out naturally leavened sourdough, laminated pastry, and a rotating chalkboard of morning bakes seven days a week. Everything is mixed by hand and baked before you wake.", "align": "center" },
+                  "cta": { "enabled": true, "label": "See today's bakes", "link": { "linkType": "page", "pageSlug": "our-bakes" }, "align": "center" },
+                  "image": { "enabled": false, "url": "", "side": "right", "layout": "split" }
+                },
+                "background": {
+                  "type": "image",
+                  "image": { "url": "" },
+                  "overlay": { "color": "#3B2B22", "opacity": 0.4 }
+                }
+              }
+            ],
+            "transition": { "type": "fade", "intervalSec": 6, "pauseOnHover": true },
+            "height": {
+              "desktop": { "mode": "fitScreen", "valuePx": 0, "revealNext": 1 },
+              "tablet": { "mode": "fitScreen", "valuePx": 0, "revealNext": 1 },
+              "mobile": { "mode": "fitScreen", "valuePx": 0, "revealNext": 1 }
+            }
+          }
+        },
+        {
+          "blockType": "aboutImageText",
+          "data": {
+            "pretextEnabled": true,
+            "pretext": "The baker",
+            "pretextStyle": "underline",
+            "pretextAlignment": "left",
+            "title": "Rosa started with one oven and a stubborn starter named Nub",
+            "description": "Rosa Bellani learned to bake at her grandmother's shoulder in Sétif, where the bread was flat, blistered, and never sliced with a knife. She opened Ember & Rye in 2016 in a former print shop on Alder Street, keeping the terrazzo floors and adding a single brick-lined deck oven she fires with oak offcuts from a mill two blocks over. The starter — Nub — is ten years old now, fed twice a day with organic stone-ground rye from the Willamette Valley, and it is the reason the crust cracks the way it does.",
+            "items": [
+              "A 20-hour cold ferment so every loaf tastes of wheat, not yeast",
+              "Oregon-milled organic flour, delivered whole and sifted in-house",
+              "Wood-fired brick deck oven, hand-fed with local oak",
+              "Croissants laminated with 84% European-style cultured butter"
+            ],
+            "image": "",
+            "imagePosition": "left",
+            "splitRatio": "50-50",
+            "mobileStackOrder": "image-first",
+            "variant": "tall",
+            "mediaTreatment": "framed",
+            "textAlign": "left",
+            "imageCaption": "Rosa scoring the day's country loaves, 5:40am",
+            "showSecondaryButton": true,
+            "secondaryButtonText": "Come find us",
+            "secondaryButtonTextLink": { "linkType": "page", "pageSlug": "visit" },
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "menu",
+          "data": {
+            "menuTitle": "Signature bakes",
+            "menuSubtitle": "A short, rotating list of what comes out of the deck oven each morning — pulled from the racks in the order the timers go off.",
+            "mode": "items",
+            "variant": "cards",
+            "showPrices": true,
+            "showDescriptions": true,
+            "showMenuTabs": true,
+            "showFeaturedImages": true,
+            "showImages": true,
+            "showMenuIcons": true,
+            "categoryStyle": "heading"
+          }
+        },
+        {
+          "blockType": "stats",
+          "data": {
+            "pretextEnabled": true,
+            "pretext": "By the dozen",
+            "pretextStyle": "pill",
+            "pretextAlignment": "center",
+            "title": "Ten years of early mornings",
+            "variant": "banner",
+            "items": [
+              { "value": "5:00am", "label": "Oven lit, six days before you're awake" },
+              { "value": "240", "label": "Loaves shaped by hand each day" },
+              { "value": "20 hrs", "label": "Cold ferment behind every crust" },
+              { "value": "2016", "label": "Baking on Alder Street since" }
+            ],
+            "textAlign": "center",
+            "backgroundColor": "palette:primary"
+          }
+        },
+        {
+          "blockType": "featuredQuote",
+          "data": {
+            "variant": "essay",
+            "eyebrow": "A regular writes in",
+            "title": "On the ritual of Saturday mornings",
+            "quote": "I have bought a loaf of Ember & Rye's seeded rye almost every Saturday for four years, and I want to say what it's actually like. You come in cold, the windows are fogged from the ovens, and there's that smell — burnt sugar and hot flour and something almost like toast. Rosa knows I take the darkest bake on the rack, the one most people pass over, and she sets one aside without me asking. My daughter learned to say 'kouign-amann' before she could say her own last name. This isn't a bakery I go to. It's the corner my week turns on.",
+            "personName": "Marguerite Okafor",
+            "personTitle": "Bishop's Mill resident, Saturday regular since 2022",
+            "personContext": "Lives three blocks up, walks down in slippers",
+            "personImage": "",
+            "imagePosition": "left",
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "gallery",
+          "data": {
+            "pretextEnabled": true,
+            "pretext": "The morning bake",
+            "pretextStyle": "underline",
+            "pretextAlignment": "left",
+            "title": "From 4am to the front counter",
+            "subtitle": "The unglamorous, flour-dusted hours before the door unlocks — proofing baskets, scored loaves, and the first tray of canelés out of the copper molds.",
+            "columns": 3,
+            "frameStyle": "editorial",
+            "mediaAspect": "portrait",
+            "showLightboxNav": true,
+            "showLightboxThumbs": true
+          }
+        },
+        {
+          "blockType": "contact",
+          "data": {
+            "pretextEnabled": true,
+            "pretext": "Come by",
+            "pretextStyle": "pill",
+            "pretextAlignment": "center",
+            "title": "Find us on Alder Street",
+            "subtitle": "We open when the first loaves cool and close when the racks are bare — usually mid-afternoon. No reservations, no line-skipping; just come early on weekends.",
+            "phone": "(503) 555-0148",
+            "email": "hello@emberandrye.com",
+            "address": "412 Alder Street, Bishop's Mill, Portland, OR 97204",
+            "hours": "Tue–Fri 7am–2pm · Sat–Sun 7:30am–3pm · Closed Mondays (Rosa feeds the starter and rests)",
+            "cardStyle": "editorial",
+            "surfaceStyle": "white",
+            "spacingDensity": "spacious",
+            "backgroundColor": "palette:accent"
+          }
+        }
+      ]
+    },
+    {
+      "slug": "our-bakes",
+      "title": "Our Bakes",
+      "role": "menu",
+      "blocks": [
+        {
+          "blockType": "hero",
+          "data": {
+            "variant": "minimal",
+            "cards": [
+              {
+                "id": "bakes-hero",
+                "content": {
+                  "title": { "enabled": true, "value": "What comes out of the oven", "align": "left" },
+                  "subtitle": { "enabled": true, "value": "The list shifts with the season and the flour we get, but these are the bakes we're known for. Loaves are limited daily and often gone by noon — call ahead if you want a specific one held.", "align": "left" },
+                  "cta": { "enabled": true, "label": "Read Rosa's story", "link": { "linkType": "page", "pageSlug": "home" }, "align": "left" },
+                  "image": { "enabled": false, "url": "", "side": "right", "layout": "split" }
+                },
+                "background": {
+                  "type": "gradient",
+                  "gradient": { "from": "palette:accent", "to": "#ffffff", "angle": 135 }
+                }
+              }
+            ],
+            "height": {
+              "desktop": { "mode": "fitContent", "valuePx": 0, "revealNext": 0 },
+              "tablet": { "mode": "fitContent", "valuePx": 0, "revealNext": 0 },
+              "mobile": { "mode": "fitContent", "valuePx": 0, "revealNext": 0 }
+            }
+          }
+        },
+        {
+          "blockType": "menu",
+          "data": {
+            "menuTitle": "The full board",
+            "menuSubtitle": "Breads on the left, viennoiserie and sweets on the right. Everything is baked the morning you buy it; nothing is held over to the next day.",
+            "mode": "items",
+            "variant": "list",
+            "showPrices": true,
+            "showDescriptions": true,
+            "showMenuTabs": true,
+            "showFeaturedImages": false,
+            "showImages": false,
+            "showMenuIcons": true,
+            "categoryStyle": "divider",
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "servicesGrid",
+          "data": {
+            "pretextEnabled": true,
+            "pretext": "Beyond the counter",
+            "pretextStyle": "outline",
+            "pretextAlignment": "left",
+            "title": "Order ahead, feed a crowd, or learn to bake",
+            "subtitle": "The retail case is the heart of it, but there are a few ways to get more of Ember & Rye than a single visit allows.",
+            "items": [
+              { "title": "Loaf standing order", "description": "Reserve a specific loaf — the seeded rye, the 100% whole wheat, the Friday-only walnut-fig — for weekly pickup so it's never sold out before you arrive. Set the day and we bag it with your name on it." },
+              { "title": "Whole-cake pre-orders", "description": "Olive-oil citrus cakes, dark chocolate rye tortes, and seasonal galettes made to order with 48 hours' notice for birthdays, dinners, and the occasional apology." },
+              { "title": "Wholesale for cafés", "description": "We supply eight neighborhood cafés and two restaurants with morning loaves and croissants, delivered by cargo bike before 7am within a two-mile radius of the mill." },
+              { "title": "Saturday sourdough class", "description": "A four-hour hands-on class at the back bench where you build a levain, shape a boule, and take home dough plus a jar of Nub's offspring. Six seats, once a month." },
+              { "title": "Coffee & a corner seat", "description": "Eight stools along the window and a single-origin pour-over from a roaster three blocks away, meant for lingering over a warm canelé, not laptops." },
+              { "title": "Day-old bread box", "description": "Whatever's left at close, boxed at half price for the last hour — first come, and it disappears fast among the neighborhood regulars." }
+            ],
+            "ctaText": "Start a standing order",
+            "ctaTextLink": { "linkType": "page", "pageSlug": "visit" },
+            "cardStyle": "editorial",
+            "surfaceStyle": "white",
+            "markerStyle": "numbered",
+            "spacingDensity": "spacious",
+            "textAlign": "left"
+          }
+        },
+        {
+          "blockType": "featuresList",
+          "data": {
+            "pretextEnabled": true,
+            "pretext": "How we bake",
+            "pretextStyle": "underline",
+            "pretextAlignment": "left",
+            "title": "The things we won't shortcut",
+            "items": [
+              "Organic flour milled within 90 miles and sifted the morning it's used, never bleached or bromated",
+              "A 20-hour cold retard on all sourdough for a blistered crust and a genuinely digestible crumb",
+              "Croissants folded through three turns with 84% cultured butter — no margarine, no shortcuts, no par-baked shells",
+              "Fired in a single oak-fed brick deck oven; the loaves closest to the coals get the darkest, most-requested bake",
+              "Everything sold the day it's made — no freezing, no reheating, no next-day markdowns on full-price bread",
+              "Nub, our ten-year-old rye starter, fed twice daily and never replaced with commercial yeast"
+            ],
+            "cardStyle": "minimal",
+            "surfaceStyle": "white",
+            "markerStyle": "framed",
+            "spacingDensity": "standard",
+            "textAlign": "left",
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "faq",
+          "data": {
+            "pretextEnabled": true,
+            "pretext": "Good to know",
+            "pretextStyle": "pill",
+            "pretextAlignment": "center",
+            "title": "Questions we get across the counter",
+            "subtitle": "The practical stuff — timing, holds, allergens, and why we're closed on Mondays.",
+            "items": [
+              { "question": "What time should I come to get the bread I want?", "answer": "Loaves hit the racks between 7 and 8am and the most popular ones — seeded rye, the country boule, weekend croissants — are usually gone by 11am. If you have your heart set on something specific, call the morning of or set up a standing order." },
+              { "question": "Can you hold a loaf or a pastry for me?", "answer": "Yes. Call before 9am and we'll bag it with your name and keep it behind the counter until 1pm. We can't hold indefinitely, so if plans change give us a ring so it goes to someone else." },
+              { "question": "Do you take custom cake and pastry orders?", "answer": "We do, with at least 48 hours' notice. That covers olive-oil citrus cakes, chocolate rye tortes, seasonal galettes, and croissant boxes for a crowd. Larger or tiered orders need a week — email hello@emberandrye.com to talk it through." },
+              { "question": "Is anything gluten-free or vegan?", "answer": "We're a working flour bakery, so nothing is truly allergen-free and we can't guarantee against cross-contact. That said, several bakes are made without dairy or eggs — look for the vegan mark on the board — and we always have one seeded gluten-conscious loaf on weekends." },
+              { "question": "Why are you closed on Mondays?", "answer": "Monday is Rosa's day to deep-clean the oven, refresh the starter cycle, and rest — the same care that goes into the bread. We reopen Tuesday at 7am with a full board." },
+              { "question": "Do you deliver or ship bread?", "answer": "We don't ship — good sourdough doesn't survive a courier — but we deliver wholesale to cafés within two miles of the mill by cargo bike before 7am. For individuals, it's counter pickup only." },
+              { "question": "Can I use the space to work on a laptop?", "answer": "The eight window stools are meant for a coffee, a warm pastry, and a bit of quiet. We keep it laptop-free during weekend mornings so everyone gets a seat, but weekday afternoons are relaxed and no one will hurry you." }
+            ],
+            "cardStyle": "soft",
+            "surfaceStyle": "white",
+            "spacingDensity": "standard"
+          }
+        },
+        {
+          "blockType": "cta",
+          "data": {
+            "pretextEnabled": true,
+            "pretext": "Every week",
+            "pretextStyle": "outline",
+            "pretextAlignment": "center",
+            "title": "Never miss the loaf you want again",
+            "subtitle": "Set up a weekly standing order and we'll bag your bread with your name on it before the racks empty.",
+            "buttonText": "Start a standing order",
+            "buttonTextLink": { "linkType": "page", "pageSlug": "visit" },
+            "showPattern": true,
+            "backgroundColor": "palette:secondary"
+          }
+        }
+      ]
+    },
+    {
+      "slug": "visit",
+      "title": "Visit",
+      "role": "contact",
+      "blocks": [
+        {
+          "blockType": "hero",
+          "data": {
+            "variant": "minimal",
+            "cards": [
+              {
+                "id": "visit-hero",
+                "content": {
+                  "title": { "enabled": true, "value": "The corner of Alder and Ninth", "align": "left" },
+                  "subtitle": { "enabled": true, "value": "You'll know it by the fogged windows and the smell before you know it by the sign. Here's everything you need to find us, reach us, or set up a standing loaf order.", "align": "left" },
+                  "cta": { "enabled": true, "label": "Get directions", "link": { "linkType": "custom", "href": "https://maps.google.com/?q=412+Alder+Street+Portland+OR+97204" }, "align": "left" },
+                  "image": { "enabled": false, "url": "", "side": "right", "layout": "split" }
+                },
+                "background": {
+                  "type": "gradient",
+                  "gradient": { "from": "palette:accent", "to": "#ffffff", "angle": 135 }
+                }
+              }
+            ],
+            "height": {
+              "desktop": { "mode": "fitContent", "valuePx": 0, "revealNext": 0 },
+              "tablet": { "mode": "fitContent", "valuePx": 0, "revealNext": 0 },
+              "mobile": { "mode": "fitContent", "valuePx": 0, "revealNext": 0 }
+            }
+          }
+        },
+        {
+          "blockType": "contact",
+          "data": {
+            "pretextEnabled": true,
+            "pretext": "Hours & address",
+            "pretextStyle": "underline",
+            "pretextAlignment": "left",
+            "title": "When the door's unlocked",
+            "subtitle": "We open when the first bake cools and close when the racks run bare, which on a good weekend can be well before three. Come early.",
+            "phone": "(503) 555-0148",
+            "email": "hello@emberandrye.com",
+            "address": "412 Alder Street, Bishop's Mill, Portland, OR 97204",
+            "hours": "Tuesday–Friday 7:00am–2:00pm · Saturday–Sunday 7:30am–3:00pm · Monday closed",
+            "cardStyle": "editorial",
+            "surfaceStyle": "white",
+            "spacingDensity": "spacious",
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "map",
+          "data": {
+            "title": "Getting here",
+            "address": "412 Alder Street, Bishop's Mill, Portland, OR 97204",
+            "locations": [
+              { "label": "Ember & Rye", "address": "412 Alder Street, Bishop's Mill, Portland, OR 97204", "description": "Corner storefront, former print shop, terrazzo floors. Bike racks out front; street parking is easiest before 8am. A four-minute walk from the Ninth Street streetcar stop." }
+            ],
+            "mapProvider": "maptiler",
+            "mapHeight": 420,
+            "mapZoom": 15,
+            "mapStyle": "light",
+            "markerLabel": "The bakery",
+            "showMapDirections": true,
+            "showCardDirections": true,
+            "showLocationCards": true
+          }
+        },
+        {
+          "blockType": "contact_form",
+          "data": {
+            "title": "Start a standing order or ask about a cake",
+            "description": "Tell us which loaf you want held each week, or the date and details of a custom cake or croissant box. We answer between bakes, usually by early afternoon the same day.",
+            "submitText": "Send it to the bakery",
+            "successMessage": "Got it — Rosa or someone dusted in flour will write back this afternoon. If it's urgent, just call the shop at (503) 555-0148.",
+            "cardStyle": "editorial",
+            "surfaceStyle": "white",
+            "backgroundColor": "palette:accent"
+          }
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "tone": "warm, sensory, hand-made, unhurried, specific",
+    "structureNotes": "Deliberately breaks the generic hero->services->testimonials->cta template: a full-screen atmospheric hero opens into the baker's origin story (aboutImageText) before any selling, a menu block stands in for a services grid to foreground the actual bakes, a single essay-variant featuredQuote replaces a testimonials grid with one regular's love letter, and a morning-bake gallery precedes the visit/contact close.",
+    "tags": ["bakery", "patisserie", "sourdough", "food", "warm-editorial", "craft", "artisan", "neighborhood", "cream-terracotta-cocoa", "fraunces-karla", "sensory", "wood-fired"]
+  }
+}

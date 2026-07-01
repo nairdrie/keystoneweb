@@ -1,0 +1,372 @@
+{
+  "slug": "community-foundation-nonprofit",
+  "category": "nonprofit",
+  "businessType": "nonprofit",
+  "styleFamily": "story-first hopeful editorial",
+  "siteTitle": "The Riverbend Neighbors Fund",
+  "voice": "Warm, plain-spoken, and unflinchingly concrete — a neighbor telling you exactly where the money went and who it reached.",
+  "designTokens": {
+    "customColors": { "primary": "#1F4B47", "secondary": "#E86A5C", "accent": "#FBF8F3" },
+    "fonts": { "heading": "Outfit", "body": "Source Sans 3" },
+    "headerConfig": {
+      "bgType": "white",
+      "logoPosition": "left",
+      "navPosition": "right",
+      "desktopMenuStyle": "inline",
+      "rightElement": "cta",
+      "sticky": true,
+      "layout": "default"
+    },
+    "paletteMood": "Warm oat-paper white sections, a deep hopeful-teal spine in headings and the impact stats banner, and a coral heartbeat reserved for the donate CTAs — soft, human, and quietly optimistic."
+  },
+  "pages": [
+    {
+      "slug": "home",
+      "title": "Home",
+      "role": "home",
+      "blocks": [
+        {
+          "blockType": "hero",
+          "data": {
+            "cards": [
+              {
+                "id": "hero-main",
+                "content": {
+                  "title": { "enabled": true, "value": "The block you live on can be the safety net you needed.", "align": "left" },
+                  "subtitle": { "enabled": true, "value": "The Riverbend Neighbors Fund pools small gifts from people across Riverbend and the East Flats into rapid grants for families, tenants, and grassroots groups in Clarke County — no red tape, decided by neighbors who live here.", "align": "left" },
+                  "cta": { "enabled": true, "label": "Fund a neighbor today", "link": { "linkType": "page", "pageSlug": "get-involved" }, "align": "left" },
+                  "image": { "enabled": true, "url": "", "side": "right", "layout": "split" }
+                },
+                "background": {
+                  "type": "gradient",
+                  "gradient": { "from": "palette:accent", "to": "#ffffff", "angle": 135 }
+                }
+              }
+            ],
+            "transition": { "type": "fade", "intervalSec": 6, "pauseOnHover": true },
+            "height": {
+              "desktop": { "mode": "fitContent", "revealNext": 1 },
+              "tablet": { "mode": "fitContent", "revealNext": 1 },
+              "mobile": { "mode": "fitContent", "revealNext": 0 }
+            }
+          }
+        },
+        {
+          "blockType": "aboutImageText",
+          "data": {
+            "pretext": "Why we exist",
+            "pretextEnabled": true,
+            "pretextStyle": "underline",
+            "pretextAlignment": "left",
+            "title": "When the rent is due Friday, a grant cycle in ninety days doesn't help.",
+            "description": "Riverbend Neighbors Fund started in 2016 around a folding table at the Delmar Street library, after three families on the same block were evicted in one winter. We are a community foundation built for speed and dignity: a neighbor can request help on a Monday and, for our emergency micro-grants, often have an answer by Thursday. We don't means-test people into humiliation, and we don't ask anyone to prove they deserve to stay housed. Every dollar we move is decided by a volunteer board of Clarke County residents — tenants, teachers, a retired plumber, the woman who runs the corner grocery.",
+            "items": [
+              "Emergency micro-grants averaging $640, paid directly to landlords, utilities, or repair crews within 5 business days",
+              "A neighbor-led review board — no outside consultants, no six-figure director",
+              "Grassroots seed grants for block clubs, mutual-aid kitchens, and youth groups too small for traditional funders",
+              "Bilingual intake in English and Spanish, in person at the Delmar Street library every Tuesday"
+            ],
+            "image": "",
+            "imagePosition": "left",
+            "splitRatio": "50-50",
+            "mobileStackOrder": "image-first",
+            "variant": "landscape",
+            "mediaTreatment": "soft",
+            "textAlign": "left",
+            "imageCaption": "Tuesday intake hours at the Delmar Street library branch, Riverbend.",
+            "showSecondaryButton": true,
+            "secondaryButtonText": "See the programs we fund",
+            "secondaryButtonTextLink": { "linkType": "page", "pageSlug": "programs" },
+            "backgroundColor": ""
+          }
+        },
+        {
+          "blockType": "stats",
+          "data": {
+            "pretext": "Since 2016",
+            "pretextEnabled": true,
+            "pretextStyle": "pill",
+            "pretextAlignment": "center",
+            "title": "Small gifts, added up, keep the lights on.",
+            "variant": "banner",
+            "items": [
+              { "value": "$1.9M", "label": "moved directly to neighbors in Clarke County" },
+              { "value": "3,140", "label": "households kept housed or reconnected to power" },
+              { "value": "94¢", "label": "of every dollar reaching a neighbor, not overhead" },
+              { "value": "4.2 days", "label": "median time from request to grant paid" }
+            ],
+            "textAlign": "center",
+            "backgroundColor": "palette:primary"
+          }
+        },
+        {
+          "blockType": "featuredQuote",
+          "data": {
+            "variant": "essay",
+            "eyebrow": "One neighbor's year",
+            "title": "Marisol's story",
+            "quote": "The furnace died the week my hours got cut at the plant. I called around and everyone wanted paperwork I didn't have time to gather with a newborn in a cold apartment. Riverbend sent someone to the door Tuesday, and the repair guy came Thursday. They never once made me feel like I was begging. Six months later I volunteered to sit on the review board, and now I'm the one knocking on doors — because I know exactly what that Thursday felt like.",
+            "personName": "Marisol Vega",
+            "personTitle": "Grant recipient, 2022 — now a volunteer board member",
+            "personContext": "East Flats, Riverbend",
+            "personImage": "",
+            "imagePosition": "left",
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "servicesGrid",
+          "data": {
+            "pretext": "What we fund",
+            "pretextEnabled": true,
+            "pretextStyle": "text",
+            "pretextAlignment": "left",
+            "title": "Four programs, all decided down the block.",
+            "subtitle": "Every grant is reviewed by neighbors who live in Clarke County, not a distant committee — here is exactly where your gift can go.",
+            "items": [
+              { "title": "Keep-the-Lights-On micro-grants", "description": "Rapid grants averaging $640 for rent shortfalls, utility reconnections, and emergency home repairs. We pay landlords, the power company, and repair crews directly, usually within five business days of intake." },
+              { "title": "Block Club Seed Grants", "description": "Grants of $500 to $2,500 for resident-led block clubs, community gardens, and mutual-aid kitchens too small for traditional foundations. Funds a shared snowblower, a first cookout, or a year of seedlings." },
+              { "title": "Youth Roots after-school fund", "description": "Underwrites bus passes, sports fees, and stipends so Riverbend teens can join the tutoring co-op and the summer river-cleanup crew without a family ever having to say they can't afford it." },
+              { "title": "First-Month Landing grants", "description": "Covers security deposits and first-month utilities for neighbors moving out of shelters or unsafe housing into a lease of their own, paired with a volunteer to help set up accounts." },
+              { "title": "Repair-Together tool library", "description": "A free lending shelf of ladders, drills, and wet-vacs at the Delmar Street library, plus small grants for materials, so neighbors can fix porches and clear flooded basements themselves." },
+              { "title": "Elder Warmth winter fund", "description": "Seasonal grants for older residents on fixed incomes covering heating bills, weatherstripping, and a weekly check-in call from a trained neighbor from November through March." }
+            ],
+            "ctaText": "See how each program works",
+            "ctaTextLink": { "linkType": "page", "pageSlug": "programs" },
+            "cardStyle": "soft",
+            "surfaceStyle": "white",
+            "markerStyle": "accentLine",
+            "spacingDensity": "standard",
+            "textAlign": "left",
+            "backgroundColor": ""
+          }
+        },
+        {
+          "blockType": "cta",
+          "data": {
+            "pretext": "Your part",
+            "pretextEnabled": true,
+            "pretextStyle": "outline",
+            "title": "Thirty dollars a month keeps one family's power on for a year.",
+            "subtitle": "Become a Riverbend sustainer, or come sit at the Tuesday intake table — this fund only works because neighbors show up for neighbors.",
+            "buttonText": "Become a sustainer",
+            "buttonTextLink": { "linkType": "page", "pageSlug": "get-involved" },
+            "buttonTextIcon": "heart",
+            "showPattern": true,
+            "backgroundColor": "palette:secondary"
+          }
+        }
+      ]
+    },
+    {
+      "slug": "programs",
+      "title": "Programs",
+      "role": "services",
+      "blocks": [
+        {
+          "blockType": "hero",
+          "data": {
+            "cards": [
+              {
+                "id": "programs-hero",
+                "content": {
+                  "title": { "enabled": true, "value": "Six ways your gift shows up on a Clarke County block.", "align": "left" },
+                  "subtitle": { "enabled": true, "value": "Every program below is run by volunteers and reviewed by neighbors — here is what each one covers, who it's for, and how fast the help arrives.", "align": "left" },
+                  "cta": { "enabled": true, "label": "Fund a program", "link": { "linkType": "page", "pageSlug": "get-involved" }, "align": "left" },
+                  "image": { "enabled": true, "url": "", "side": "right", "layout": "split" }
+                },
+                "background": {
+                  "type": "gradient",
+                  "gradient": { "from": "palette:accent", "to": "#ffffff", "angle": 135 }
+                }
+              }
+            ],
+            "transition": { "type": "fade", "intervalSec": 6, "pauseOnHover": true },
+            "height": {
+              "desktop": { "mode": "fitContent", "revealNext": 0 },
+              "tablet": { "mode": "fitContent", "revealNext": 0 },
+              "mobile": { "mode": "fitContent", "revealNext": 0 }
+            }
+          }
+        },
+        {
+          "blockType": "servicesGrid",
+          "data": {
+            "pretext": "The programs",
+            "pretextEnabled": true,
+            "pretextStyle": "underline",
+            "pretextAlignment": "left",
+            "title": "What we fund, in plain terms.",
+            "subtitle": "Grant sizes and turnaround times are real figures from our 2024 giving report — no averages hidden behind a glossy annual report.",
+            "items": [
+              { "title": "Keep-the-Lights-On micro-grants", "description": "Rapid grants averaging $640 for rent shortfalls, utility reconnections, and emergency home repairs. We pay landlords, the power company, and repair crews directly, usually within five business days of intake at the Delmar Street library." },
+              { "title": "Block Club Seed Grants", "description": "Grants of $500 to $2,500 for resident-led block clubs, community gardens, and mutual-aid kitchens too small for traditional foundations. Last year they funded a shared snowblower on Delmar Street and a year of seedlings for the East Flats garden." },
+              { "title": "Youth Roots after-school fund", "description": "Underwrites bus passes, sports fees, and stipends so Riverbend teens can join the Tuesday tutoring co-op and the summer river-cleanup crew without a family ever having to say they can't afford it." },
+              { "title": "First-Month Landing grants", "description": "Covers security deposits and first-month utilities for neighbors moving out of shelters or unsafe housing into a lease of their own, paired with a volunteer to help set up the power and water accounts." },
+              { "title": "Repair-Together tool library", "description": "A free lending shelf of ladders, drills, and wet-vacs at the library, plus small grants for lumber and hardware, so neighbors can fix porches and clear flooded basements after the spring river crest themselves." },
+              { "title": "Elder Warmth winter fund", "description": "Seasonal grants for older residents on fixed incomes covering heating bills, weatherstripping, and a weekly check-in call from a trained neighbor from November through March." }
+            ],
+            "ctaText": "Sponsor a program for a year",
+            "ctaTextLink": { "linkType": "page", "pageSlug": "get-involved" },
+            "cardStyle": "editorial",
+            "surfaceStyle": "white",
+            "markerStyle": "numbered",
+            "spacingDensity": "spacious",
+            "textAlign": "left",
+            "backgroundColor": ""
+          }
+        },
+        {
+          "blockType": "featuresList",
+          "data": {
+            "pretext": "How we're different",
+            "pretextEnabled": true,
+            "pretextStyle": "pill",
+            "pretextAlignment": "center",
+            "title": "Why neighbors trust us with the money.",
+            "items": [
+              "Median 4.2 days from request to grant paid — most funders quote 90 days",
+              "94¢ of every dollar reaches a neighbor; our only staff is one part-time coordinator",
+              "No means-testing paperwork for emergency grants under $750 — a neighbor's word is enough",
+              "A 14-person review board of Clarke County residents decides every grant, in public monthly meetings",
+              "Bilingual intake in English and Spanish, in person every Tuesday, 4–7pm, at the Delmar Street library",
+              "Audited annually by Halverson & Reyes CPAs, with the full report posted online each March"
+            ],
+            "cardStyle": "bordered",
+            "surfaceStyle": "accent",
+            "markerStyle": "framed",
+            "spacingDensity": "standard",
+            "textAlign": "left",
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "faq",
+          "data": {
+            "pretext": "Before you ask",
+            "pretextEnabled": true,
+            "pretextStyle": "text",
+            "pretextAlignment": "left",
+            "title": "Questions neighbors ask us most.",
+            "subtitle": "If you don't see yours here, come to Tuesday intake or call the coordinator line — a real person answers.",
+            "items": [
+              { "question": "Who can request a grant from Riverbend Neighbors Fund?", "answer": "Anyone who lives in Clarke County — Riverbend, the East Flats, or the Delmar corridor. We serve renters and homeowners, documented and undocumented neighbors alike. You don't need to be a citizen, and you don't need to have given to the fund before." },
+              { "question": "How fast can I actually get help?", "answer": "For emergency micro-grants under $750, our median turnaround from intake to a paid grant is 4.2 days. Larger grants and block club seed grants go to the monthly review board, which meets the first Thursday of each month at the library." },
+              { "question": "Do I have to prove I'm poor enough to qualify?", "answer": "No. For emergency grants under $750 we take a neighbor's word and skip the paperwork entirely. For larger grants we ask a few questions about the situation, but we never demand pay stubs, credit checks, or immigration documents." },
+              { "question": "Where does the grant money actually go?", "answer": "We pay third parties directly whenever we can — your landlord, the power company, the furnace repair crew — so the help lands where it's needed and there's a clean paper trail. Cash goes to a neighbor only when direct payment isn't possible." },
+              { "question": "Is my donation tax-deductible?", "answer": "Yes. Riverbend Neighbors Fund is a registered 501(c)(3) public charity (EIN on request), and we mail or email a receipt within 48 hours of every gift. Monthly sustainers get a single consolidated receipt each January." },
+              { "question": "How do I know the money is handled honestly?", "answer": "Our books are audited every year by Halverson & Reyes CPAs, and the full audit plus a plain-language giving report go online each March. Our review board meetings are open to the public, and 94 cents of every dollar reaches a neighbor." },
+              { "question": "Can my block club or mutual-aid group apply for funding?", "answer": "Absolutely — that's exactly who Block Club Seed Grants are for. You don't need to be a formal nonprofit. Bring a rough idea and a rough budget to any Tuesday intake, and a board member will help you shape the request." },
+              { "question": "I want to help but can't give much. Is a small gift worth it?", "answer": "It's the whole point. Our average grant is $640 and our average donation is $28 — this fund is built entirely from small gifts stacked together. Thirty dollars a month keeps one family's power on for a year." }
+            ],
+            "cardStyle": "soft",
+            "surfaceStyle": "white",
+            "spacingDensity": "standard",
+            "backgroundColor": ""
+          }
+        },
+        {
+          "blockType": "cta",
+          "data": {
+            "pretext": "Fund the work",
+            "pretextEnabled": true,
+            "pretextStyle": "outline",
+            "title": "Adopt a program and watch it work all year.",
+            "subtitle": "Sustainers can earmark a monthly gift for Elder Warmth, Youth Roots, or wherever the need is sharpest — you'll get the story of exactly who it reached.",
+            "buttonText": "Choose a program to fund",
+            "buttonTextLink": { "linkType": "page", "pageSlug": "get-involved" },
+            "buttonTextIcon": "heart",
+            "showPattern": true,
+            "backgroundColor": "palette:secondary"
+          }
+        }
+      ]
+    },
+    {
+      "slug": "get-involved",
+      "title": "Get Involved",
+      "role": "contact",
+      "blocks": [
+        {
+          "blockType": "cta",
+          "data": {
+            "pretext": "Show up for neighbors",
+            "pretextEnabled": true,
+            "pretextStyle": "outline",
+            "title": "This fund runs on twenty-eight-dollar gifts and Tuesday nights.",
+            "subtitle": "Become a monthly sustainer, volunteer at the intake table, or bring your block club's idea to us — there's a way in for everyone who lives here.",
+            "buttonText": "Set up a monthly gift",
+            "buttonTextLink": { "linkType": "custom", "href": "https://donate.riverbendneighbors.org" },
+            "buttonTextIcon": "heart",
+            "showPattern": true,
+            "backgroundColor": "palette:secondary"
+          }
+        },
+        {
+          "blockType": "servicesGrid",
+          "data": {
+            "pretext": "Ways to help",
+            "pretextEnabled": true,
+            "pretextStyle": "underline",
+            "pretextAlignment": "left",
+            "title": "Pick the way that fits your week.",
+            "subtitle": "You don't need money to matter here — some of our most important help is two hours on a Tuesday and a willingness to knock on a door.",
+            "items": [
+              { "title": "Become a monthly sustainer", "description": "A recurring gift — even $10, $28, or $50 a month — is what lets us promise neighbors a Thursday answer. Sustainers can earmark their gift for a specific program and get the story of who it reached." },
+              { "title": "Volunteer at Tuesday intake", "description": "Sit at the Delmar Street library table from 4 to 7pm, help neighbors fill out a short request, and make coffee. Bilingual English/Spanish volunteers are especially needed. Training takes one evening." },
+              { "title": "Join the review board", "description": "Fourteen Clarke County residents read grant requests and vote each month. Many, like Marisol, once received a grant themselves. We hold two open seats each January." },
+              { "title": "Host a giving circle", "description": "Gather ten neighbors, coworkers, or church members and pool a monthly gift. We'll send a board member to your first gathering to walk through exactly how the money moves." },
+              { "title": "Donate tools and time", "description": "Our Repair-Together library always needs working ladders, drills, and wet-vacs, and skilled tradespeople willing to teach a Saturday repair clinic on porches and flooded basements." },
+              { "title": "Leave a legacy gift", "description": "Naming the fund in your will or estate plan builds a permanent cushion for Clarke County. Our coordinator can connect you with a local attorney who does this pro bono for neighbors." }
+            ],
+            "ctaText": "Come to the next Tuesday intake",
+            "ctaTextLink": { "linkType": "section", "blockId": "get-involved-contact-form" },
+            "cardStyle": "soft",
+            "surfaceStyle": "white",
+            "markerStyle": "accentLine",
+            "spacingDensity": "standard",
+            "textAlign": "left",
+            "backgroundColor": ""
+          }
+        },
+        {
+          "blockType": "contact_form",
+          "id": "get-involved-contact-form",
+          "data": {
+            "title": "Tell us how you want to help — or ask for help.",
+            "description": "Whether you want to give, volunteer, apply for a grant, or bring a block club idea, drop us a note. A real neighbor reads every message and replies within two business days. For urgent housing or utility emergencies, come to Tuesday intake or call the coordinator line at (555) 014-2318.",
+            "submitText": "Send it to the fund",
+            "successMessage": "Thank you — your message landed with us. A Riverbend neighbor will reply within two business days. If this is an emergency, please come to Tuesday intake at the Delmar Street library, 4–7pm.",
+            "cardStyle": "editorial",
+            "surfaceStyle": "accent",
+            "backgroundColor": "palette:accent"
+          }
+        },
+        {
+          "blockType": "contact",
+          "data": {
+            "pretext": "Find us",
+            "pretextEnabled": true,
+            "pretextStyle": "text",
+            "pretextAlignment": "left",
+            "title": "We're at the library every Tuesday.",
+            "subtitle": "The fund has no fancy office — we meet neighbors where they already are, at the Delmar Street branch in the heart of Riverbend.",
+            "phone": "(555) 014-2318",
+            "email": "hello@riverbendneighbors.org",
+            "address": "Delmar Street Library, 214 Delmar St, Riverbend, Clarke County",
+            "hours": "Intake & office hours: Tuesdays 4–7pm. Review board: first Thursday monthly, 6pm, open to all.",
+            "cardStyle": "soft",
+            "surfaceStyle": "white",
+            "spacingDensity": "standard",
+            "backgroundColor": ""
+          }
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "tone": "hopeful, human, mission-driven, plain-spoken, concrete",
+    "structureNotes": "Deliberately leads hero -> mission (aboutImageText) -> impact stats -> a single beneficiary essay quote -> programs -> donate CTA, front-loading human story and proof-of-impact before ever listing programs, which inverts the generic hero->services->testimonials->cta template that sells before it earns trust.",
+    "tags": ["nonprofit", "community-foundation", "charity", "donation", "grants", "mutual-aid", "story-first", "hopeful-editorial", "warm-teal-coral", "mission-driven", "local"]
+  }
+}
