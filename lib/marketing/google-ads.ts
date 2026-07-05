@@ -27,6 +27,7 @@ import {
   type KeywordMetric,
 } from './bidding';
 import { resolveCampaignEndDate } from './schedule';
+import { inferCountryCode, selectGeoTargets } from './geo';
 
 // ── Mock mode ────────────────────────────────────────────────────────────────
 // Set GOOGLE_ADS_MOCK=true in .env.local to skip all real Google API calls.
@@ -143,9 +144,11 @@ async function getClient(customerIdOverride?: string) {
 // ── Location Targeting ──────────────────────────────────────────────────────
 //
 // Google Ads accepts geo targeting as references to `geoTargetConstants/<id>`
-// records. We resolve user-entered place names ("Toronto", "Ontario", "Canada")
-// to those IDs at submit time. Names that don't resolve are skipped — the
-// campaign still launches, just without that location constraint.
+// records. We resolve user-entered place names ("Toronto, ON", "Greater Toronto
+// Area", "Toronto, Ontario, Canada") to those IDs at submit time via Google's
+// SuggestGeoTargetConstants, which canonicalizes messy inputs that an exact-name
+// match would miss. When NOTHING resolves the caller refuses to launch, rather
+// than shipping a campaign with no location filter (which serves worldwide).
 
 /** Sanitize a value for inline use in a GAQL query literal. */
 function escapeGaql(value: string): string {
@@ -157,10 +160,37 @@ async function resolveLocationResourceNames(
   customer: any,
   names: string[],
 ): Promise<string[]> {
+  const cleaned = names.map(n => n.trim()).filter(Boolean);
+  if (!cleaned.length) return [];
+
+  const countryCode = inferCountryCode(cleaned);
+
+  // Primary: Google's geo suggest. Handles "Toronto, ON", "Greater Toronto
+  // Area", "GTA", trailing province/country, etc., and returns canonical
+  // constants — none of which the old exact `name = '...'` match could find.
+  try {
+    const res = await customer.geoTargetConstants.suggestGeoTargetConstants({
+      locale: 'en',
+      country_code: countryCode,
+      location_names: { names: cleaned.slice(0, 25) },
+    });
+    const selected = selectGeoTargets(res?.geo_target_constant_suggestions || [], countryCode);
+    if (selected.length) return selected;
+  } catch (err) {
+    console.warn('[google-ads] geo suggest failed, falling back to exact match:', err);
+  }
+
+  // Fallback: exact name match. Rarely needed, but still beats no targeting.
+  return resolveLocationsByExactName(customer, cleaned);
+}
+
+async function resolveLocationsByExactName(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  customer: any,
+  names: string[],
+): Promise<string[]> {
   const out: string[] = [];
-  for (const raw of names) {
-    const name = raw.trim();
-    if (!name) continue;
+  for (const name of names) {
     try {
       const rows = await customer.query(`
         SELECT geo_target_constant.id, geo_target_constant.name
@@ -198,6 +228,22 @@ async function applyLocationTargeting(
       campaign: campaignResourceName,
       location: { geo_target_constant: rn },
     })),
+  );
+}
+
+/**
+ * Guard: refuse to launch when no location criteria resolved. A campaign with no
+ * geo targeting serves worldwide, so this fails the launch with an actionable
+ * message instead of silently burning budget on global traffic. Call it before
+ * anything is created in Google so a rejected launch leaves nothing behind.
+ */
+function assertGeoTargets(campaign: Campaign, geoTargets: string[]): void {
+  if (geoTargets.length) return;
+  const requested = (campaign.targeting?.locations || []).map(l => l.trim()).filter(Boolean);
+  throw new Error(
+    requested.length
+      ? `No Google geo targets resolved for location(s): ${requested.join(', ')}. Refusing to launch — an untargeted campaign serves worldwide. Fix the campaign's target locations and relaunch.`
+      : `Campaign has no target locations. Refusing to launch — an untargeted campaign serves worldwide. Set target locations and relaunch.`,
   );
 }
 
@@ -302,6 +348,10 @@ export async function createSearchCampaign(
   // Resolve geo targets ONCE — reused for both the market estimate (so it's
   // scoped to the campaign's locations) and the campaign location criteria.
   const geoTargets = await resolveLocationResourceNames(customer, campaign.targeting?.locations || []);
+  // Fail closed: a campaign with no resolvable locations would serve worldwide
+  // (Google defaults to "all locations"). Refuse to launch instead — nothing has
+  // been created in Google yet, so this leaves no orphaned budget/campaign.
+  assertGeoTargets(campaign, geoTargets);
 
   // Reference real market data ("first page bid" estimates) when we can; fall
   // back to a heuristic otherwise. This drives the bid ceiling, match type, and
@@ -342,6 +392,14 @@ export async function createSearchCampaign(
     status: 'PAUSED',
     start_date: campaign.start_date?.replace(/-/g, '') || undefined,
     end_date: endDate ? endDate.replace(/-/g, '') : undefined,
+    // PRESENCE (not the "presence OR interest" default): only serve people who
+    // are physically in / regularly in the targeted locations. Without this, a
+    // Toronto campaign still shows to someone abroad who merely searches for
+    // "Toronto roofing" — the source of the India lead spam.
+    geo_target_type_setting: {
+      positive_geo_target_type: 'PRESENCE',
+      negative_geo_target_type: 'PRESENCE_OR_INTEREST',
+    },
     network_settings: {
       target_google_search: true,
       // Search partners OFF: for local lead-gen on strict daily budgets every
@@ -431,6 +489,12 @@ export async function createDisplayCampaign(
   const customer = await getClient(customerId);
   const content = campaign.content as GoogleDisplayContent;
 
+  // Resolve + validate geo targets BEFORE creating anything, so a campaign with
+  // no resolvable locations is rejected up front (an untargeted campaign serves
+  // worldwide) rather than leaving an orphaned budget/campaign behind.
+  const geoTargets = await resolveLocationResourceNames(customer, campaign.targeting?.locations || []);
+  assertGeoTargets(campaign, geoTargets);
+
   const budgetResult = await customer.campaignBudgets.create([{
     name: uniqueBudgetName(campaign),
     amount_micros: dailyBudgetCents * 10000,
@@ -457,6 +521,12 @@ export async function createDisplayCampaign(
     status: 'ENABLED',
     start_date: campaign.start_date?.replace(/-/g, '') || undefined,
     end_date: endDate ? endDate.replace(/-/g, '') : undefined,
+    // Presence-only (not "presence or interest"): serve people in the targeted
+    // locations, not anyone worldwide who's merely interested in them.
+    geo_target_type_setting: {
+      positive_geo_target_type: 'PRESENCE',
+      negative_geo_target_type: 'PRESENCE_OR_INTEREST',
+    },
   }]);
   const campaignResourceName = campaignResult.results[0].resource_name;
   const campaignId = campaignResourceName.split('/').pop()!;
@@ -491,7 +561,6 @@ export async function createDisplayCampaign(
   // AdGroupAd resource name is "customers/X/adGroupAds/{adGroupId}~{adId}".
   const adId = adResult.results[0].resource_name.split('~').pop()!;
 
-  const geoTargets = await resolveLocationResourceNames(customer, campaign.targeting?.locations || []);
   await applyLocationTargeting(customer, campaignResourceName, geoTargets);
 
   return { campaignId, adGroupId, adId, warnings: displayWarnings };
