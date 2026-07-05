@@ -81,3 +81,19 @@ export function parseConversionLabelFromSnippet(snippet: string | null | undefin
 export function isConversionTrackingActive(config: SiteConversionConfig | null | undefined): boolean {
   return !!config?.conversionId && !!config.labels && Object.keys(config.labels).length > 0;
 }
+
+/**
+ * Build the client-facing conversion config from a raw `sites` row. Returns null
+ * when the site has no (valid) conversion id, so callers render nothing.
+ */
+export function buildSiteConversionConfig(row: {
+  google_ads_conversion_id?: string | null;
+  google_ads_conversion_labels?: Record<string, string> | null;
+} | null | undefined): SiteConversionConfig | null {
+  const conversionId = normalizeConversionId(row?.google_ads_conversion_id);
+  if (!conversionId) return null;
+  return {
+    conversionId,
+    labels: (row?.google_ads_conversion_labels || {}) as SiteConversionConfig['labels'],
+  };
+}

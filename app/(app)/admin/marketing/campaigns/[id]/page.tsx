@@ -7,7 +7,7 @@ import {
   ArrowLeft, Pause, Play, Trash2, CheckCircle2,
   TrendingUp, MousePointerClick, Eye, DollarSign, Loader2,
   Activity, ExternalLink, ShoppingBag, Calendar, Mail, Users,
-  Sparkles, AlertCircle, Wallet, Copy, Check, Link2, X,
+  Sparkles, AlertCircle, Wallet, Copy, Check, Link2, X, Phone,
 } from 'lucide-react';
 import { useAdminContext } from '../../../admin-context';
 import { STATUS_LABELS, STATUS_COLORS, CHANNEL_LABELS, CAMPAIGN_TYPE_LABELS } from '@/lib/marketing/types';
@@ -605,6 +605,7 @@ interface Conversions {
   orders: { count: number; revenueCents: number };
   members: { count: number };
   contacts: { count: number };
+  calls: { count: number };
   totalCount: number;
   totalRevenueCents: number;
 }
@@ -628,7 +629,12 @@ function ConversionsPanel({ conversions }: { conversions: Conversions | null }) 
           order, signup or contact form submission from those visitors gets counted here.
         </p>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <ConversionStat
+            icon={<Phone className="w-4 h-4 text-teal-600" />}
+            label="Phone calls"
+            value={conversions.calls.count}
+          />
           <ConversionStat
             icon={<Calendar className="w-4 h-4 text-sky-600" />}
             label="Bookings"

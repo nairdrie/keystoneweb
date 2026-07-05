@@ -7,6 +7,8 @@ import {
   buildCanonicalUrl,
   buildHreflangAlternates,
 } from '@/lib/seo/metadata';
+import SiteConversionTracking from '@/app/components/SiteConversionTracking';
+import { buildSiteConversionConfig } from '@/lib/marketing/conversions';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,6 +53,29 @@ export async function generateMetadata({
   });
 }
 
-export default function SubdomainLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+export default async function SubdomainLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode;
+  params: Promise<{ subdomain: string }>;
+}) {
+  const { subdomain } = await params;
+  const supabase = await createClient();
+
+  const { data: site } = await supabase
+    .from('sites')
+    .select('id, google_ads_conversion_id, google_ads_conversion_labels')
+    .eq('published_domain', subdomain)
+    .eq('is_published', true)
+    .single();
+
+  return (
+    <>
+      {site && (
+        <SiteConversionTracking siteId={site.id} config={buildSiteConversionConfig(site)} />
+      )}
+      {children}
+    </>
+  );
 }
