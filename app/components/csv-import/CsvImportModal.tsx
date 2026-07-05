@@ -420,7 +420,7 @@ export default function CsvImportModal({ siteId, type, onClose, onImported }: Cs
                                         <strong>image_urls:</strong> pipe- or comma-separated <span className="font-mono">https://...</span> links — images are downloaded and added automatically
                                     </p>
                                     <p className="text-[10px] text-blue-600">
-                                        <Sparkles className="w-2.5 h-2.5 text-purple-400 inline mb-0.5" /> AI also detects brands, tidies names, merges duplicate rows into product variants, and finds images from search links.
+                                        <Sparkles className="w-2.5 h-2.5 text-purple-400 inline mb-0.5" /> AI also detects brands, tidies names, and merges duplicate rows into product variants. Only direct image links are imported — search links are skipped.
                                     </p>
                                 </div>
                             )}

@@ -157,10 +157,7 @@ export function parseImageUrlsCell(val: string | undefined): string[] {
         .filter(s => /^https?:\/\//i.test(s));
 }
 
-// ─── Search-URL image resolution ──────────────────────────────────────────────
-
-const SEARCH_PAGE_TIMEOUT = 10_000;
-const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
+// ─── Search-URL detection ─────────────────────────────────────────────────────
 
 /** Exact host or a subdomain of it — not a substring (blocks bing.com.evil.tld). */
 function hostMatches(host: string, base: string): boolean {
@@ -177,10 +174,12 @@ function isGoogleHost(host: string): boolean {
 }
 
 /**
- * Is this URL a search-engine results page rather than a direct image? Those
- * can't be downloaded as an image, but the real image can often be recovered
- * from the results HTML. Host matching is exact (or subdomain) so a spoofed
- * host like `bing.com.attacker.example` is not treated as a search engine.
+ * Is this URL a search-engine results page rather than a direct image? We never
+ * download from these: a results page has no content-safety guarantee and the
+ * "top" image can't be trusted to be the right (or an appropriate) product
+ * image, so importing one onto a live storefront is unsafe. Host matching is
+ * exact (or subdomain) so a spoofed host like `bing.com.attacker.example` isn't
+ * treated as a search engine.
  */
 export function isImageSearchUrl(url: string): boolean {
     try {
@@ -196,128 +195,11 @@ export function isImageSearchUrl(url: string): boolean {
     }
 }
 
-function decodeHtmlAndJson(s: string): string {
-    return s
-        .replace(/&quot;/g, '"')
-        .replace(/&amp;/g, '&')
-        .replace(/&#(\d+);/g, (_, d) => String.fromCharCode(Number(d)))
-        .replace(/\\u002f/gi, '/')
-        .replace(/\\\//g, '/');
-}
-
 /**
- * Best-effort extraction of direct image URLs from a search-results page.
- * Returns an ordered, de-duplicated list of candidate direct image URLs
- * (empty on any failure — the caller degrades gracefully).
+ * Which of these raw image sources are safe to download? Only direct image
+ * URLs — search-engine results pages are dropped, never scraped.
  */
-export async function extractImageUrlsFromSearchPage(searchUrl: string): Promise<string[]> {
-    const MAX_HTML_BYTES = 3 * 1024 * 1024;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), SEARCH_PAGE_TIMEOUT);
-    try {
-        const res = await fetch(searchUrl, {
-            signal: controller.signal,
-            headers: { 'User-Agent': BROWSER_UA, 'Accept-Language': 'en-US,en;q=0.9' },
-        });
-        if (!res.ok) return [];
-
-        const contentType = res.headers.get('content-type') || '';
-        if (!contentType.includes('text/html')) return [];
-
-        // Bounded, streaming read: never materialize more than MAX_HTML_BYTES,
-        // and keep the read under the abort timeout.
-        let html = '';
-        const reader = res.body?.getReader();
-        if (reader) {
-            const decoder = new TextDecoder();
-            let received = 0;
-            for (;;) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                received += value.length;
-                html += decoder.decode(value, { stream: true });
-                if (received >= MAX_HTML_BYTES) { try { await reader.cancel(); } catch { /* ignore */ } break; }
-            }
-            html += decoder.decode();
-        } else {
-            html = (await res.text()).slice(0, MAX_HTML_BYTES);
-        }
-
-        const candidates: string[] = [];
-        const push = (raw: string) => {
-            const decoded = decodeHtmlAndJson(raw);
-            if (/^https?:\/\//i.test(decoded)) candidates.push(decoded);
-        };
-
-        // Bing embeds the true media URL as "murl" inside each result tile.
-        for (const m of html.matchAll(/murl&quot;:&quot;(.*?)&quot;/gi)) push(m[1]);
-        for (const m of html.matchAll(/"murl":"(.*?)"/gi)) push(m[1]);
-        // Google / generic: imgurl or mediaurl query params on result anchors.
-        for (const m of html.matchAll(/(?:imgurl|mediaurl)=([^"'&\s]+)/gi)) {
-            try { push(decodeURIComponent(m[1])); } catch { /* skip */ }
-        }
-
-        // De-dup and keep only plausible image URLs.
-        const seen = new Set<string>();
-        const out: string[] = [];
-        for (const c of candidates) {
-            if (seen.has(c)) continue;
-            seen.add(c);
-            if (/\.(jpe?g|png|webp|gif|avif)(\?|$)/i.test(c) || !isImageSearchUrl(c)) out.push(c);
-            if (out.length >= 5) break;
-        }
-        return out;
-    } catch {
-        return [];
-    } finally {
-        clearTimeout(timeout);
-    }
+export function directImageUrls(sources: string[]): string[] {
+    return sources.filter(s => /^https?:\/\//i.test(s) && !isImageSearchUrl(s));
 }
 
-/**
- * Turn one raw image source into an ordered list of direct-image candidates.
- * Direct URLs pass through unchanged; search-engine URLs are resolved to the
- * real images found on their results page.
- */
-export async function resolveImageCandidates(source: string): Promise<string[]> {
-    if (isImageSearchUrl(source)) return extractImageUrlsFromSearchPage(source);
-    return [source];
-}
-
-/**
- * Download + upload images from raw sources, resolving search-engine URLs to
- * real images first. For each source we attach the first candidate that
- * downloads successfully (so a search URL yields at most one image), stopping
- * once `maxImages` have been attached.
- */
-export async function downloadAndUploadImagesSmart(
-    sources: string[],
-    siteId: string,
-    userId: string,
-    supabase: any,
-    maxImages = 6,
-): Promise<{ publicUrls: string[]; uploaded: number; failed: number; totalBytes: number }> {
-    const publicUrls: string[] = [];
-    let uploaded = 0;
-    let failed = 0;
-    let totalBytes = 0;
-
-    for (const source of sources) {
-        if (publicUrls.length >= maxImages) break;
-        const candidates = await resolveImageCandidates(source);
-        let attached = false;
-        for (const candidate of candidates) {
-            const r = await downloadAndUploadImage(candidate, siteId, userId, supabase);
-            if (r) {
-                publicUrls.push(r.publicUrl);
-                uploaded++;
-                totalBytes += r.sizeBytes;
-                attached = true;
-                break;
-            }
-        }
-        if (!attached) failed++;
-    }
-
-    return { publicUrls, uploaded, failed, totalBytes };
-}

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
-import { downloadAndUploadImagesSmart, parseImageUrlsCell } from '@/lib/ecommerce/import-images';
+import { downloadAndUploadImages, directImageUrls, parseImageUrlsCell } from '@/lib/ecommerce/import-images';
 import {
     decodeImportText,
     normalizeProductRows,
@@ -816,12 +816,15 @@ export async function POST(req: NextRequest) {
                 const reportRow = plan.rowNums[0];
                 const name = plan.canonicalName;
                 try {
-                    // Resolve + download images. Search-engine URLs (e.g. a Bing
-                    // image-search link) are resolved to the real image first.
-                    // Nothing downloaded => keep existing images on update, [] on insert.
+                    // Only download DIRECT image URLs. Search-engine links (e.g. a
+                    // Bing image-search URL) are dropped, never scraped — a results
+                    // page has no safety/relevance guarantee and must not land on a
+                    // storefront. Nothing downloaded => keep existing images on
+                    // update, [] on insert.
+                    const directSources = directImageUrls(plan.imageSources);
                     let downloadedImages: string[] | null = null;
-                    if (plan.imageSources.length > 0) {
-                        const imgResult = await downloadAndUploadImagesSmart(plan.imageSources, siteId, user.id, supabase);
+                    if (directSources.length > 0) {
+                        const imgResult = await downloadAndUploadImages(directSources, siteId, user.id, supabase);
                         downloadedImages = imgResult.publicUrls;
                         totalImagesUploaded += imgResult.uploaded;
                         totalImageBytes += imgResult.totalBytes;
