@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
-import { downloadAndUploadImages, parseImageUrlsCell } from '@/lib/ecommerce/import-images';
+import { downloadAndUploadImagesSmart, parseImageUrlsCell } from '@/lib/ecommerce/import-images';
+import {
+    decodeImportText,
+    normalizeProductRows,
+    planProductGroups,
+    uniqueSlug,
+    type RawProductRow,
+} from '@/lib/ecommerce/import-normalize';
 
 // ─── CSV Parser ──────────────────────────────────────────────────────────────
 
@@ -444,6 +451,7 @@ function productIsIdentical(existing: any, incoming: any): boolean {
         return JSON.stringify([...raw].sort());
     };
     return (
+        (existing.brand ?? null) === (incoming.brand ?? null) &&
         existing.description === incoming.description &&
         existing.price_cents === incoming.price_cents &&
         existing.compare_at_cents === incoming.compare_at_cents &&
@@ -451,7 +459,8 @@ function productIsIdentical(existing: any, incoming: any): boolean {
         existing.status === incoming.status &&
         existing.inventory_count === incoming.inventory_count &&
         existing.is_featured === incoming.is_featured &&
-        JSON.stringify(existing.variants) === JSON.stringify(incoming.variants) &&
+        JSON.stringify(existing.variants ?? []) === JSON.stringify(incoming.variants ?? []) &&
+        JSON.stringify(existing.options ?? []) === JSON.stringify(incoming.options ?? []) &&
         normTier(existing.tier_prices) === normTier(incoming.tier_prices) &&
         normAllowed(existing.allowed_package_ids) === normAllowed(incoming.allowed_package_ids)
     );
@@ -505,7 +514,10 @@ export async function POST(req: NextRequest) {
             }, { status: 400 });
         }
 
-        const text = await file.text();
+        // Supplier exports are often Windows-1252 (®, ™, ½ …). Decode with a
+        // UTF-8-then-1252 fallback so those characters survive instead of
+        // becoming U+FFFD replacement characters in product names.
+        const text = decodeImportText(await file.arrayBuffer());
 
         // eslint-disable-next-line no-control-regex
         if (/[\x00-\x08\x0E-\x1F]/.test(text.slice(0, 1000))) {
@@ -629,26 +641,26 @@ export async function POST(req: NextRequest) {
         let totalImageBytes = 0;
         let imagesFailed = 0;
 
-        for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
-            const rowNum = i + 2; // 1-indexed + header row
+        if (importType === 'services') {
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                const rowNum = i + 2; // 1-indexed + header row
 
-            const name = nameIdx >= 0 ? row[nameIdx]?.trim() : undefined;
-            if (!name) {
-                skipped.push({ row: rowNum, reason: 'Empty name' });
-                continue;
-            }
+                const name = nameIdx >= 0 ? row[nameIdx]?.trim() : undefined;
+                if (!name) {
+                    skipped.push({ row: rowNum, reason: 'Empty name' });
+                    continue;
+                }
 
-            const description    = descIdx >= 0     ? row[descIdx]?.trim() || null : null;
-            const priceCents     = priceIdx >= 0    ? (parsePriceCents(row[priceIdx]) ?? 0) : 0;
-            const compareAtCents = compareIdx >= 0  ? parsePriceCents(row[compareIdx]) : null;
-            const currency       = currencyIdx >= 0 && row[currencyIdx]?.trim() ? row[currencyIdx].trim().toUpperCase() : 'CAD';
-            const status         = statusIdx >= 0   ? parseStatus(row[statusIdx]) : 'draft';
+                const description    = descIdx >= 0     ? row[descIdx]?.trim() || null : null;
+                const priceCents     = priceIdx >= 0    ? (parsePriceCents(row[priceIdx]) ?? 0) : 0;
+                const compareAtCents = compareIdx >= 0  ? parsePriceCents(row[compareIdx]) : null;
+                const currency       = currencyIdx >= 0 && row[currencyIdx]?.trim() ? row[currencyIdx].trim().toUpperCase() : 'CAD';
+                const status         = statusIdx >= 0   ? parseStatus(row[statusIdx]) : 'draft';
 
-            const existingItem = existingByName.get(name.toLowerCase());
+                const existingItem = existingByName.get(name.toLowerCase());
 
-            try {
-                if (importType === 'services') {
+                try {
                     const durationMinutes  = durIdx >= 0     ? (parseInt(row[durIdx] || '30') || 30) : 30;
                     const isFeatured       = featIdx >= 0    ? parseBool(row[featIdx]) : false;
                     const options          = optsIdx >= 0    ? parseOptions(row[optsIdx]) : null;
@@ -692,105 +704,209 @@ export async function POST(req: NextRequest) {
                         if (error) throw new Error(error.message);
                         imported.push({ row: rowNum, name });
                     }
-                } else {
-                    const variants       = varIdx >= 0 ? parseVariants(row[varIdx]) : null;
-                    const inventoryCount = invIdx >= 0
-                        ? (row[invIdx]?.trim() === '' ? -1 : (parseInt(row[invIdx] || '-1') ?? -1))
-                        : -1;
-                    const productCategory = catIdx >= 0 ? row[catIdx]?.trim() || null : null;
-                    const productTags = tagsIdx >= 0 && row[tagsIdx]?.trim()
-                        ? row[tagsIdx].split(',').map((t: string) => t.trim()).filter(Boolean)
-                        : [];
+                } catch (err: any) {
+                    errors.push({ row: rowNum, name, error: err.message || 'Unknown error' });
+                }
+            }
+        } else {
+            // ── Products ─────────────────────────────────────────────────────
+            // Parse every row, then let the AI normalizer clean names, extract
+            // brands, and group rows that are the same product differing only by
+            // a variant (gauge / size / pack). Each group becomes one product,
+            // with a slug guaranteed unique against the DB and this run.
 
-                    const isFeatured = featIdx >= 0 ? parseBool(row[featIdx]) : false;
+            // Seed the reserved-slug set from EVERY product on the site, including
+            // archived ones: the UNIQUE(site_id, slug) index still covers archived
+            // rows. Paginate — PostgREST caps an un-ranged read (default 1000), and
+            // an incomplete seed would let uniqueSlug hand out a colliding slug.
+            const usedSlugs = new Set<string>();
+            {
+                const PAGE = 1000;
+                for (let from = 0; ; from += PAGE) {
+                    const { data: slugRows, error: slugErr } = await supabase
+                        .from('products')
+                        .select('slug')
+                        .eq('site_id', siteId)
+                        .range(from, from + PAGE - 1);
+                    if (slugErr) { console.error('csv-import: slug seed page failed:', slugErr.message); break; }
+                    for (const r of (slugRows || [])) if (r?.slug) usedSlugs.add(r.slug);
+                    if (!slugRows || slugRows.length < PAGE) break;
+                }
+            }
 
-                    // Member prices: clamp each to <= public price; drop entries
-                    // whose package name doesn't match any known package on this site.
-                    const tierPrices: Array<{ packageId: string; priceCents: number }> = [];
-                    if (memberPriceIdx >= 0) {
-                        const parsedTiers = parseMemberPrices(row[memberPriceIdx]);
-                        for (const t of parsedTiers) {
-                            const pkg = pkgByNameLower.get(t.name.toLowerCase());
-                            if (!pkg) continue;
-                            tierPrices.push({
-                                packageId: pkg.id,
-                                priceCents: Math.max(0, Math.min(t.priceCents, priceCents)),
-                            });
-                        }
+            // Match products for re-import by (name, brand): brand-stripped names
+            // are no longer unique, so keying on name alone would let e.g. two
+            // brands of "Alcohol Prep Pads" overwrite each other. Pre-existing DB
+            // products are updated; a second row that resolves to the same key
+            // within this run becomes a distinct product (or collapses if truly
+            // identical) rather than overwriting the first.
+            const dedupKey = (n: string, brand: string | null | undefined) =>
+                `${n.trim().toLowerCase()}|${(brand ?? '').trim().toLowerCase()}`;
+            const existingProductsByKey = new Map<string, any>();
+            for (const item of existingItems) existingProductsByKey.set(dedupKey(item.name, item.brand), item);
+            const insertedThisRun = new Map<string, any>();
+
+            const rawRows: RawProductRow[] = [];
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                const rowNum = i + 2; // 1-indexed + header row
+
+                const name = nameIdx >= 0 ? row[nameIdx]?.trim() : undefined;
+                if (!name) {
+                    skipped.push({ row: rowNum, reason: 'Empty name' });
+                    continue;
+                }
+
+                const priceCents = priceIdx >= 0 ? (parsePriceCents(row[priceIdx]) ?? 0) : 0;
+                const inventoryCount = invIdx >= 0
+                    ? (row[invIdx]?.trim() === '' ? -1 : (parseInt(row[invIdx] || '-1') ?? -1))
+                    : -1;
+                const productTags = tagsIdx >= 0 && row[tagsIdx]?.trim()
+                    ? row[tagsIdx].split(',').map((t: string) => t.trim()).filter(Boolean)
+                    : [];
+
+                // Member prices: clamp each to <= public price; drop entries whose
+                // package name doesn't match any known package on this site.
+                const tierPrices: Array<{ packageId: string; priceCents: number }> = [];
+                if (memberPriceIdx >= 0) {
+                    for (const t of parseMemberPrices(row[memberPriceIdx])) {
+                        const pkg = pkgByNameLower.get(t.name.toLowerCase());
+                        if (!pkg) continue;
+                        tierPrices.push({ packageId: pkg.id, priceCents: Math.max(0, Math.min(t.priceCents, priceCents)) });
                     }
-                    const allowedPackageIds: string[] = [];
-                    if (allowedPkgIdx >= 0) {
-                        for (const name of parseAllowedPackageNames(row[allowedPkgIdx])) {
-                            const pkg = pkgByNameLower.get(name.toLowerCase());
-                            if (pkg) allowedPackageIds.push(pkg.id);
-                        }
+                }
+                const allowedPackageIds: string[] = [];
+                if (allowedPkgIdx >= 0) {
+                    for (const pkgName of parseAllowedPackageNames(row[allowedPkgIdx])) {
+                        const pkg = pkgByNameLower.get(pkgName.toLowerCase());
+                        if (pkg) allowedPackageIds.push(pkg.id);
                     }
+                }
 
-                    // Download any image URLs in the row. Empty cell => keep existing
-                    // images on update, or start with [] on insert.
-                    const imageUrlsRaw = imageUrlsIdx >= 0 ? row[imageUrlsIdx] : '';
-                    const imageSources = parseImageUrlsCell(imageUrlsRaw);
+                const rawVariants = varIdx >= 0 ? parseVariants(row[varIdx]) : null;
+                const csvVariants = Array.isArray(rawVariants)
+                    ? rawVariants
+                        .filter((v: any) => v && typeof v.name === 'string' && Array.isArray(v.options))
+                        .map((v: any) => ({ name: v.name, options: v.options.map((o: any) => String(o)) }))
+                    : [];
+
+                rawRows.push({
+                    rowNum,
+                    name,
+                    description: descIdx >= 0 ? row[descIdx]?.trim() || null : null,
+                    priceCents,
+                    compareAtCents: compareIdx >= 0 ? parsePriceCents(row[compareIdx]) : null,
+                    currency: currencyIdx >= 0 && row[currencyIdx]?.trim() ? row[currencyIdx].trim().toUpperCase() : 'CAD',
+                    status: statusIdx >= 0 ? parseStatus(row[statusIdx]) : 'draft',
+                    inventoryCount,
+                    category: catIdx >= 0 ? row[catIdx]?.trim() || null : null,
+                    tags: productTags,
+                    isFeatured: featIdx >= 0 ? parseBool(row[featIdx]) : false,
+                    tierPrices,
+                    allowedPackageIds,
+                    csvVariants,
+                    imageSources: imageUrlsIdx >= 0 ? parseImageUrlsCell(row[imageUrlsIdx]) : [],
+                });
+            }
+
+            const normalization = await normalizeProductRows(rawRows);
+            const plans = planProductGroups(rawRows, normalization);
+
+            for (const plan of plans) {
+                const reportRow = plan.rowNums[0];
+                const name = plan.canonicalName;
+                try {
+                    // Resolve + download images. Search-engine URLs (e.g. a Bing
+                    // image-search link) are resolved to the real image first.
+                    // Nothing downloaded => keep existing images on update, [] on insert.
                     let downloadedImages: string[] | null = null;
-                    if (imageSources.length > 0) {
-                        const imgResult = await downloadAndUploadImages(imageSources, siteId, user.id, supabase);
+                    if (plan.imageSources.length > 0) {
+                        const imgResult = await downloadAndUploadImagesSmart(plan.imageSources, siteId, user.id, supabase);
                         downloadedImages = imgResult.publicUrls;
                         totalImagesUploaded += imgResult.uploaded;
                         totalImageBytes += imgResult.totalBytes;
                         imagesFailed += imgResult.failed;
                     }
+                    const hasNewImages = downloadedImages !== null && downloadedImages.length > 0;
 
                     const incoming = {
-                        description,
-                        price_cents: priceCents,
-                        compare_at_cents: compareAtCents,
-                        currency,
-                        status,
-                        variants: variants || [],
-                        inventory_count: inventoryCount,
-                        category: productCategory,
-                        tags: productTags,
-                        is_featured: isFeatured,
-                        tier_prices: tierPrices,
-                        allowed_package_ids: allowedPackageIds,
+                        brand: plan.brand,
+                        description: plan.description,
+                        price_cents: plan.priceCents,
+                        compare_at_cents: plan.compareAtCents,
+                        currency: plan.currency,
+                        status: plan.status,
+                        variants: plan.variants,
+                        options: plan.options,
+                        inventory_count: plan.inventoryCount,
+                        category: plan.category,
+                        tags: plan.tags,
+                        is_featured: plan.isFeatured,
+                        tier_prices: plan.tierPrices,
+                        allowed_package_ids: plan.allowedPackageIds,
                     };
 
+                    const key = dedupKey(name, plan.brand);
+                    const existingItem = existingProductsByKey.get(key);
+
                     if (existingItem) {
-                        const imagesDiffer = downloadedImages !== null &&
+                        // Re-import of a known product. Don't let a degraded run
+                        // (AI off => brand null, no options) wipe curated enrichment:
+                        // keep the existing brand/options when we didn't derive any.
+                        const effIncoming = {
+                            ...incoming,
+                            brand: incoming.brand ?? existingItem.brand ?? null,
+                            options: incoming.options.length ? incoming.options : (existingItem.options ?? []),
+                        };
+                        const imagesDiffer = hasNewImages &&
                             JSON.stringify(existingItem.images) !== JSON.stringify(downloadedImages);
-                        if (productIsIdentical(existingItem, incoming) && !imagesDiffer) {
-                            alreadyExists.push({ row: rowNum, name });
+                        if (productIsIdentical(existingItem, effIncoming) && !imagesDiffer) {
+                            alreadyExists.push({ row: reportRow, name });
                         } else {
-                            const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                            // Keep the existing slug on update — stable product URLs
+                            // and no risk of colliding with another product.
                             const { error } = await supabase
                                 .from('products')
                                 .update({
-                                    ...incoming,
-                                    ...(downloadedImages !== null ? { images: downloadedImages } : {}),
-                                    slug,
+                                    ...effIncoming,
+                                    ...(hasNewImages ? { images: downloadedImages } : {}),
                                     updated_at: new Date().toISOString(),
                                 })
                                 .eq('id', existingItem.id);
                             if (error) throw new Error(error.message);
-                            modified.push({ row: rowNum, name });
+                            modified.push({ row: reportRow, name });
                         }
                     } else {
-                        const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-                        const { error } = await supabase
-                            .from('products')
-                            .insert({
-                                site_id: siteId,
-                                name,
-                                slug,
-                                images: downloadedImages ?? [],
-                                sort_order: nextSortOrder++,
-                                ...incoming,
-                            });
-                        if (error) throw new Error(error.message);
-                        imported.push({ row: rowNum, name });
+                        const runMate = insertedThisRun.get(key);
+                        const imagesDifferRun = hasNewImages && runMate &&
+                            JSON.stringify(runMate.images) !== JSON.stringify(downloadedImages);
+                        if (runMate && productIsIdentical(runMate, incoming) && !imagesDifferRun) {
+                            // A truly identical row already inserted this run — collapse.
+                            alreadyExists.push({ row: reportRow, name });
+                        } else {
+                            const slug = uniqueSlug(plan.slugBase, usedSlugs);
+                            const { data: inserted, error } = await supabase
+                                .from('products')
+                                .insert({
+                                    site_id: siteId,
+                                    name,
+                                    slug,
+                                    images: downloadedImages ?? [],
+                                    sort_order: nextSortOrder++,
+                                    ...incoming,
+                                })
+                                .select('*')
+                                .single();
+                            if (error) throw new Error(error.message);
+                            imported.push({ row: reportRow, name });
+                            // Remember the first insert per key so a later identical
+                            // row collapses instead of creating a near-duplicate.
+                            if (inserted && !insertedThisRun.has(key)) insertedThisRun.set(key, inserted);
+                        }
                     }
+                } catch (err: any) {
+                    errors.push({ row: reportRow, name, error: err.message || 'Unknown error' });
                 }
-            } catch (err: any) {
-                errors.push({ row: rowNum, name, error: err.message || 'Unknown error' });
             }
         }
 
