@@ -15,6 +15,7 @@ import type { Campaign } from '@/lib/marketing/types';
 import { formatCents } from '@/lib/marketing/pricing';
 import { AdPreview } from '../../_components/AdPreview';
 import CampaignBudgetPanel from '../../_components/CampaignBudgetPanel';
+import ConversionTrackingPanel from '../../_components/ConversionTrackingPanel';
 
 export default function CampaignDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -320,6 +321,10 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
       />
 
       <ConversionsPanel conversions={conversions} />
+
+      {campaign.channel === 'google_ads' && (
+        <ConversionTrackingPanel campaignId={campaign.id} />
+      )}
 
       <ActivityFeedPanel activity={activity} campaignActive={campaign.status === 'active'} />
 

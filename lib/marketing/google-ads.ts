@@ -28,6 +28,13 @@ import {
 } from './bidding';
 import { resolveCampaignEndDate } from './schedule';
 import { inferCountryCode, selectGeoTargets } from './geo';
+import {
+  CONVERSION_ACTION_SPECS,
+  CONVERSION_EVENT_TYPES,
+  normalizeConversionId,
+  parseConversionLabelFromSnippet,
+  type ConversionEventType,
+} from './conversions';
 
 // ── Mock mode ────────────────────────────────────────────────────────────────
 // Set GOOGLE_ADS_MOCK=true in .env.local to skip all real Google API calls.
@@ -688,6 +695,118 @@ export async function getCampaignPerformance(
 
 export function isGoogleAdsConfigured(): boolean {
   return isConfigured();
+}
+
+// ── Conversion Tracking ──────────────────────────────────────────────────────
+
+export interface ConversionSetupResult {
+  /** Account-level Google tag, e.g. "AW-123456789" (null if the account has none). */
+  conversionId: string | null;
+  /** event type → conversion label, for the actions we could resolve. */
+  labels: Partial<Record<ConversionEventType, string>>;
+}
+
+/** Read the account's conversion tracking id (the numeric part of AW-…). */
+async function getConversionTrackingId(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  customer: any,
+): Promise<string | null> {
+  try {
+    const rows = await customer.query(`
+      SELECT customer.conversion_tracking_setting.conversion_tracking_id
+      FROM customer
+      LIMIT 1
+    `);
+    const raw = rows?.[0]?.customer?.conversion_tracking_setting?.conversion_tracking_id;
+    return raw ? String(raw) : null;
+  } catch (err) {
+    console.warn('[google-ads] conversion tracking id lookup failed:', err);
+    return null;
+  }
+}
+
+/**
+ * Provision Keystone's standard conversion actions in a customer's sub-account
+ * and return the account's tag id + the per-event conversion labels (parsed from
+ * each action's event snippet). Idempotent: existing actions are reused by name,
+ * so re-running never duplicates them. Best-effort per action — a failure on one
+ * doesn't abort the rest.
+ */
+export async function ensureConversionActions(customerId?: string): Promise<ConversionSetupResult> {
+  if (isMockMode()) {
+    console.log('[google-ads mock] ensureConversionActions');
+    const labels: Partial<Record<ConversionEventType, string>> = {};
+    for (const t of CONVERSION_EVENT_TYPES) labels[t] = `mock_${t}`;
+    return { conversionId: 'AW-000000000', labels };
+  }
+
+  const customer = await getClient(customerId);
+  const conversionId = normalizeConversionId(await getConversionTrackingId(customer));
+
+  // Existing actions, keyed by name, so we reuse instead of duplicating. The
+  // tag_snippets come back on the same query, so no per-action re-fetch is needed
+  // for ones that already exist.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const byName = new Map<string, any>();
+  try {
+    const existing = await customer.query(`
+      SELECT conversion_action.resource_name, conversion_action.name, conversion_action.tag_snippets
+      FROM conversion_action
+      WHERE conversion_action.status != 'REMOVED'
+    `);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const row of existing as any[]) {
+      const ca = row?.conversion_action;
+      if (ca?.name) byName.set(ca.name, ca);
+    }
+  } catch (err) {
+    console.warn('[google-ads] conversion_action list failed:', err);
+  }
+
+  const labels: Partial<Record<ConversionEventType, string>> = {};
+
+  for (const type of CONVERSION_EVENT_TYPES) {
+    const spec = CONVERSION_ACTION_SPECS[type];
+    let action = byName.get(spec.name);
+
+    if (!action) {
+      try {
+        const created = await customer.conversionActions.create([{
+          name: spec.name,
+          type: 'WEBPAGE',
+          category: spec.category,
+          status: 'ENABLED',
+          counting_type: spec.countingType,
+          ...(spec.hasValue
+            ? { value_settings: { default_value: 1, always_use_default_value: false } }
+            : {}),
+        }]);
+        const rn = created?.results?.[0]?.resource_name;
+        if (rn) {
+          // tag_snippets aren't returned by the mutate — fetch them for the new action.
+          const rows = await customer.query(`
+            SELECT conversion_action.tag_snippets
+            FROM conversion_action
+            WHERE conversion_action.resource_name = '${escapeGaql(rn)}'
+          `);
+          action = rows?.[0]?.conversion_action;
+        }
+      } catch (err) {
+        console.warn(`[google-ads] conversion action create failed for "${spec.name}":`, err);
+        continue;
+      }
+    }
+
+    const snippets = action?.tag_snippets;
+    if (Array.isArray(snippets)) {
+      for (const snip of snippets) {
+        const label = parseConversionLabelFromSnippet(snip?.event_snippet);
+        if (label) { labels[type] = label; break; }
+      }
+    }
+  }
+
+  return { conversionId, labels };
 }
 
 // ── Hourly geo + device segments (for the live activity feed) ───────────────

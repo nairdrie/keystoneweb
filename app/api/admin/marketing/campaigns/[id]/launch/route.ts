@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { requireOpsAccess } from '@/lib/ops/access';
-import { createSearchCampaign, createDisplayCampaign } from '@/lib/marketing/google-ads';
+import { createSearchCampaign, createDisplayCampaign, ensureConversionActions } from '@/lib/marketing/google-ads';
 import { sendMarketingCampaignLive } from '@/lib/marketing/notifications';
 import { resolveCampaignEndDate, DEFAULT_CAMPAIGN_DAYS } from '@/lib/marketing/schedule';
 import type { Campaign } from '@/lib/marketing/types';
@@ -132,6 +132,23 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     await db.from('sites')
       .update({ google_ads_billing_ready: true })
       .eq('id', campaign.site_id);
+
+    // Provision conversion tracking for this account and store it on the site so
+    // the published site injects the tag + fires conversions. Best-effort: never
+    // block a launch on it.
+    try {
+      const conv = await ensureConversionActions(customerId);
+      if (conv.conversionId) {
+        await db.from('sites')
+          .update({
+            google_ads_conversion_id: conv.conversionId,
+            google_ads_conversion_labels: conv.labels,
+          })
+          .eq('id', campaign.site_id);
+      }
+    } catch (err) {
+      console.error('[ops/launch] conversion setup failed (non-fatal):', err);
+    }
 
     await db.from('marketing_campaign_log').insert({
       campaign_id: id,
