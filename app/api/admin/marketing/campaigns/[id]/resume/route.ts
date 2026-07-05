@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/db/supabase-admin';
 import { createClient } from '@/lib/db/supabase-server';
 import { resumeCampaign } from '@/lib/marketing/google-ads';
 import { getCampaignBudget } from '@/lib/marketing/campaign-budget';
+import { resumeEndDate } from '@/lib/marketing/schedule';
 
 export async function POST(_request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
@@ -34,9 +35,17 @@ export async function POST(_request: NextRequest, ctx: { params: Promise<{ id: s
     }, { status: 402 });
   }
 
+  // Extend the hard end date to cover the runway the (refilled) budget now buys,
+  // starting today. Passing it on resume guarantees Google gets a fresh, future
+  // stop instead of re-enabling against a stale — possibly already-past — date.
+  const endDate = resumeEndDate({
+    remainingBundledCents: budget.remainingCents,
+    dailyBundledCents: dailyBundled,
+  });
+
   if (campaign.channel === 'google_ads' && campaign.external_campaign_id) {
     try {
-      await resumeCampaign(campaign.external_campaign_id, campaign.sites.google_ads_customer_id || undefined);
+      await resumeCampaign(campaign.external_campaign_id, campaign.sites.google_ads_customer_id || undefined, endDate);
     } catch (err) {
       console.error('[admin/marketing/resume] Google resume failed:', err);
       return NextResponse.json({ error: 'Failed to resume campaign on Google Ads' }, { status: 500 });
@@ -46,7 +55,7 @@ export async function POST(_request: NextRequest, ctx: { params: Promise<{ id: s
   const db = createAdminClient();
   const { data: updated } = await db
     .from('marketing_campaigns')
-    .update({ status: 'active', updated_at: new Date().toISOString() })
+    .update({ status: 'active', end_date: endDate, updated_at: new Date().toISOString() })
     .eq('id', id)
     .select()
     .single();
@@ -54,6 +63,7 @@ export async function POST(_request: NextRequest, ctx: { params: Promise<{ id: s
     campaign_id: id,
     action: 'resumed',
     actor: `user:${user.email || ''}`,
+    details: { end_date: endDate },
   });
 
   return NextResponse.json({ campaign: updated });

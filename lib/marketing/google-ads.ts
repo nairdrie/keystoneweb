@@ -26,6 +26,7 @@ import {
   type MarketCpcEstimate,
   type KeywordMetric,
 } from './bidding';
+import { resolveCampaignEndDate } from './schedule';
 
 // ── Mock mode ────────────────────────────────────────────────────────────────
 // Set GOOGLE_ADS_MOCK=true in .env.local to skip all real Google API calls.
@@ -315,6 +316,12 @@ export async function createSearchCampaign(
   }]);
   const budgetResourceName = budgetResult.results[0].resource_name;
 
+  // A hard end date is the ONLY stop Google enforces on its own: the daily
+  // budget is just an average (it can serve up to ~2×/day), and Keystone's
+  // spend-based auto-pause is a lagging poller. Always send one, derived from
+  // the campaign's schedule/duration, so a paused-cron failure can't run forever.
+  const endDate = resolveCampaignEndDate(campaign);
+
   const campaignResult = await customer.campaigns.create([{
     name: campaign.name,
     campaign_budget: budgetResourceName,
@@ -334,7 +341,7 @@ export async function createSearchCampaign(
     contains_eu_political_advertising: 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING',
     status: 'PAUSED',
     start_date: campaign.start_date?.replace(/-/g, '') || undefined,
-    end_date: campaign.end_date?.replace(/-/g, '') || undefined,
+    end_date: endDate ? endDate.replace(/-/g, '') : undefined,
     network_settings: {
       target_google_search: true,
       // Search partners OFF: for local lead-gen on strict daily budgets every
@@ -431,6 +438,10 @@ export async function createDisplayCampaign(
   }]);
   const budgetResourceName = budgetResult.results[0].resource_name;
 
+  // See createSearchCampaign: always give Google a hard end date so a failed
+  // spend-based pause can't leave the campaign running indefinitely.
+  const endDate = resolveCampaignEndDate(campaign);
+
   const campaignResult = await customer.campaigns.create([{
     name: campaign.name,
     campaign_budget: budgetResourceName,
@@ -445,7 +456,7 @@ export async function createDisplayCampaign(
     contains_eu_political_advertising: 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING',
     status: 'ENABLED',
     start_date: campaign.start_date?.replace(/-/g, '') || undefined,
-    end_date: campaign.end_date?.replace(/-/g, '') || undefined,
+    end_date: endDate ? endDate.replace(/-/g, '') : undefined,
   }]);
   const campaignResourceName = campaignResult.results[0].resource_name;
   const campaignId = campaignResourceName.split('/').pop()!;
@@ -536,9 +547,13 @@ export async function pauseCampaign(
 export async function resumeCampaign(
   externalCampaignId: string,
   customerId?: string,
+  // YYYY-MM-DD. When provided, the campaign's hard end date is re-asserted on the
+  // same mutate that re-enables it — so a refill+resume always extends Google's
+  // self-enforced stop instead of resuming against a stale (possibly past) date.
+  endDate?: string,
 ): Promise<void> {
   if (isMockMode()) {
-    console.log('[google-ads mock] resumeCampaign', externalCampaignId);
+    console.log('[google-ads mock] resumeCampaign', externalCampaignId, endDate ?? '(no end date)');
     return;
   }
   const customer = await getClient(customerId);
@@ -546,6 +561,7 @@ export async function resumeCampaign(
   await customer.campaigns.update([{
     resource_name: `customers/${acctId}/campaigns/${externalCampaignId}`,
     status: 'ENABLED',
+    ...(endDate ? { end_date: endDate.replace(/-/g, '') } : {}),
   }]);
 }
 
