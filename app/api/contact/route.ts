@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
 
     try {
         const body = await request.json();
-        const { siteId, name, email, phone, message, _hp, source_type, metadata } = body;
+        const { siteId, name, email, phone, message, _hp, source_type, metadata, tracking } = body;
         const sourceType = typeof source_type === 'string' ? source_type : undefined;
 
         // Honeypot: bots fill hidden fields; humans leave them blank
@@ -68,6 +68,13 @@ export async function POST(request: NextRequest) {
         }
 
         processedMetadata = shrinkMetadata(processedMetadata);
+
+        // The contact form sends UTM tracking at the top level; fold it into
+        // metadata (after shrink, so it survives) so the marketing_campaign_id
+        // attribution below picks it up. The estimate path already embeds it.
+        if (tracking && typeof tracking === 'object' && !(processedMetadata as { tracking?: unknown })?.tracking) {
+            processedMetadata = { ...(processedMetadata || {}), tracking } as typeof processedMetadata;
+        }
 
         if (!siteId || !name || !email || !composedMessage) {
             return NextResponse.json(

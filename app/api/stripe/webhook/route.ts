@@ -332,21 +332,36 @@ export async function POST(request: NextRequest) {
               // Top-up: if campaign was paused due to depleted budget, resume it.
               const { data: c } = await supabaseAdmin
                 .from('marketing_campaigns')
-                .select('status, channel, external_campaign_id')
+                .select('status, channel, external_campaign_id, daily_budget_cents, sites(google_ads_customer_id)')
                 .eq('id', campaignId)
                 .single();
               if (c?.status === 'paused' && c.channel === 'google_ads' && c.external_campaign_id) {
                 try {
                   const { resumeCampaign } = await import('@/lib/marketing/google-ads');
-                  await resumeCampaign(c.external_campaign_id);
+                  const { getCampaignBudget } = await import('@/lib/marketing/campaign-budget');
+                  const { resumeEndDate } = await import('@/lib/marketing/schedule');
+                  // The campaign lives in the customer's own sub-account — resume
+                  // must target it explicitly, or the mutate hits the wrong
+                  // account and silently no-ops.
+                  const site = Array.isArray(c.sites) ? c.sites[0] : c.sites;
+                  const customerId = site?.google_ads_customer_id || undefined;
+                  // Extend the hard end date to cover the runway the fresh budget
+                  // buys, from today.
+                  const budget = await getCampaignBudget(campaignId);
+                  const dailyBundled = Math.round((c.daily_budget_cents || 0) * 1.05);
+                  const endDate = resumeEndDate({
+                    remainingBundledCents: budget.remainingCents,
+                    dailyBundledCents: dailyBundled,
+                  });
+                  await resumeCampaign(c.external_campaign_id, customerId, endDate);
                   await supabaseAdmin.from('marketing_campaigns')
-                    .update({ status: 'active', updated_at: new Date().toISOString() })
+                    .update({ status: 'active', end_date: endDate, updated_at: new Date().toISOString() })
                     .eq('id', campaignId);
                   await supabaseAdmin.from('marketing_campaign_log').insert({
                     campaign_id: campaignId,
                     action: 'resumed',
                     actor: 'system',
-                    details: { reason: 'budget_topped_up' },
+                    details: { reason: 'budget_topped_up', end_date: endDate },
                   });
                 } catch (resumeErr) {
                   console.error('[stripe webhook] resume after topup failed:', resumeErr);

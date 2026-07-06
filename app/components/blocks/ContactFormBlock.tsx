@@ -5,6 +5,8 @@ import { useEditorContext } from '@/lib/editor-context';
 import { resolvePaletteColor } from '@/lib/palette-colors';
 import { Send, Loader2, Settings, MessageSquare, Mail, User, Phone } from 'lucide-react';
 import Reveal from '@/app/components/Reveal';
+import { getMarketingTracking } from '@/lib/marketing/utm-capture';
+import { fireAdsConversion } from '@/lib/marketing/ads-conversion-client';
 import {
     getCardInlineStyle,
     getCardPaddingClass,
@@ -82,6 +84,8 @@ export default function ContactFormBlock({ data, isEditMode, palette, updateCont
                     phone: form.phone,
                     message: form.message,
                     _hp: form._hp,
+                    // Attribute the lead to the campaign that drove the visit.
+                    tracking: getMarketingTracking(),
                 }),
             });
 
@@ -90,6 +94,8 @@ export default function ContactFormBlock({ data, isEditMode, palette, updateCont
             }
 
             setSuccess(true);
+            // Report the lead to Google Ads (no-op when the site has no tracking).
+            fireAdsConversion('lead_form');
             setForm({ name: '', email: '', phone: '', message: '', _hp: '' });
         } catch (err: unknown) {
             console.error('Contact form error:', err);

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { requireOpsAccess } from '@/lib/ops/access';
-import { createSearchCampaign, createDisplayCampaign } from '@/lib/marketing/google-ads';
+import { createSearchCampaign, createDisplayCampaign, ensureConversionActions } from '@/lib/marketing/google-ads';
 import { sendMarketingCampaignLive } from '@/lib/marketing/notifications';
+import { resolveCampaignEndDate, DEFAULT_CAMPAIGN_DAYS } from '@/lib/marketing/schedule';
 import type { Campaign } from '@/lib/marketing/types';
 
 /**
@@ -95,9 +96,18 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     await db.from('sites').update({ google_ads_customer_id: bodyCustomerId }).eq('id', campaign.site_id);
   }
 
+  // Lock in the hard end date at ops sign-off. A customer campaign must never go
+  // to Google without one — the daily budget alone won't stop it, so we derive
+  // the date from its schedule/duration (falling back to a bounded default) and
+  // persist it so the DB, the customer UI, and Google all agree on the stop.
+  const lockedEndDate = resolveCampaignEndDate(campaign as Campaign, { fallbackDays: DEFAULT_CAMPAIGN_DAYS });
+
   await db.from('marketing_campaigns')
-    .update({ status: 'submitting', updated_at: new Date().toISOString() })
+    .update({ status: 'submitting', end_date: lockedEndDate, updated_at: new Date().toISOString() })
     .eq('id', id);
+  // Reflect the locked date on the in-memory record so the create call below
+  // sends exactly what we persisted.
+  if (lockedEndDate) (campaign as { end_date: string | null }).end_date = lockedEndDate;
 
   try {
     const launched = campaign.campaign_type === 'display'
@@ -123,6 +133,23 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
       .update({ google_ads_billing_ready: true })
       .eq('id', campaign.site_id);
 
+    // Provision conversion tracking for this account and store it on the site so
+    // the published site injects the tag + fires conversions. Best-effort: never
+    // block a launch on it.
+    try {
+      const conv = await ensureConversionActions(customerId);
+      if (conv.conversionId) {
+        await db.from('sites')
+          .update({
+            google_ads_conversion_id: conv.conversionId,
+            google_ads_conversion_labels: conv.labels,
+          })
+          .eq('id', campaign.site_id);
+      }
+    } catch (err) {
+      console.error('[ops/launch] conversion setup failed (non-fatal):', err);
+    }
+
     await db.from('marketing_campaign_log').insert({
       campaign_id: id,
       action: 'launched',
@@ -130,6 +157,8 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
       details: {
         external_campaign_id: launched.campaignId,
         manual_ops_launch: true,
+        // Hard stop sent to Google — campaign auto-pauses on this date.
+        end_date: lockedEndDate,
         // Bidding/budget calibration notes (ceiling applied, thin-budget flags).
         calibration_warnings: launched.warnings || [],
       },

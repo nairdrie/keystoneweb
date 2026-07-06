@@ -17,6 +17,7 @@ export interface ConversionTotals {
   orders: { count: number; revenueCents: number };
   members: { count: number };
   contacts: { count: number };
+  calls: { count: number };
   totalCount: number;
   totalRevenueCents: number;
 }
@@ -24,7 +25,7 @@ export interface ConversionTotals {
 export async function getConversionTotals(campaignId: string): Promise<ConversionTotals> {
   const db = createAdminClient();
 
-  const [bookingsRes, ordersRes, membersRes, contactsRes] = await Promise.all([
+  const [bookingsRes, ordersRes, membersRes, contactsRes, callsRes] = await Promise.all([
     db.from('bookings')
       .select('total_price_cents, price_cents, status', { count: 'exact' })
       .eq('marketing_campaign_id', campaignId)
@@ -37,6 +38,9 @@ export async function getConversionTotals(campaignId: string): Promise<Conversio
       .select('id', { count: 'exact', head: true })
       .eq('marketing_campaign_id', campaignId),
     db.from('contact_submissions')
+      .select('id', { count: 'exact', head: true })
+      .eq('marketing_campaign_id', campaignId),
+    db.from('marketing_call_clicks')
       .select('id', { count: 'exact', head: true })
       .eq('marketing_campaign_id', campaignId),
   ]);
@@ -56,13 +60,15 @@ export async function getConversionTotals(campaignId: string): Promise<Conversio
   const orders = { count: ordersRes.count ?? 0, revenueCents: ordersRevenue };
   const members = { count: membersRes.count ?? 0 };
   const contacts = { count: contactsRes.count ?? 0 };
+  const calls = { count: callsRes.count ?? 0 };
 
   return {
     bookings,
     orders,
     members,
     contacts,
-    totalCount: bookings.count + orders.count + members.count + contacts.count,
+    calls,
+    totalCount: bookings.count + orders.count + members.count + contacts.count + calls.count,
     totalRevenueCents: bookingsRevenue + ordersRevenue,
   };
 }

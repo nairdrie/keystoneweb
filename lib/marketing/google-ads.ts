@@ -26,6 +26,15 @@ import {
   type MarketCpcEstimate,
   type KeywordMetric,
 } from './bidding';
+import { resolveCampaignEndDate } from './schedule';
+import { inferCountryCode, selectGeoTargets } from './geo';
+import {
+  CONVERSION_ACTION_SPECS,
+  CONVERSION_EVENT_TYPES,
+  normalizeConversionId,
+  parseConversionLabelFromSnippet,
+  type ConversionEventType,
+} from './conversions';
 
 // ── Mock mode ────────────────────────────────────────────────────────────────
 // Set GOOGLE_ADS_MOCK=true in .env.local to skip all real Google API calls.
@@ -142,9 +151,11 @@ async function getClient(customerIdOverride?: string) {
 // ── Location Targeting ──────────────────────────────────────────────────────
 //
 // Google Ads accepts geo targeting as references to `geoTargetConstants/<id>`
-// records. We resolve user-entered place names ("Toronto", "Ontario", "Canada")
-// to those IDs at submit time. Names that don't resolve are skipped — the
-// campaign still launches, just without that location constraint.
+// records. We resolve user-entered place names ("Toronto, ON", "Greater Toronto
+// Area", "Toronto, Ontario, Canada") to those IDs at submit time via Google's
+// SuggestGeoTargetConstants, which canonicalizes messy inputs that an exact-name
+// match would miss. When NOTHING resolves the caller refuses to launch, rather
+// than shipping a campaign with no location filter (which serves worldwide).
 
 /** Sanitize a value for inline use in a GAQL query literal. */
 function escapeGaql(value: string): string {
@@ -156,10 +167,37 @@ async function resolveLocationResourceNames(
   customer: any,
   names: string[],
 ): Promise<string[]> {
+  const cleaned = names.map(n => n.trim()).filter(Boolean);
+  if (!cleaned.length) return [];
+
+  const countryCode = inferCountryCode(cleaned);
+
+  // Primary: Google's geo suggest. Handles "Toronto, ON", "Greater Toronto
+  // Area", "GTA", trailing province/country, etc., and returns canonical
+  // constants — none of which the old exact `name = '...'` match could find.
+  try {
+    const res = await customer.geoTargetConstants.suggestGeoTargetConstants({
+      locale: 'en',
+      country_code: countryCode,
+      location_names: { names: cleaned.slice(0, 25) },
+    });
+    const selected = selectGeoTargets(res?.geo_target_constant_suggestions || [], countryCode);
+    if (selected.length) return selected;
+  } catch (err) {
+    console.warn('[google-ads] geo suggest failed, falling back to exact match:', err);
+  }
+
+  // Fallback: exact name match. Rarely needed, but still beats no targeting.
+  return resolveLocationsByExactName(customer, cleaned);
+}
+
+async function resolveLocationsByExactName(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  customer: any,
+  names: string[],
+): Promise<string[]> {
   const out: string[] = [];
-  for (const raw of names) {
-    const name = raw.trim();
-    if (!name) continue;
+  for (const name of names) {
     try {
       const rows = await customer.query(`
         SELECT geo_target_constant.id, geo_target_constant.name
@@ -197,6 +235,22 @@ async function applyLocationTargeting(
       campaign: campaignResourceName,
       location: { geo_target_constant: rn },
     })),
+  );
+}
+
+/**
+ * Guard: refuse to launch when no location criteria resolved. A campaign with no
+ * geo targeting serves worldwide, so this fails the launch with an actionable
+ * message instead of silently burning budget on global traffic. Call it before
+ * anything is created in Google so a rejected launch leaves nothing behind.
+ */
+function assertGeoTargets(campaign: Campaign, geoTargets: string[]): void {
+  if (geoTargets.length) return;
+  const requested = (campaign.targeting?.locations || []).map(l => l.trim()).filter(Boolean);
+  throw new Error(
+    requested.length
+      ? `No Google geo targets resolved for location(s): ${requested.join(', ')}. Refusing to launch — an untargeted campaign serves worldwide. Fix the campaign's target locations and relaunch.`
+      : `Campaign has no target locations. Refusing to launch — an untargeted campaign serves worldwide. Set target locations and relaunch.`,
   );
 }
 
@@ -301,6 +355,10 @@ export async function createSearchCampaign(
   // Resolve geo targets ONCE — reused for both the market estimate (so it's
   // scoped to the campaign's locations) and the campaign location criteria.
   const geoTargets = await resolveLocationResourceNames(customer, campaign.targeting?.locations || []);
+  // Fail closed: a campaign with no resolvable locations would serve worldwide
+  // (Google defaults to "all locations"). Refuse to launch instead — nothing has
+  // been created in Google yet, so this leaves no orphaned budget/campaign.
+  assertGeoTargets(campaign, geoTargets);
 
   // Reference real market data ("first page bid" estimates) when we can; fall
   // back to a heuristic otherwise. This drives the bid ceiling, match type, and
@@ -314,6 +372,12 @@ export async function createSearchCampaign(
     delivery_method: 'STANDARD',
   }]);
   const budgetResourceName = budgetResult.results[0].resource_name;
+
+  // A hard end date is the ONLY stop Google enforces on its own: the daily
+  // budget is just an average (it can serve up to ~2×/day), and Keystone's
+  // spend-based auto-pause is a lagging poller. Always send one, derived from
+  // the campaign's schedule/duration, so a paused-cron failure can't run forever.
+  const endDate = resolveCampaignEndDate(campaign);
 
   const campaignResult = await customer.campaigns.create([{
     name: campaign.name,
@@ -334,7 +398,15 @@ export async function createSearchCampaign(
     contains_eu_political_advertising: 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING',
     status: 'PAUSED',
     start_date: campaign.start_date?.replace(/-/g, '') || undefined,
-    end_date: campaign.end_date?.replace(/-/g, '') || undefined,
+    end_date: endDate ? endDate.replace(/-/g, '') : undefined,
+    // PRESENCE (not the "presence OR interest" default): only serve people who
+    // are physically in / regularly in the targeted locations. Without this, a
+    // Toronto campaign still shows to someone abroad who merely searches for
+    // "Toronto roofing" — the source of the India lead spam.
+    geo_target_type_setting: {
+      positive_geo_target_type: 'PRESENCE',
+      negative_geo_target_type: 'PRESENCE_OR_INTEREST',
+    },
     network_settings: {
       target_google_search: true,
       // Search partners OFF: for local lead-gen on strict daily budgets every
@@ -424,12 +496,22 @@ export async function createDisplayCampaign(
   const customer = await getClient(customerId);
   const content = campaign.content as GoogleDisplayContent;
 
+  // Resolve + validate geo targets BEFORE creating anything, so a campaign with
+  // no resolvable locations is rejected up front (an untargeted campaign serves
+  // worldwide) rather than leaving an orphaned budget/campaign behind.
+  const geoTargets = await resolveLocationResourceNames(customer, campaign.targeting?.locations || []);
+  assertGeoTargets(campaign, geoTargets);
+
   const budgetResult = await customer.campaignBudgets.create([{
     name: uniqueBudgetName(campaign),
     amount_micros: dailyBudgetCents * 10000,
     delivery_method: 'STANDARD',
   }]);
   const budgetResourceName = budgetResult.results[0].resource_name;
+
+  // See createSearchCampaign: always give Google a hard end date so a failed
+  // spend-based pause can't leave the campaign running indefinitely.
+  const endDate = resolveCampaignEndDate(campaign);
 
   const campaignResult = await customer.campaigns.create([{
     name: campaign.name,
@@ -445,7 +527,13 @@ export async function createDisplayCampaign(
     contains_eu_political_advertising: 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING',
     status: 'ENABLED',
     start_date: campaign.start_date?.replace(/-/g, '') || undefined,
-    end_date: campaign.end_date?.replace(/-/g, '') || undefined,
+    end_date: endDate ? endDate.replace(/-/g, '') : undefined,
+    // Presence-only (not "presence or interest"): serve people in the targeted
+    // locations, not anyone worldwide who's merely interested in them.
+    geo_target_type_setting: {
+      positive_geo_target_type: 'PRESENCE',
+      negative_geo_target_type: 'PRESENCE_OR_INTEREST',
+    },
   }]);
   const campaignResourceName = campaignResult.results[0].resource_name;
   const campaignId = campaignResourceName.split('/').pop()!;
@@ -480,7 +568,6 @@ export async function createDisplayCampaign(
   // AdGroupAd resource name is "customers/X/adGroupAds/{adGroupId}~{adId}".
   const adId = adResult.results[0].resource_name.split('~').pop()!;
 
-  const geoTargets = await resolveLocationResourceNames(customer, campaign.targeting?.locations || []);
   await applyLocationTargeting(customer, campaignResourceName, geoTargets);
 
   return { campaignId, adGroupId, adId, warnings: displayWarnings };
@@ -536,9 +623,13 @@ export async function pauseCampaign(
 export async function resumeCampaign(
   externalCampaignId: string,
   customerId?: string,
+  // YYYY-MM-DD. When provided, the campaign's hard end date is re-asserted on the
+  // same mutate that re-enables it — so a refill+resume always extends Google's
+  // self-enforced stop instead of resuming against a stale (possibly past) date.
+  endDate?: string,
 ): Promise<void> {
   if (isMockMode()) {
-    console.log('[google-ads mock] resumeCampaign', externalCampaignId);
+    console.log('[google-ads mock] resumeCampaign', externalCampaignId, endDate ?? '(no end date)');
     return;
   }
   const customer = await getClient(customerId);
@@ -546,6 +637,7 @@ export async function resumeCampaign(
   await customer.campaigns.update([{
     resource_name: `customers/${acctId}/campaigns/${externalCampaignId}`,
     status: 'ENABLED',
+    ...(endDate ? { end_date: endDate.replace(/-/g, '') } : {}),
   }]);
 }
 
@@ -603,6 +695,118 @@ export async function getCampaignPerformance(
 
 export function isGoogleAdsConfigured(): boolean {
   return isConfigured();
+}
+
+// ── Conversion Tracking ──────────────────────────────────────────────────────
+
+export interface ConversionSetupResult {
+  /** Account-level Google tag, e.g. "AW-123456789" (null if the account has none). */
+  conversionId: string | null;
+  /** event type → conversion label, for the actions we could resolve. */
+  labels: Partial<Record<ConversionEventType, string>>;
+}
+
+/** Read the account's conversion tracking id (the numeric part of AW-…). */
+async function getConversionTrackingId(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  customer: any,
+): Promise<string | null> {
+  try {
+    const rows = await customer.query(`
+      SELECT customer.conversion_tracking_setting.conversion_tracking_id
+      FROM customer
+      LIMIT 1
+    `);
+    const raw = rows?.[0]?.customer?.conversion_tracking_setting?.conversion_tracking_id;
+    return raw ? String(raw) : null;
+  } catch (err) {
+    console.warn('[google-ads] conversion tracking id lookup failed:', err);
+    return null;
+  }
+}
+
+/**
+ * Provision Keystone's standard conversion actions in a customer's sub-account
+ * and return the account's tag id + the per-event conversion labels (parsed from
+ * each action's event snippet). Idempotent: existing actions are reused by name,
+ * so re-running never duplicates them. Best-effort per action — a failure on one
+ * doesn't abort the rest.
+ */
+export async function ensureConversionActions(customerId?: string): Promise<ConversionSetupResult> {
+  if (isMockMode()) {
+    console.log('[google-ads mock] ensureConversionActions');
+    const labels: Partial<Record<ConversionEventType, string>> = {};
+    for (const t of CONVERSION_EVENT_TYPES) labels[t] = `mock_${t}`;
+    return { conversionId: 'AW-000000000', labels };
+  }
+
+  const customer = await getClient(customerId);
+  const conversionId = normalizeConversionId(await getConversionTrackingId(customer));
+
+  // Existing actions, keyed by name, so we reuse instead of duplicating. The
+  // tag_snippets come back on the same query, so no per-action re-fetch is needed
+  // for ones that already exist.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const byName = new Map<string, any>();
+  try {
+    const existing = await customer.query(`
+      SELECT conversion_action.resource_name, conversion_action.name, conversion_action.tag_snippets
+      FROM conversion_action
+      WHERE conversion_action.status != 'REMOVED'
+    `);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const row of existing as any[]) {
+      const ca = row?.conversion_action;
+      if (ca?.name) byName.set(ca.name, ca);
+    }
+  } catch (err) {
+    console.warn('[google-ads] conversion_action list failed:', err);
+  }
+
+  const labels: Partial<Record<ConversionEventType, string>> = {};
+
+  for (const type of CONVERSION_EVENT_TYPES) {
+    const spec = CONVERSION_ACTION_SPECS[type];
+    let action = byName.get(spec.name);
+
+    if (!action) {
+      try {
+        const created = await customer.conversionActions.create([{
+          name: spec.name,
+          type: 'WEBPAGE',
+          category: spec.category,
+          status: 'ENABLED',
+          counting_type: spec.countingType,
+          ...(spec.hasValue
+            ? { value_settings: { default_value: 1, always_use_default_value: false } }
+            : {}),
+        }]);
+        const rn = created?.results?.[0]?.resource_name;
+        if (rn) {
+          // tag_snippets aren't returned by the mutate — fetch them for the new action.
+          const rows = await customer.query(`
+            SELECT conversion_action.tag_snippets
+            FROM conversion_action
+            WHERE conversion_action.resource_name = '${escapeGaql(rn)}'
+          `);
+          action = rows?.[0]?.conversion_action;
+        }
+      } catch (err) {
+        console.warn(`[google-ads] conversion action create failed for "${spec.name}":`, err);
+        continue;
+      }
+    }
+
+    const snippets = action?.tag_snippets;
+    if (Array.isArray(snippets)) {
+      for (const snip of snippets) {
+        const label = parseConversionLabelFromSnippet(snip?.event_snippet);
+        if (label) { labels[type] = label; break; }
+      }
+    }
+  }
+
+  return { conversionId, labels };
 }
 
 // ── Hourly geo + device segments (for the live activity feed) ───────────────

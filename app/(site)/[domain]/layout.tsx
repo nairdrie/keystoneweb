@@ -2,6 +2,8 @@ import { ReactNode } from 'react';
 import { createClient } from '@/lib/db/supabase-server';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
+import SiteConversionTracking from '@/app/components/SiteConversionTracking';
+import { buildSiteConversionConfig } from '@/lib/marketing/conversions';
 import {
   buildSiteMetadata,
   cleanSeoTitle,
@@ -69,7 +71,7 @@ export default async function SiteLayout({
 
   const { data: site } = await supabase
     .from('sites')
-    .select('id')
+    .select('id, google_ads_conversion_id, google_ads_conversion_labels')
     .eq('custom_domain', cleanDomain)
     .eq('is_published', true)
     .single();
@@ -78,5 +80,10 @@ export default async function SiteLayout({
     notFound();
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      <SiteConversionTracking siteId={site.id} config={buildSiteConversionConfig(site)} />
+      {children}
+    </>
+  );
 }
