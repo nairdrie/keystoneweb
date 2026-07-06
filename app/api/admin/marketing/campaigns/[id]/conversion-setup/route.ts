@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
-import { requireOpsAccess } from '@/lib/ops/access';
+import { createClient } from '@/lib/db/supabase-server';
 import { ensureConversionActions } from '@/lib/marketing/google-ads';
 import {
   normalizeConversionId,
@@ -9,35 +9,50 @@ import {
 } from '@/lib/marketing/conversions';
 
 /**
- * Conversion-tracking setup for a campaign's site.
+ * Conversion-tracking setup for a campaign's site. Lives on the customer admin
+ * page, so it authenticates as the logged-in site owner (like the pause/resume/
+ * budget routes) — NOT as Keystone ops.
  *
  *   GET  → current status { conversionId, labels, active, hasCustomerId }
  *   POST { mode: 'auto' }                 → provision via the Google Ads API
  *   POST { mode: 'manual', conversionId } → store a pasted AW-… tag id
- *
- * Writes to the `sites` row, which the published site reads to inject the tag.
  */
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function loadCampaignSite(db: any, id: string) {
-  const { data: campaign } = await db
+type Loaded =
+  | { error: 'unauthorized' }
+  | { error: 'not_found' }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  | { campaign: { id: string; site_id: string }; site: any };
+
+/** Load the campaign + site, enforcing that the caller owns the site. */
+async function loadOwnedCampaignSite(id: string): Promise<Loaded> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'unauthorized' };
+
+  const { data: campaign } = await supabase
     .from('marketing_campaigns')
-    .select('id, site_id, sites!inner(id, google_ads_customer_id, google_ads_conversion_id, google_ads_conversion_labels)')
+    .select('id, site_id, sites!inner(id, user_id, google_ads_customer_id, google_ads_conversion_id, google_ads_conversion_labels)')
     .eq('id', id)
     .single();
-  if (!campaign) return null;
+
+  if (!campaign) return { error: 'not_found' };
   const site = Array.isArray(campaign.sites) ? campaign.sites[0] : campaign.sites;
-  return { campaign, site };
+  if (!site || site.user_id !== user.id) return { error: 'not_found' };
+
+  return { campaign: { id: campaign.id, site_id: campaign.site_id }, site };
+}
+
+function errorResponse(loaded: { error: 'unauthorized' | 'not_found' }) {
+  return loaded.error === 'unauthorized'
+    ? NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    : NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
 }
 
 export async function GET(_request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const access = await requireOpsAccess();
-  if (!access || !access.isAdmin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-
   const { id } = await ctx.params;
-  const db = createAdminClient();
-  const loaded = await loadCampaignSite(db, id);
-  if (!loaded) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
+  const loaded = await loadOwnedCampaignSite(id);
+  if ('error' in loaded) return errorResponse(loaded);
 
   const { site } = loaded;
   return NextResponse.json({
@@ -49,17 +64,17 @@ export async function GET(_request: NextRequest, ctx: { params: Promise<{ id: st
 }
 
 export async function POST(request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const access = await requireOpsAccess();
-  if (!access || !access.isAdmin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-
   const { id } = await ctx.params;
-  const db = createAdminClient();
-  const loaded = await loadCampaignSite(db, id);
-  if (!loaded) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
+  const loaded = await loadOwnedCampaignSite(id);
+  if ('error' in loaded) return errorResponse(loaded);
 
   const { campaign, site } = loaded;
   const body = await request.json().catch(() => ({}));
   const mode = body?.mode === 'manual' ? 'manual' : 'auto';
+
+  // Writes use the service-role client (bypasses RLS); ownership was already
+  // verified above with the user-scoped client.
+  const db = createAdminClient();
 
   try {
     if (mode === 'manual') {
