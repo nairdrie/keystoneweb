@@ -4,6 +4,20 @@ import { checkBudgetExceeded } from '@/lib/marketing/spend';
 import { pauseCampaign as pauseGoogleCampaign } from '@/lib/marketing/google-ads';
 import { pauseCampaign as pauseMetaCampaign } from '@/lib/marketing/meta-ads';
 
+/**
+ * GET /api/cron/marketing-budget-check
+ *
+ * Overspend circuit-breaker: pauses active campaigns whose spent_cents has
+ * reached total_budget_cents. Invoked once daily on Hobby (was every 2h on Pro)
+ * and staggered ~3h after marketing-sync so it reads same-day spend.
+ *
+ * WARNING: this cron does NO independent spend measurement — it only reads the
+ * spent_cents that marketing-sync writes. At once/day for both jobs, a runaway
+ * campaign can overspend for up to ~24h before it is paused. Do not treat this
+ * as a hard cap: enforce the real ceiling at the ad platform (Google campaign
+ * budget / Meta lifetime_budget), and/or run this + marketing-sync from an
+ * external scheduler (GitHub Actions) for sub-daily detection.
+ */
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {

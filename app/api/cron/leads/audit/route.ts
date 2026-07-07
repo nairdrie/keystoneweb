@@ -5,8 +5,15 @@ import { sniffCms, type CmsResult } from '@/lib/leads/cms-sniffer';
 import { computePitch } from '@/lib/leads/pitch-angles';
 
 // PageSpeed audits take 10–30s each. With 60s function timeout we can
-// process ~3 in parallel safely. Run the cron multiple times per day so
-// pending always drains.
+// process ~3 in parallel safely.
+//
+// NOTE: on Hobby this cron runs once/weekday (was intended to run several times
+// a day so `pending` always drained). That's fine today because the migration-091
+// no-website pivot means discover now enqueues audit_status='no_website' /
+// website=null rows, which this query excludes — so audit inflow is ~0 and the
+// queue only holds draining legacy pre-091 rows. If website-having prospects ever
+// flow in again, raise BATCH_SIZE / add an internal drain loop or an external
+// scheduler, since once/day × 5 will not keep up.
 const BATCH_SIZE = 5;
 const PARALLELISM = 3;
 

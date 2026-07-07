@@ -25,11 +25,11 @@
     },
     {
       "path": "/api/cron/marketing-sync",
-      "schedule": "0 */6 * * *"
+      "schedule": "0 4 * * *"
     },
     {
       "path": "/api/cron/marketing-budget-check",
-      "schedule": "0 */2 * * *"
+      "schedule": "0 7 * * *"
     },
     {
       "path": "/api/cron/leads/discover",
@@ -41,7 +41,7 @@
     },
     {
       "path": "/api/cron/leads/autopilot",
-      "schedule": "0 14,16,18,20 * * 1-5"
+      "schedule": "0 14 * * 1-5"
     }
   ]
 }

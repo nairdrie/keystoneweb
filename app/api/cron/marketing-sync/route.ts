@@ -5,9 +5,17 @@ import { syncAllCampaigns } from '@/lib/marketing/performance';
 /**
  * GET /api/cron/marketing-sync
  *
- * Invoked every 6 hours by Vercel Cron.
- * Pulls latest performance data from Google Ads and Meta APIs,
+ * Invoked once daily by Vercel Cron (Hobby plan caps crons at once/day; was
+ * every 6h on Pro). Pulls latest performance data from Google Ads and Meta APIs,
  * updates campaign metrics, and records daily spend.
+ *
+ * NOTE: this is the ONLY job that refreshes spent_cents and the only prepaid-
+ * depletion pause path, and marketing-budget-check reads the spent_cents this
+ * writes. At once/day, the worst-case overspend-detection window widens from ~6h
+ * to ~24h. The durable fix is a platform-level budget cap (Google campaign
+ * budget / Meta lifetime_budget) so the ad platform stops delivery on its own;
+ * for near-real-time detection without upgrading, run this from an external
+ * scheduler (GitHub Actions cron hitting this route with the Bearer CRON_SECRET).
  */
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
