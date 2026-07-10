@@ -77,9 +77,21 @@ export function parseConversionLabelFromSnippet(snippet: string | null | undefin
   return m ? m[1] : null;
 }
 
-/** True when a site has enough config to fire at least one conversion. */
+/**
+ * True once a site has a Google tag we can inject — i.e. a base conversion id.
+ *
+ * The base tag alone is what loads gtag.js on the published site and makes
+ * Google mark the account as "set up" (and powers account-level tracking /
+ * remarketing / auto-detected conversions). Event `labels` are a *refinement*:
+ * they only decide which explicit events (call, lead_form, …) fire, and each
+ * event's firing is already guarded by its own label inside `fireAdsConversion`.
+ *
+ * So a manually-pasted base tag with no labels yet is still active and must
+ * still be injected — requiring labels here silently dropped the tag from the
+ * DOM for every "enter tag manually" site.
+ */
 export function isConversionTrackingActive(config: SiteConversionConfig | null | undefined): boolean {
-  return !!config?.conversionId && !!config.labels && Object.keys(config.labels).length > 0;
+  return !!config?.conversionId;
 }
 
 /**

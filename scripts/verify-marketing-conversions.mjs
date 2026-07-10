@@ -45,8 +45,12 @@ check('parse label: null snippet', parseConversionLabelFromSnippet(null) === nul
 check('parse label: no send_to', parseConversionLabelFromSnippet('<script>foo()</script>') === null);
 
 // ── isConversionTrackingActive ───────────────────────────────────────────────
+// A base tag (conversion id) is enough to be "active": it injects gtag on the
+// site and marks the Google Ads account as set up. Labels only gate which
+// events fire (see fireAdsConversion), so a pasted base tag with no labels yet
+// is still active — this is the "enter tag manually" case.
 check('active: has id + labels', isConversionTrackingActive({ conversionId: 'AW-1', labels: { call: 'x' } }) === true);
-check('active: no labels', isConversionTrackingActive({ conversionId: 'AW-1', labels: {} }) === false);
+check('active: base tag only (no labels)', isConversionTrackingActive({ conversionId: 'AW-1', labels: {} }) === true);
 check('active: no id', isConversionTrackingActive({ conversionId: '', labels: { call: 'x' } }) === false);
 check('active: null', isConversionTrackingActive(null) === false);
 
