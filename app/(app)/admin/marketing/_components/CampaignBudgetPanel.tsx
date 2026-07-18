@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Plus, Loader2, X } from 'lucide-react';
+import { Plus, Loader2, X, Copy, Check, ExternalLink, Link2 } from 'lucide-react';
 import { formatCents } from '@/lib/marketing/pricing';
 
 interface Budget {
@@ -44,6 +44,12 @@ export default function CampaignBudgetPanel({
   const [topupAmount, setTopupAmount] = useState<number>(5000); // $50 default
   const [acting, setActing] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // Durable Stripe Payment Link for this top-up, minted on "Generate payment
+  // link". Like the initial-prepay flow, the operator can pay it now or copy it
+  // and send it to the client. Cleared whenever the amount changes so a shown
+  // link always matches the amount above it.
+  const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -69,12 +75,33 @@ export default function CampaignBudgetPanel({
       body: JSON.stringify({ rawAdSpendCents: topupAmount }),
     });
     const data = await res.json();
-    if (!res.ok || !data.checkoutUrl) {
+    if (!res.ok || !data.paymentUrl) {
       setErr(data.error || 'Failed to start top-up');
       setActing(false);
       return;
     }
-    window.location.href = data.checkoutUrl;
+    // Show the link (pay now / copy & send) rather than force-redirecting, so the
+    // operator can hand it to the client to pay.
+    setPaymentUrl(data.paymentUrl);
+    setActing(false);
+  }
+
+  async function copyLink() {
+    if (!paymentUrl) return;
+    try {
+      await navigator.clipboard.writeText(paymentUrl);
+    } catch {
+      // Clipboard API unavailable (e.g. non-secure context) — fall back to a prompt.
+      window.prompt('Copy this payment link:', paymentUrl);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  function closeTopup() {
+    setShowTopup(false);
+    setPaymentUrl(null);
+    setErr(null);
   }
 
   async function handleCancel() {
@@ -104,6 +131,13 @@ export default function CampaignBudgetPanel({
   const daysLeft = dailyBundled > 0 ? Math.floor(budget.remainingCents / dailyBundled) : 0;
   const pctUsed = Math.round(budget.pctUsed * 100);
 
+  // Top-up amount breakdown (raw ad spend + 5% fee = pre-tax subtotal). Mirrors
+  // the server's applyMarkup so the preview matches the charge exactly; GST/HST
+  // is added on top from the billing address at checkout.
+  const topupRawCents = topupAmount;
+  const topupSubtotalCents = Math.round(topupAmount * 1.05);
+  const topupFeeCents = topupSubtotalCents - topupRawCents;
+
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-5">
       <div className="flex items-center justify-between">
@@ -112,7 +146,7 @@ export default function CampaignBudgetPanel({
           {canTopUp && (
             <button
               type="button"
-              onClick={() => setShowTopup(v => !v)}
+              onClick={() => (showTopup ? closeTopup() : setShowTopup(true))}
               className="inline-flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 px-3 py-1.5 rounded-md text-xs font-bold border border-emerald-200"
             >
               <Plus className="w-3.5 h-3.5" /> Add budget
@@ -181,33 +215,97 @@ export default function CampaignBudgetPanel({
                 min="10"
                 step="1"
                 value={(topupAmount / 100).toFixed(2)}
-                onChange={e => setTopupAmount(Math.round(parseFloat(e.target.value || '0') * 100))}
-                className="w-full pl-7 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500 bg-white"
+                onChange={e => {
+                  setTopupAmount(Math.round(parseFloat(e.target.value || '0') * 100));
+                  // Changing the amount invalidates any link minted for the old amount.
+                  setPaymentUrl(null);
+                }}
+                disabled={!!paymentUrl}
+                className="w-full pl-7 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500 bg-white disabled:bg-slate-100 disabled:text-slate-500"
               />
             </div>
           </label>
-          <div className="text-xs text-slate-500 flex items-center justify-between">
-            <span>+ 5% service fee</span>
-            <span>You pay <strong>{formatCents(Math.round(topupAmount * 1.05))}</strong></span>
+
+          {/* Amount breakdown — pre-tax; GST/HST is added at checkout. */}
+          <div className="rounded-lg bg-white border border-slate-200 px-3 py-2.5 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-slate-600">Ad spend</span>
+              <span className="text-slate-900">{formatCents(topupRawCents)}</span>
+            </div>
+            <div className="flex items-center justify-between mt-1">
+              <span className="text-slate-600">Service fee (5%)</span>
+              <span className="text-slate-900">{formatCents(topupFeeCents)}</span>
+            </div>
+            <div className="border-t border-slate-200 mt-2 pt-2 flex items-center justify-between">
+              <span className="font-bold text-slate-900">Subtotal</span>
+              <span className="font-black text-slate-900">{formatCents(topupSubtotalCents)}</span>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-2">
+              Plus applicable GST/HST, calculated from the billing address at checkout.
+            </p>
           </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={handleTopup}
-              disabled={acting || topupAmount < 1000}
-              className="flex-1 inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white px-3 py-2 rounded-md text-sm font-bold"
-            >
-              {acting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-              Pay & add budget
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowTopup(false)}
-              className="px-3 py-2 text-sm text-slate-600 hover:text-slate-900"
-            >
-              Cancel
-            </button>
-          </div>
+
+          {paymentUrl ? (
+            <div className="space-y-3">
+              <p className="text-xs text-slate-600">
+                Pay now, or copy the link and send it to your client. Once it&apos;s paid, the budget is
+                added{status === 'paused' ? ' and the campaign resumes' : ''} automatically.
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <a
+                  href={paymentUrl}
+                  className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-bold"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" /> Continue to payment
+                </a>
+                <button
+                  type="button"
+                  onClick={copyLink}
+                  className="inline-flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 px-4 py-2 rounded-lg text-sm font-bold"
+                >
+                  {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copied ? 'Copied!' : 'Copy payment link'}
+                </button>
+              </div>
+              {/* Read-only view of the link so the operator can see / select it directly. */}
+              <div className="flex items-center gap-2 rounded-lg bg-white border border-slate-200 px-3 py-2">
+                <Link2 className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                <input
+                  type="text"
+                  readOnly
+                  value={paymentUrl}
+                  onFocus={e => e.currentTarget.select()}
+                  className="flex-1 bg-transparent text-xs text-slate-600 font-mono outline-none truncate"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setPaymentUrl(null)}
+                className="text-xs font-bold text-slate-500 hover:text-slate-900"
+              >
+                Change amount
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleTopup}
+                disabled={acting || topupAmount < 1000}
+                className="flex-1 inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white px-3 py-2 rounded-md text-sm font-bold"
+              >
+                {acting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                Generate payment link
+              </button>
+              <button
+                type="button"
+                onClick={closeTopup}
+                className="px-3 py-2 text-sm text-slate-600 hover:text-slate-900"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
         </div>
       )}
 
