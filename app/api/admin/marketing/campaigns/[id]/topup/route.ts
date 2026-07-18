@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createClient } from '@/lib/db/supabase-server';
-import { applyMarkup } from '@/lib/marketing/pricing';
+import { applyMarkup, formatCents } from '@/lib/marketing/pricing';
 import { htmlToPlainText } from '@/lib/email/sanitize';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -16,7 +16,18 @@ const MAX_TOPUP_RAW_CENTS = 1_000_000;   // $10k of ad spend
  * POST /api/admin/marketing/campaigns/[id]/topup
  * Body: { rawAdSpendCents }   (how many more dollars of Google spend they want)
  *
- * Returns: { checkoutUrl, totalCents }
+ * Mints a durable Stripe Payment Link for the additional budget (ad spend ×
+ * 1.05, plus GST/HST added on top at checkout). Like the initial-prepay
+ * /approve flow, the link is single-use and never expires, so the operator can
+ * pay now or copy it and send it to the client to pay later.
+ *
+ * Returns: { paymentUrl, totalCents }
+ *
+ * When the link is paid, the Stripe webhook (checkout.session.completed —
+ * Payment Link metadata is copied onto the session) records the top-up against
+ * the campaign's prepaid budget and resumes the campaign if it was paused for a
+ * depleted budget. The budget is funded from the PRE-TAX subtotal; the GST/HST
+ * portion is remitted to the CRA, not spent on ads (see the webhook handler).
  */
 export async function POST(request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
@@ -60,25 +71,38 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     .trim()
     || site.site_slug
     || 'your site').slice(0, 60);
+  const successUrl = `${origin}/admin/marketing/campaigns/${id}?siteId=${campaign.site_id}&topup=success`;
 
   try {
-    const session = await stripe.checkout.sessions.create({
-      mode: 'payment',
-      payment_method_types: ['card'],
-      customer_email: user.email || undefined,
+    const paymentLink = await stripe.paymentLinks.create({
       line_items: [{
         price_data: {
           currency: 'cad',
           product_data: {
             name: `${campaign.name} — additional budget`,
-            description: `Adds $${(rawAdSpendCents / 100).toFixed(2)} of Google ad spend to ${siteName}. Includes 5% service fee.`,
+            description: `Adds ${formatCents(rawAdSpendCents)} of Google ad spend to ${siteName}. Includes 5% service fee.`,
+            // Website advertising — standard-rated for GST/HST in Canada.
+            tax_code: 'txcd_10701000',
           },
           unit_amount: totalCents,
+          // Our amount is pre-tax (ad spend + fee); Stripe Tax adds GST/HST on top.
+          tax_behavior: 'exclusive',
         },
         quantity: 1,
       }],
-      success_url: `${origin}/admin/marketing/campaigns/${id}?siteId=${campaign.site_id}&topup=success`,
-      cancel_url: `${origin}/admin/marketing/campaigns/${id}?siteId=${campaign.site_id}&topup=cancel`,
+      // Add GST/HST automatically from the payer's billing address. Requires
+      // Stripe Tax to be enabled with your registrations in the Stripe dashboard;
+      // until then Stripe simply adds $0 tax.
+      automatic_tax: { enabled: true },
+      billing_address_collection: 'required',
+      // Single completed payment, then the link deactivates itself.
+      restrictions: { completed_sessions: { limit: 1 } },
+      after_completion: {
+        type: 'redirect',
+        redirect: { url: successUrl },
+      },
+      // Payment Link metadata is automatically copied onto the Checkout Session
+      // created when the link is paid, so the existing webhook reads it as usual.
       metadata: {
         type: 'marketing_campaign_topup',
         campaignId: id,
@@ -95,9 +119,9 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
       },
     });
 
-    return NextResponse.json({ checkoutUrl: session.url, totalCents });
+    return NextResponse.json({ paymentUrl: paymentLink.url, totalCents });
   } catch (err) {
     console.error('[marketing/topup] Stripe error:', err);
-    return NextResponse.json({ error: 'Failed to create checkout session' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to create payment link' }, { status: 500 });
   }
 }
