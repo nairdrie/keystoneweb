@@ -7,11 +7,15 @@ name: Sync staging from prod
 #   - storage bucket *contents* via rclone S3 sync
 #
 # Staging is gated by Vercel SSO, so PII at rest is only visible to you.
-# Cron runs on the default branch only — won't fire until this is merged to main.
+#
+# DISABLED: the nightly schedule is commented out, so this no longer runs on its
+# own. It stays manually runnable via "Run workflow" in the Actions tab. To
+# re-enable the nightly sync, uncomment the schedule block below (cron runs on
+# the default branch only, so it takes effect once merged to main).
 
 on:
-  schedule:
-    - cron: '0 8 * * *'   # 03:00 America/Toronto (08:00 UTC) daily
+  # schedule:
+  #   - cron: '0 8 * * *'   # 03:00 America/Toronto (08:00 UTC) daily
   workflow_dispatch: {}    # "Run workflow" button in the Actions tab
 
 concurrency:
