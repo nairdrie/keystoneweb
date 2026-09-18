@@ -20,6 +20,21 @@ export type SubscriptionLike = {
 /** Statuses that retain paid access (active subscription, or in the dunning grace window). */
 export const PAID_STATUSES = new Set(['active', 'past_due']);
 
+/**
+ * Statuses where a Stripe subscription still exists on the customer.
+ *
+ * Wider than PAID_STATUSES: this is the "don't create a second subscription"
+ * check. Anything in here must be *updated* (plan change, billing-cycle change)
+ * rather than put through a fresh Checkout, or the customer ends up with two
+ * subscriptions billing the same account.
+ */
+export const LIVE_STATUSES = new Set(['active', 'trialing', 'past_due', 'unpaid']);
+
+/** Does this status mean there's still a Stripe subscription to update? */
+export function hasLiveSubscription(status: string | null | undefined): boolean {
+  return !!status && LIVE_STATUSES.has(status);
+}
+
 /** Does this subscription currently grant paid access (active or in grace)? */
 export function hasPaidAccess(sub: SubscriptionLike): boolean {
   return !!sub?.subscription_status && PAID_STATUSES.has(sub.subscription_status);

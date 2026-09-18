@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
 import Stripe from 'stripe';
+import { hasLiveSubscription } from '@/lib/subscription/access';
+import { findPlanItem, resolvePlanFromSubscription } from '@/lib/subscription/billing-interval';
 
 // Initialize Stripe only when API key is available
 const getStripeClient = () => {
@@ -75,21 +77,35 @@ export async function POST(request: NextRequest) {
 
     const stripe = getStripeClient();
 
-    // Check if the user already has an active subscription — if so, send them to the
-    // Stripe Customer Portal with a confirmation flow so they can review proration before paying
+    // Check if the user already has a live subscription — if so, send them to the
+    // Stripe Customer Portal with a confirmation flow so they can review proration
+    // before paying.
+    //
+    // `past_due`/`unpaid` count as live: the subscription still exists in Stripe, so
+    // running a fresh Checkout for a customer behind on payment would leave them with
+    // two parallel subscriptions billing the same account.
     const { data: existingSubscription } = await supabase
       .from('user_subscriptions')
-      .select('stripe_subscription_id, stripe_customer_id, subscription_status')
+      .select('stripe_subscription_id, stripe_customer_id, subscription_status, subscription_plan')
       .eq('user_id', user.id)
       .single();
 
     if (
       existingSubscription?.stripe_subscription_id &&
       existingSubscription?.stripe_customer_id &&
-      existingSubscription.subscription_status === 'active'
+      hasLiveSubscription(existingSubscription.subscription_status)
     ) {
-      const stripeSub = await stripe.subscriptions.retrieve(existingSubscription.stripe_subscription_id);
-      const itemId = stripeSub.items.data[0]?.id;
+      const stripeSub = await stripe.subscriptions.retrieve(
+        existingSubscription.stripe_subscription_id,
+        { expand: ['items.data.price'] },
+      );
+
+      // Target the base plan item specifically — subscriptions also carry the
+      // monthly metered overage item and any add-on items, and swapping the plan
+      // price onto one of those would wreck the customer's billing.
+      const currentPlan = resolvePlanFromSubscription(stripeSub, existingSubscription.subscription_plan);
+      const planItem = findPlanItem(stripeSub, currentPlan);
+      const itemId = planItem?.id;
 
       if (!itemId) {
         return NextResponse.json({ error: 'Could not find subscription item to update' }, { status: 500 });
