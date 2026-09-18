@@ -6,6 +6,7 @@ import { completeDomainPurchase } from '@/app/api/domains/purchase/route';
 import { initiateVercelTransfer } from '@/app/api/domains/transfer/route';
 import { provisionLaunch } from '@/lib/launch-service/provision';
 import { getPlanByName } from '@/lib/plans';
+import { findPlanItem, resolvePlanFromSubscription } from '@/lib/subscription/billing-interval';
 import Stripe from 'stripe';
 import { trackEvent } from '@/lib/analytics';
 
@@ -745,14 +746,20 @@ export async function POST(request: NextRequest) {
         const subscription = event.data.object as Stripe.Subscription;
         const status = subscription.status; // 'active', 'past_due', 'canceled', etc.
 
-        // Extract billing interval from subscription items
-        const billingInterval = subscription.items.data[0]?.price?.recurring?.interval ?? 'month';
+        // Read the interval and plan name off the base plan item specifically.
+        // Subscriptions also carry the always-monthly metered overage item and
+        // any add-on items, and the plan isn't guaranteed to be first in the
+        // list — reading data[0] blindly can record the wrong billing interval.
+        const basePlanItem =
+          findPlanItem(subscription, resolvePlanFromSubscription(subscription)) ?? subscription.items.data[0];
+
+        const billingInterval = basePlanItem?.price?.recurring?.interval ?? 'month';
 
         // Safely extract a plan name. If nickname fails, try to fetch the product name, or default to generic.
-        let planName = subscription.items.data[0]?.price.nickname;
+        let planName = basePlanItem?.price.nickname;
 
-        if (!planName && subscription.items.data[0]?.price.product) {
-          const productId = subscription.items.data[0].price.product as string;
+        if (!planName && basePlanItem?.price.product) {
+          const productId = basePlanItem.price.product as string;
           try {
             const stripeClient = getStripeClient();
             const product = await stripeClient.products.retrieve(productId);

@@ -8,6 +8,7 @@ import PlatformJsonLd from "@/app/components/PlatformJsonLd";
 import ImpersonationBanner from "./ImpersonationBanner";
 import AdminManageSiteBanner from "./AdminManageSiteBanner";
 import PaymentFailedBanner from "./PaymentFailedBanner";
+import NavHistoryTracker from "./NavHistoryTracker";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -118,6 +119,7 @@ export default async function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <AuthProvider initialUser={user}>
+          <NavHistoryTracker />
           <PlatformJsonLd />
           {isImpersonated && <ImpersonationBanner userEmail={user.email || 'User'} />}
           {!isImpersonated && manageInfo && (

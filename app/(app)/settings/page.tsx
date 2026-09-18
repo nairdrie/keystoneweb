@@ -1,16 +1,19 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/auth/context';
 import { useRouter } from 'next/navigation';
 import KeystoneLogo from '@/app/components/KeystoneLogo';
 import { ArrowLeft, CreditCard, ExternalLink, Loader2, User, History, Globe, Link2, AlertCircle, CheckCircle2, Lock, Puzzle, Zap, Receipt, FileText } from 'lucide-react';
 import { isProEntitled } from '@/lib/subscription/access';
+import { previousNavEntry } from '@/lib/nav/history';
+import BillingCycleCard from '@/app/components/billing/BillingCycleCard';
 
 interface SubscriptionData {
     subscription_status: string;
     subscription_plan: string;
     subscription_started_at: string;
+    billing_interval?: string | null;
     updated_at: string;
 }
 
@@ -109,25 +112,25 @@ export default function SettingsPage() {
         }
     }, [user, authLoading, router]);
 
+    const fetchSubscription = useCallback(async () => {
+        try {
+            const res = await fetch('/api/user/subscription');
+            if (res.ok) {
+                const data = await res.json();
+                setSubscription(data.subscription);
+            }
+        } catch (err) {
+            console.error('Failed to fetch subscription:', err);
+        } finally {
+            setLoadingSub(false);
+        }
+    }, []);
+
     useEffect(() => {
         if (user) {
-            const fetchSubscription = async () => {
-                try {
-                    const res = await fetch('/api/user/subscription');
-                    if (res.ok) {
-                        const data = await res.json();
-                        setSubscription(data.subscription);
-                    }
-                } catch (err) {
-                    console.error('Failed to fetch subscription:', err);
-                } finally {
-                    setLoadingSub(false);
-                }
-            };
-
             fetchSubscription();
         }
-    }, [user]);
+    }, [user, fetchSubscription]);
 
     // Fetch add-ons
     useEffect(() => {
@@ -216,6 +219,17 @@ export default function SettingsPage() {
         }
     };
 
+    /**
+     * Go back to the last in-app page instead of the last browser-history entry.
+     *
+     * Opening the Stripe portal pushes an off-site entry, and Stripe returns the
+     * user here — so `router.back()` would bounce them to Stripe, which sends
+     * them straight back to Settings. The nav trail skips those round-trips.
+     */
+    const handleBack = () => {
+        router.push(previousNavEntry('/settings', '/admin'));
+    };
+
     const handleManageBilling = async () => {
         setGeneratingPortal(true);
         setError(null);
@@ -263,7 +277,7 @@ export default function SettingsPage() {
                 <div className="max-w-4xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <button
-                            onClick={() => router.back()}
+                            onClick={handleBack}
                             className="p-2 -ml-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 rounded-full transition-colors flex items-center justify-center"
                             title="Go Back"
                         >
@@ -356,6 +370,16 @@ export default function SettingsPage() {
                                                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Started As Of</p>
                                                 <p className="font-medium text-slate-700">{subscription.subscription_started_at ? new Date(subscription.subscription_started_at).toLocaleDateString() : '—'}</p>
                                             </div>
+                                            <div>
+                                                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Billing Cycle</p>
+                                                <p className="font-medium text-slate-700">
+                                                    {subscription.billing_interval === 'year'
+                                                        ? 'Yearly'
+                                                        : subscription.billing_interval === 'month'
+                                                            ? 'Monthly'
+                                                            : '—'}
+                                                </p>
+                                            </div>
                                         </div>
 
                                         {error && (
@@ -373,7 +397,7 @@ export default function SettingsPage() {
                                             {generatingPortal ? 'Opening Portal...' : 'Manage Billing & Subscription'}
                                         </button>
                                         <p className="text-[11px] text-slate-500">
-                                            Clicking this button will safely redirect you to our Stripe Customer Portal where you can securely update your payment method, download invoices, or cancel/upgrade your plan.
+                                            Clicking this button will safely redirect you to our Stripe Customer Portal where you can securely update your payment method, download invoices, or cancel your plan. To switch between monthly and yearly billing, use the Billing Cycle section below.
                                         </p>
                                     </div>
                                 ) : (
@@ -395,6 +419,13 @@ export default function SettingsPage() {
                                 )}
                             </div>
                         </div>
+
+                        {/* ═══════════════════════════════════════════════ */}
+                        {/* Billing Cycle Block (monthly ↔ yearly)          */}
+                        {/* ═══════════════════════════════════════════════ */}
+                        {subscription && subscription.subscription_status && subscription.subscription_status !== 'inactive' && (
+                            <BillingCycleCard onChanged={fetchSubscription} />
+                        )}
 
                         {/* ═══════════════════════════════════════════════ */}
                         {/* Plan Add-Ons Block                              */}
