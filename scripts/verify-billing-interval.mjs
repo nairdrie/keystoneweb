@@ -11,7 +11,11 @@
  * Transpiles the real TypeScript (it has relative imports, so Node's built-in
  * type stripping can't load it on its own) and runs the actual exports.
  *
- * Run: node scripts/verify-billing-interval.mjs
+ * Kept out of `prebuild` deliberately, like the other verify scripts: it needs
+ * the `typescript` devDependency at runtime, and a deploy shouldn't hinge on a
+ * dev tool being present in the build image.
+ *
+ * Run: npm run test:billing
  */
 
 import fs from 'node:fs';
