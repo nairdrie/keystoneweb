@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   AlertTriangle, Clock, Copy, FileText, Mic, Phone, Plus, Printer, Send, Shield, Sparkles, Trash2, X,
 } from 'lucide-react';
@@ -83,15 +83,17 @@ function priced(e: EditLine) {
 
 export default function EstimateTab({ d, act, reload }: { d: Detail; act: Act; reload: () => Promise<void> }) {
   const { siteId, openAuth, bump } = useShop();
-  const [version, setVersion] = useState<number | null>(null);
+  const [picked, setPicked] = useState<{ version: number; count: number } | null>(null);
   const [custView, setCustView] = useState(false);
   const [send, setSend] = useState<Estimate | null>(null);
   const [declineOpen, setDeclineOpen] = useState<Estimate | null>(null);
   const [preview, setPreview] = useState<Estimate | null>(null);
 
   const estimates = d.estimates;
+  // A new version (or revision) resets the picker to the latest one.
+  const version = picked && picked.count === estimates.length ? picked.version : null;
+  const setVersion = (v: number) => setPicked({ version: v, count: estimates.length });
   const est = estimates.find(e => e.version === version) ?? estimates[estimates.length - 1] ?? null;
-  useEffect(() => { setVersion(null); }, [estimates.length]);
 
   if (!est) {
     return (

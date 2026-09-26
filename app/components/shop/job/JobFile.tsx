@@ -44,7 +44,8 @@ export default function JobFile({ jobId }: { jobId: string }) {
   const params = useSearchParams();
   const [detail, setDetail] = useState<Detail | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>((params.get('tab') as Tab) || 'overview');
+  const tab: Tab = (['overview', 'estimate', 'parts', 'invoice', 'timeline'] as Tab[]).includes(params.get('tab') as Tab) ? (params.get('tab') as Tab) : 'overview';
+  const setTab = useCallback((t: Tab) => router.replace(href(`/jobs/${jobId}`, { tab: t }), { scroll: false }), [router, href, jobId]);
   const [callOpen, setCallOpen] = useState(false);
 
   const load = useCallback(async () => {
@@ -55,8 +56,13 @@ export default function JobFile({ jobId }: { jobId: string }) {
       setError(errorText(err));
     }
   }, [siteId, jobId]);
-  useEffect(() => { load(); }, [load, version]);
-  useEffect(() => { const t = params.get('tab') as Tab | null; if (t) setTab(t); }, [params]);
+  useEffect(() => {
+    let live = true;
+    api<Detail>(siteId, `/jobs/${jobId}`)
+      .then(d => { if (live) { setDetail(d); setError(null); } })
+      .catch(err => { if (live) setError(errorText(err)); });
+    return () => { live = false; };
+  }, [siteId, jobId, version]);
 
   /** Run an action, then reload this file and the board. */
   const act = useCallback(async (fn: () => Promise<unknown>, success?: string) => {
@@ -134,7 +140,7 @@ export default function JobFile({ jobId }: { jobId: string }) {
         <div className="panel">
           <div className="tabs" role="tablist">
             {(['overview', 'estimate', 'parts', 'invoice', 'timeline'] as Tab[]).map(t => (
-              <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => { setTab(t); router.replace(href(`/jobs/${jobId}`, { tab: t }), { scroll: false }); }}>
+              <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>
                 {t[0].toUpperCase() + t.slice(1)}{dots[t] ? <span className="tdot" aria-label="needs attention" /> : null}
               </button>
             ))}

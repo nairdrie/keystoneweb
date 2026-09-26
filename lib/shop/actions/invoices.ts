@@ -63,7 +63,7 @@ export async function issueInvoice(access: ShopAccess, jobId: string, input: Iss
   if (detail.invoice) throw new ShopRuleError('This job already has an invoice. Void it before issuing a new one.', undefined, 409);
   const approved = estimates.find(e => e.status === 'approved') ?? null;
   const problems: string[] = [];
-  let odometerOut = int(input.odometer_out) ?? job.odometer_out;
+  const odometerOut = int(input.odometer_out) ?? job.odometer_out;
 
   if (kind === 'repair') {
     if (!approved) throw new ShopRuleError('Nothing was approved on this job, so there’s nothing to bill. (If they declined, you can invoice the agreed estimate fee.)', undefined, 409);

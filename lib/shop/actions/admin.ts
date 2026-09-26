@@ -263,3 +263,35 @@ export async function revokeDevice(access: ShopAccess, deviceId: string) {
   fail(error, 'Sign out device');
   return { ok: true };
 }
+
+/** Bulk import from a QuickBooks (or any) customer list export. Skips people already on file. */
+export async function importCustomers(access: ShopAccess, rows: unknown): Promise<{ added: number; skipped: number }> {
+  if (!Array.isArray(rows)) throw new ShopRuleError('Nothing to import.', undefined, 400);
+  if (rows.length > 2000) throw new ShopRuleError('Import up to 2,000 customers at a time.', undefined, 400);
+  const { data: existing } = await access.db.from('shop_customers').select('name, email, phone').eq('site_id', access.siteId).limit(10000);
+  const digits = (s: string | null | undefined) => (s || '').replace(/\D/g, '').slice(-10);
+  const seen = new Set<string>();
+  for (const c of existing || []) {
+    if (c.email) seen.add(`e:${String(c.email).toLowerCase()}`);
+    if (digits(c.phone).length >= 7) seen.add(`p:${digits(c.phone)}`);
+    seen.add(`n:${String(c.name).toLowerCase().trim()}`);
+  }
+  const inserts: Record<string, unknown>[] = [];
+  let skipped = 0;
+  for (const raw of rows as Record<string, unknown>[]) {
+    let fields: Record<string, unknown>;
+    try { fields = customerFields({ name: raw?.name, phone: raw?.phone, email: raw?.email, address: raw?.address, notes: raw?.notes, customer_type: raw?.customer_type, business_reason: raw?.business_reason }); }
+    catch { skipped++; continue; }
+    const name = String(fields.name || '').trim();
+    if (!name) { skipped++; continue; }
+    const keys = [`n:${name.toLowerCase()}`, fields.email ? `e:${String(fields.email)}` : '', digits(fields.phone as string).length >= 7 ? `p:${digits(fields.phone as string)}` : ''].filter(Boolean);
+    if (keys.some(k => seen.has(k))) { skipped++; continue; }
+    keys.forEach(k => seen.add(k));
+    inserts.push({ site_id: access.siteId, ...fields });
+  }
+  for (let i = 0; i < inserts.length; i += 500) {
+    const { error } = await access.db.from('shop_customers').insert(inserts.slice(i, i + 500));
+    fail(error, 'Import customers');
+  }
+  return { added: inserts.length, skipped };
+}

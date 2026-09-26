@@ -179,7 +179,7 @@ export const SignaturePad = forwardRef<SignaturePadHandle, { onChange: (dataUrl:
   const canvas = useRef<HTMLCanvasElement>(null);
   const state = useRef({ drawing: false, drew: false, last: { x: 0, y: 0 } });
   const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
+  useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
 
   const setup = useCallback(() => {
     const cv = canvas.current;

@@ -128,8 +128,13 @@ export async function loadMoneyView(db: Db, siteId: string, period: string | nul
     else if (r.age_days < 90) aging.d60 += r.balance_cents;
     else aging.d90 += r.balance_cents;
   }
+  const unpaidBills = await loadBills(db, siteId, { status: ['needs_match', 'matched', 'stock'] });
+  const { data: supplierRows } = await db.from('shop_suppliers').select('*').eq('site_id', siteId);
+  const tabs = supplierTabs(unpaidBills, (supplierRows || []) as Supplier[]);
   return {
     period: at,
+    supplier_tabs: tabs,
+    supplier_owed_cents: tabs.reduce((s, t) => s + t.unpaid_cents, 0),
     receivables,
     aging,
     owed_cents: receivables.reduce((s, r) => s + r.balance_cents, 0),

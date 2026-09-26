@@ -438,3 +438,82 @@
 .shop-ui .toast.warn{background:var(--warn);color:var(--on-warn)}
 @keyframes shop-rise{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}
 @media (prefers-reduced-motion: reduce){.shop-ui *,.shop-ui *::before,.shop-ui *::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important}}
+
+/* ---------- App additions (not in the prototype) ---------- */
+.shop-ui .view{min-height:calc(100% - 50px)}
+.shop-ui .rule-list{margin:6px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:2px}
+.shop-ui .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:720px){.shop-ui .grid3{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+@media (max-width:460px){.shop-ui .grid3{grid-template-columns:minmax(0,1fr)}}
+.shop-ui .check-inline{display:flex;gap:8px;align-items:center;font-size:12.5px;min-height:34px;color:var(--text-2)}
+.shop-ui .linkbtn{border:0;background:none;padding:0;color:var(--accent-text);font-weight:700;font-size:inherit;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.shop-ui .pick-list{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:9px;overflow:hidden}
+.shop-ui .pick-list button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;border:0;border-bottom:1px solid var(--border);background:var(--surface);padding:8px 10px}
+.shop-ui .pick-list button:last-child{border-bottom:0}
+.shop-ui .pick-list button:hover{background:var(--surface-2)}
+.shop-ui .photo-real{padding:0;text-decoration:none}
+.shop-ui .photo-real::before{display:none}
+.shop-ui .photo-real img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.shop-ui .photo-real span{position:absolute;left:6px;bottom:6px}
+.shop-ui .tl-photo img{display:block;max-width:220px;max-height:160px;border-radius:8px;border:1px solid var(--border);margin-top:6px;object-fit:cover}
+.shop-ui .intake-list{flex-direction:column;align-items:stretch}
+.shop-ui .intake-item{display:flex;align-items:center;gap:8px;padding-top:8px;border-top:1px solid var(--info-border)}
+.shop-ui .intake-text{flex:1;min-width:0}
+.shop-ui .line-list{display:flex;flex-direction:column;gap:8px}
+.shop-ui .line-card{border:1px solid var(--border);border-radius:10px;padding:10px;background:var(--surface);display:flex;flex-direction:column;gap:8px}
+.shop-ui .line-card.declined{opacity:.6;background:var(--surface-2)}
+.shop-ui .line-top{display:flex;align-items:center;gap:8px;min-width:0}
+.shop-ui .line-top .kind{margin-right:0}
+.shop-ui .line-desc{flex:1}
+.shop-ui .line-total{font-weight:800;white-space:nowrap;min-width:84px;text-align:right}
+.shop-ui .line-tools{display:flex;gap:0}
+.shop-ui .line-tools .icon-btn{width:28px;height:28px}
+.shop-ui .line-fields{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:flex-end}
+.shop-ui .mini-field{display:flex;flex-direction:column;gap:3px;font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.shop-ui .mini-field .input.sm{width:108px;text-transform:none;letter-spacing:0;font-weight:500;color:var(--text)}
+.shop-ui .mini-field select.input.sm{width:150px}
+.shop-ui .mini-check{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text-2);min-height:30px}
+.shop-ui .alts{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+.shop-ui .alts .alt{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.shop-ui .alt-form{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px;border:1px dashed var(--border-strong);border-radius:8px}
+.shop-ui .alt-form .input.sm{width:130px}
+.shop-ui .paper .p-void{position:absolute;right:18px;top:18px;transform:rotate(8deg);border:3px solid #dc2626;color:#dc2626;font-weight:900;font-size:18px;padding:4px 10px;border-radius:6px;letter-spacing:.08em;background:#fff}
+.shop-ui .bill-thumb{display:flex;flex-direction:column;gap:4px;align-items:center;text-decoration:none}
+.shop-ui .receipt-badge{position:absolute;right:4px;bottom:4px;display:inline-flex;align-items:center;gap:3px;font-size:9.5px;font-weight:800;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:1px 4px;color:var(--text-2)}
+.shop-ui .receipt-badge svg.i{width:10px;height:10px}
+.shop-ui a.receipt{text-decoration:none}
+.shop-ui .bill-editor{display:flex;flex-direction:column;gap:10px;margin-top:10px}
+.shop-ui .settings-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (max-width:560px){.shop-ui .settings-grid{grid-template-columns:minmax(0,1fr)}}
+.shop-ui .stat-list .input.sm{max-width:220px}
+.shop-ui .kpi small{display:block}
+.shop-ui .t-out .field textarea.input{min-height:110px}
+
+/* ---------- Tech view (phone/tablet in the bay) ---------- */
+.shop-ui.tech-app{min-height:100vh;min-height:100dvh;display:flex;justify-content:center}
+.shop-ui .tech-screen{width:100%;max-width:560px;display:flex;flex-direction:column;min-height:100vh;min-height:100dvh;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.shop-ui .tech-screen .t-head{padding-top:14px}
+.shop-ui .tech-screen .t-head select{border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:4px 8px;font-size:12px;font-weight:700;color:var(--text-2)}
+.shop-ui .tech-screen .t-car .row{gap:6px}
+.shop-ui .tech-screen .t-big{min-height:74px}
+.shop-ui .tech-screen .t-big.mic{min-height:84px}
+.shop-ui .tech-login{width:100%;max-width:400px;margin:auto;padding:24px 16px;display:flex;flex-direction:column;gap:14px}
+.shop-ui .tech-login .logo{width:44px;height:44px;border-radius:12px;background:var(--accent);color:var(--on-accent);display:grid;place-items:center}
+.shop-ui .tech-login .input{height:48px;font-size:18px}
+.shop-ui .tech-login .input.code{font-family:var(--mono);letter-spacing:.2em;text-transform:uppercase}
+.shop-ui .tech-login .btn{height:48px;font-size:15px}
+.shop-ui .t-queue{display:flex;flex-direction:column;gap:6px;padding:0 16px 12px}
+.shop-ui .t-queue button{display:flex;align-items:center;gap:8px;text-align:left;border:1px solid var(--border);background:var(--surface);border-radius:10px;padding:10px;font-size:12.5px;color:var(--text)}
+
+/* ---------- Customer page (estimate / invoice link) ---------- */
+.shop-ui.doc-page{min-height:100vh;padding:24px 16px 64px}
+.shop-ui .doc-wrap{max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+.shop-ui .doc-top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.shop-ui .doc-top img{max-height:48px;max-width:180px;object-fit:contain}
+.shop-ui .doc-top h1{font-size:20px;font-weight:900;letter-spacing:-.02em}
+.shop-ui .doc-lines label{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:10px;align-items:start;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;cursor:pointer}
+.shop-ui .doc-lines label:last-child{border-bottom:0}
+.shop-ui .doc-lines input[type=checkbox]{width:18px;height:18px;margin-top:1px}
+.shop-ui .doc-lines .off{text-decoration:line-through;color:var(--muted)}
+.shop-ui .pay-buttons{display:flex;flex-wrap:wrap;gap:10px}
+.shop-ui .pay-buttons .btn{height:44px;font-size:14px;padding:0 18px}
