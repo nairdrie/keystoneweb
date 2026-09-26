@@ -20,6 +20,7 @@ import EstimateTab from './EstimateTab';
 import PartsTab from './PartsTab';
 import InvoiceTab from './InvoiceTab';
 import VoiceNoteModal from './VoiceNoteModal';
+import { shrinkImage } from '../shrinkImage';
 
 export type Detail = JobDetail & { checklist: ChecklistItem[] };
 type Tab = 'overview' | 'estimate' | 'parts' | 'invoice' | 'timeline';
@@ -182,7 +183,7 @@ function OverviewTab({ d, act, goTab }: { d: Detail; act: (fn: () => Promise<unk
 
   async function upload(file: File) {
     const form = new FormData();
-    form.append('file', file);
+    form.append('file', await shrinkImage(file));
     await act(() => api(siteId, `/jobs/${job.id}/upload`, { form }), 'Photo added.');
   }
 

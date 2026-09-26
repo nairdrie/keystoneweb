@@ -11,6 +11,7 @@ import type { OpenJobOption } from '@/lib/shop/views';
 import { api, errorText, shopUrl } from './api';
 import { useShop } from './ShopContext';
 import { Dialog, Field, RuleErrors } from './ui';
+import { shrinkImage } from './shrinkImage';
 
 interface PartsData {
   bills: SupplierBill[];
@@ -43,7 +44,7 @@ export default function PartsView() {
       const preview = file.type.startsWith('image/') ? URL.createObjectURL(file) : null;
       setReading(r => [...r, { id, name: file.name, preview }]);
       const form = new FormData();
-      form.append('file', file);
+      form.append('file', await shrinkImage(file));
       try {
         const bill = await api<SupplierBill>(siteId, '/bills', { form });
         const supplier = data?.suppliers.find(s => s.id === bill.supplier_id)?.name || bill.supplier_name_raw || 'Supplier';
@@ -363,7 +364,7 @@ function Reconcile({ supplierId, name }: { supplierId: string | null; name: stri
   async function snap(file: File) {
     setBusy(true);
     const form = new FormData();
-    form.append('file', file);
+    form.append('file', await shrinkImage(file));
     if (supplierId) form.append('supplier_id', supplierId);
     try {
       const r = await api<{ read: { entries: { invoice_number: string }[] }; result: ReconResult }>(siteId, '/bills/actions', { form });

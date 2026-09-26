@@ -8,6 +8,7 @@ import type { Bay, JobDetail, JobSummary, StaffMember, SupplierBill } from '@/li
 import { KeyTag, Pill, ToastProvider, useToast } from '../ui';
 import { clock, useVoiceRecorder } from '../useVoiceRecorder';
 import '../shop.css';
+import { shrinkImage } from '../shrinkImage';
 
 interface Board {
   siteId: string;
@@ -147,7 +148,7 @@ function TechInner({ siteIdParam }: { siteIdParam: string | null }) {
     if (!job) return;
     setScreen({ s: 'snap' });
     const form = new FormData();
-    form.append('file', file);
+    form.append('file', await shrinkImage(file));
     form.append('job_id', job.id);
     try {
       const bill = await req<SupplierBill>('/bills', { method: 'POST', body: form });
@@ -168,7 +169,7 @@ function TechInner({ siteIdParam }: { siteIdParam: string | null }) {
   async function photo(file: File) {
     if (!job) return;
     const form = new FormData();
-    form.append('file', file);
+    form.append('file', await shrinkImage(file));
     try { await req(`/jobs/${job.id}/upload`, { method: 'POST', body: form }); toast('Photo added to the job.'); } catch (err) { toast((err as Error).message, 'warn'); }
   }
 

@@ -107,7 +107,7 @@ export async function loadSiteInfo(db: Db, siteId: string, settings?: ShopSettin
     stripe: !!data?.stripe_account_id,
     paypal: !!(data?.paypal_client_id && data?.paypal_secret),
     owner_email: ownerEmail,
-    logo_url: (design.headerLogo as string) || (design.siteLogo as string) || null,
+    logo_url: [design.headerLogo, design.siteLogo, design.logo, design.__siteLogo].find((v): v is string => typeof v === 'string' && /^https?:\/\//.test(v)) ?? null,
     custom_domain: data?.custom_domain ?? null,
     published_domain: data?.published_domain ?? null,
     is_published: !!data?.is_published,

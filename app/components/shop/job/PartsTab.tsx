@@ -9,6 +9,7 @@ import { api, errorText, shopUrl } from '../api';
 import { useShop } from '../ShopContext';
 import { Pill, RuleErrors } from '../ui';
 import type { Detail } from './JobFile';
+import { shrinkImage } from '../shrinkImage';
 
 type Act = (fn: () => Promise<unknown>, ok?: string) => Promise<boolean>;
 
@@ -25,7 +26,7 @@ export default function PartsTab({ d, act }: { d: Detail; act: Act }) {
   async function upload(file: File) {
     setReading(true); setError(null); setBill(null);
     const form = new FormData();
-    form.append('file', file);
+    form.append('file', await shrinkImage(file));
     form.append('job_id', d.job.id);
     try {
       const b = await api<SupplierBill>(siteId, '/bills', { form });
