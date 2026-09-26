@@ -448,7 +448,7 @@ export interface Workspace {
   pile_count: number;
   liens: LienSummary[];
   intake: IntakeItem[];
-  site: { name: string; base_url: string | null; stripe: boolean; paypal: boolean };
+  site: { name: string; base_url: string | null; stripe: boolean; paypal: boolean; sms: boolean };
 }
 
 export interface PartReceived extends BillLine {
@@ -483,6 +483,6 @@ export interface JobDetail {
   lien: Lien | null;
   suppliers: Supplier[];
   settings: ShopSettings;
-  site: { name: string; base_url: string | null; stripe: boolean; paypal: boolean };
+  site: { name: string; base_url: string | null; stripe: boolean; paypal: boolean; sms: boolean };
   other_jobs: { id: string; ro_number: number; created_at: string; status: string }[];
 }

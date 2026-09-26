@@ -213,6 +213,15 @@ const ack = docs.buildAcknowledgmentDoc({ shop: docs.shopIdentity(settings, { na
 check('instalment plan includes a credit disclosure', !!ack.credit_disclosure && ack.credit_disclosure.cost_of_borrowing_cents === 0);
 check('acknowledgment names the RSLA', ack.lien_text.includes('Repair and Storage Liens Act'));
 
+// Part matching tolerates plurals and filler words.
+check('plural part names match', data.similarDescriptions('Front rotors', 'Rotor'));
+check('filler words ignored', data.similarDescriptions('Brake pads, front', 'Ceramic brake pad set'));
+check('unrelated parts do not match', !data.similarDescriptions('Ignition coil', 'Cabin air filter'));
+
+// Phone numbers for texting.
+const env = await import(path.join(root, 'lib/shop/env.ts'));
+check('sms off without Twilio env', env.smsConfigured() === false);
+
 if (failures.length) {
   console.error(`verify-shop: ${failures.length} failed, ${passed} passed`);
   for (const f of failures) console.error('  ✗ ' + f);

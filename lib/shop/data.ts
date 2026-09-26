@@ -9,6 +9,7 @@ import { computeTotals } from './money';
 import { addDays, todayISO } from './dates';
 import { newTechCode, siteBaseUrl } from './links';
 import { invoiceLabel, vehicleLabel } from './board';
+import { smsConfigured } from './env';
 import type {
   Authorization, BillLine, Customer, Estimate, EstimateLine, EventKind, ExpectedPart, IntakeItem, Invoice, Job,
   JobDetail, JobEvent, JobSummary, Lien, LienSummary, PartReceived, Payment, ShopSettings, Supplier, SupplierBill,
@@ -150,8 +151,12 @@ export async function nextFreeKeyTag(db: Db, siteId: string, max: number): Promi
 // ── Parts matching ──────────────────────────────────────────────────────────
 
 const normPart = (s: string | null | undefined) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+const STOP_WORDS = new Set(['with', 'left', 'right', 'front', 'rear', 'part', 'and', 'for', 'the', 'kit', 'set', 'new', 'each', 'assy']);
+/** Words that identify a part: lower-cased, singular ("rotors" → "rotor"), minus filler. */
 const words = (s: string | null | undefined) =>
-  new Set((s || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(w => w.length >= 4 && !['with', 'left', 'right', 'front', 'rear', 'part'].includes(w)));
+  new Set((s || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/)
+    .map(w => (w.length > 3 && w.endsWith('ies') ? `${w.slice(0, -3)}y` : w.length > 3 && w.endsWith('s') && !w.endsWith('ss') ? w.slice(0, -1) : w))
+    .filter(w => w.length >= 3 && !STOP_WORDS.has(w)));
 
 export function similarDescriptions(a: string, b: string): boolean {
   const wa = words(a), wb = words(b);
@@ -433,7 +438,7 @@ export async function loadWorkspace(db: Db, siteId: string): Promise<Workspace> 
     pile_count: pile.count ?? 0,
     liens,
     intake,
-    site: { name: site.name, base_url: site.base_url, stripe: site.stripe, paypal: site.paypal },
+    site: { name: site.name, base_url: site.base_url, stripe: site.stripe, paypal: site.paypal, sms: smsConfigured() },
   };
 }
 
@@ -492,7 +497,7 @@ export async function loadJobDetail(db: Db, siteId: string, jobId: string): Prom
     lien: (lien.data as Lien | null) ?? null,
     suppliers: (suppliers.data || []) as Supplier[],
     settings,
-    site: { name: site.name, base_url: site.base_url, stripe: site.stripe, paypal: site.paypal },
+    site: { name: site.name, base_url: site.base_url, stripe: site.stripe, paypal: site.paypal, sms: smsConfigured() },
     other_jobs: (history.data || []) as JobDetail['other_jobs'],
   };
 }

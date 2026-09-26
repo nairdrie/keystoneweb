@@ -4,6 +4,7 @@ import { ensureSettings, loadSiteInfo } from '@/lib/shop/data';
 import { listDevices, saveSettings, setTechPin } from '@/lib/shop/actions/admin';
 import { dismissIntake } from '@/lib/shop/actions/jobs';
 import { aiConfigured, transcriptionConfigured } from '@/lib/shop/ai';
+import { smsConfigured } from '@/lib/shop/env';
 import { owner, ownerJson, run } from '@/lib/shop/http';
 
 export const runtime = 'nodejs';
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest) {
       settings,
       devices,
       site: { name: site.name, base_url: site.base_url, stripe: site.stripe, paypal: site.paypal },
-      services: { ai: aiConfigured(), transcription: transcriptionConfigured() },
+      services: { ai: aiConfigured(), transcription: transcriptionConfigured(), sms: smsConfigured() },
     };
   });
 }

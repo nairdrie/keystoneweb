@@ -14,7 +14,7 @@ interface SettingsData {
   settings: ShopSettings;
   devices: { id: string; label: string | null; created_at: string; last_seen_at: string | null; revoked_at: string | null }[];
   site: { name: string; base_url: string | null; stripe: boolean; paypal: boolean };
-  services: { ai: boolean; transcription: boolean };
+  services: { ai: boolean; transcription: boolean; sms: boolean };
 }
 
 type Form = Record<string, string>;
@@ -165,6 +165,7 @@ export default function SettingsView() {
             <div className="panel-head"><span className="panel-title"><Sparkles className="i" />Reading and voice</span></div>
             <div className="panel-body stat-list">
               <div><span>Reads supplier invoices and voice notes</span>{data.services.ai ? <Pill tone="ok" icon={<Check className="i" />}>On</Pill> : <Pill tone="warn">Not set up</Pill>}</div>
+              <div><span>Texts estimate and pay links</span>{data.services.sms ? <Pill tone="ok" icon={<Check className="i" />}>On</Pill> : <Pill>Uses your phone</Pill>}</div>
               <div><span>Transcribes recordings on the server</span>{data.services.transcription ? <Pill tone="ok" icon={<Check className="i" />}>On</Pill> : <Pill>Browser only</Pill>}</div>
               <p className="note">Chrome, Edge and Safari transcribe as you talk. Other browsers send the recording for the server to transcribe when that’s set up.</p>
             </div>

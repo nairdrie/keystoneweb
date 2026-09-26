@@ -172,13 +172,15 @@ export default function InvoiceTab({ d, act, reload }: { d: Detail; act: Act; re
 }
 
 function CopyPayLink({ d }: { d: Detail }) {
-  const { toast } = useShop();
+  const { toast, siteId } = useShop();
   if (!d.invoice?.public_token || !d.site.base_url) return null;
   const url = `${d.site.base_url}/shop-doc/${d.invoice.public_token}`;
   return (
     <>
       <button type="button" className="btn" onClick={() => { navigator.clipboard?.writeText(url); toast(d.site.stripe || d.site.paypal ? 'Pay link copied. Text or email it.' : 'Invoice link copied.'); }}><Copy className="i" />Copy {d.site.stripe || d.site.paypal ? 'pay' : 'invoice'} link</button>
-      {d.customer.phone && <a className="btn" href={`sms:${d.customer.phone}?&body=${encodeURIComponent(`Your invoice from ${d.site.name}: ${url}`)}`}>Text it</a>}
+      {d.customer.phone && (d.site.sms
+        ? <button type="button" className="btn" onClick={async () => { try { await api(siteId, `/invoices/${d.invoice!.id}`, { body: { action: 'text' } }); toast(`Texted to ${d.customer.phone}.`); } catch (err) { toast(err instanceof Error ? err.message : 'The text didn’t send.', 'warn'); } }}>Text it</button>
+        : <a className="btn" href={`sms:${d.customer.phone}?&body=${encodeURIComponent(`Your invoice from ${d.site.name}: ${url}`)}`}>Text it</a>)}
     </>
   );
 }

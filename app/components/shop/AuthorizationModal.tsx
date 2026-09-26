@@ -20,7 +20,7 @@ export default function AuthorizationModal({ jobId, estimateId, onClose, onDone 
   const { siteId, toast } = useShop();
   const [detail, setDetail] = useState<JobDetail | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [method, setMethod] = useState<AuthMethod>('phone');
+  const [methodPick, setMethod] = useState<AuthMethod>('phone');
   const [by, setBy] = useState('');
   const [phone, setPhone] = useState('');
   const [contact, setContact] = useState('');
@@ -51,9 +51,10 @@ export default function AuthorizationModal({ jobId, estimateId, onClose, onDone 
     return open ?? null;
   }, [detail, estimateId]);
 
-  const isDraft = estimate?.status === 'draft';
-  useEffect(() => { if (isDraft) setMethod('in_person'); }, [isDraft]);
+  // First estimates must be given in writing first; a revised estimate can be approved on the call.
+  const isDraft = estimate?.status === 'draft' && !estimate.is_revision;
 
+  const method: AuthMethod = isDraft && methodPick !== 'in_person' && methodPick !== 'online' ? 'in_person' : methodPick;
   const lines = estimate ? estimate.lines.filter(l => l.decision === 'include') : [];
   const chosen = estimate ? estimate.lines.map(l => (declined.has(l.id) ? { ...l, decision: 'declined' as const } : l)) : [];
   const total = detail ? computeTotals(chosen, detail.settings.tax_rate_bps).total_cents : 0;
@@ -66,10 +67,11 @@ export default function AuthorizationModal({ jobId, estimateId, onClose, onDone 
     setSaving(true);
     setError(null);
     try {
-      const res = await api<{ url: string; emailed: boolean }>(siteId, `/estimates/${estimate.id}`, { body: { action: 'send', via, to: contact } });
+      const res = await api<{ url: string; emailed: boolean; texted: boolean }>(siteId, `/estimates/${estimate.id}`, { body: { action: 'send', via, to: via === 'text' ? detail?.customer.phone : contact } });
       setLink(res.url);
       if (via === 'email') toast(`Link sent to ${contact}. The approval shows up here when they tap Approve.`);
-      if (via === 'text' && detail?.customer.phone) window.location.href = `sms:${detail.customer.phone}?&body=${encodeURIComponent(`Your estimate from ${detail.site.name}: ${res.url}`)}`;
+      if (via === 'text' && res.texted) toast(`Texted the link to ${detail?.customer.phone}. The approval shows up here when they tap Approve.`);
+      else if (via === 'text' && detail?.customer.phone) window.location.href = `sms:${detail.customer.phone}?&body=${encodeURIComponent(`Your estimate from ${detail.site.name}: ${res.url}`)}`;
     } catch (err) {
       setError(err);
     } finally {

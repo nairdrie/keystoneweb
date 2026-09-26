@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { ShopRuleError } from '@/lib/shop/access';
-import { recordPayment, sendInvoice, voidInvoice } from '@/lib/shop/actions/invoices';
+import { recordPayment, sendInvoice, textInvoice, voidInvoice } from '@/lib/shop/actions/invoices';
 import { ownerJson, run } from '@/lib/shop/http';
 
 export const runtime = 'nodejs';
@@ -13,6 +13,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const { access, body } = await ownerJson<Record<string, unknown>>(request);
     switch (body.action) {
       case 'send': return sendInvoice(access, id, body);
+      case 'text': return textInvoice(access, id, body);
       case 'void': return voidInvoice(access, id, body.reason);
       case 'payment': {
         // Online payments are recorded by the Stripe/PayPal return routes only.

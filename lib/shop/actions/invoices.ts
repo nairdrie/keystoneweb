@@ -13,6 +13,7 @@ import { buildInvoiceSnapshot } from '../documents';
 import { invoicePdf } from '../pdf';
 import { docUrl, newPublicToken } from '../links';
 import { sendShopEmail } from '../mail';
+import { sendShopSms } from '../sms';
 import { invoiceLabel, vehicleLabel } from '../board';
 import type { Invoice, LineAdjustment, PaymentMethod } from '../types';
 import { fail, int, isIsoDate, isUuid, jobIdForInvoice, nowIso, num, requireJob, str } from './common';
@@ -194,6 +195,23 @@ export async function sendInvoice(access: ShopAccess, invoiceId: string, input: 
   if (!result.ok) throw new ShopRuleError(result.error || 'The email didn’t send.', undefined, 502);
   if (!detail.customer.email) await access.db.from('shop_customers').update({ email: to }).eq('site_id', access.siteId).eq('id', detail.customer.id);
   await addEvent(access.db, access.siteId, detail.job.id, 'email', { actor: access.actor, body: `${invoiceLabel(inv.invoice_number)} emailed to ${to}.` });
+  return { ok: true, url };
+}
+
+/** Text the customer a link to view (and pay) the invoice. */
+export async function textInvoice(access: ShopAccess, invoiceId: string, input: { to?: unknown } = {}) {
+  const detail = await requireJob(access, await jobIdForInvoice(access, invoiceId));
+  const inv = detail.invoice?.id === invoiceId ? detail.invoice : null;
+  if (!inv) throw new ShopRuleError('Only the current invoice can be sent.', undefined, 409);
+  const site = await loadSiteInfo(access.db, access.siteId, detail.settings);
+  const token = inv.public_token || newPublicToken();
+  if (!inv.public_token) await access.db.from('shop_invoices').update({ public_token: token }).eq('site_id', access.siteId).eq('id', inv.id);
+  const url = docUrl(site, token);
+  const paid = detail.payments.filter(p => p.invoice_id === inv.id).reduce((s, p) => s + p.amount_cents, 0);
+  const balance = inv.total_cents - paid;
+  const to = str(input.to, 40) || detail.customer.phone;
+  await sendShopSms(to, `${inv.snapshot.shop.name}: your ${vehicleLabel(detail.vehicle)} ${balance > 0 ? `is ready. Invoice ${invoiceLabel(inv.invoice_number)}, ${formatCents(balance)} due` : `invoice ${invoiceLabel(inv.invoice_number)} is paid. Thank you`}. ${balance > 0 && (site.stripe || site.paypal) ? 'View and pay' : 'View it'}: ${url}`);
+  await addEvent(access.db, access.siteId, detail.job.id, 'email', { actor: access.actor, body: `${invoiceLabel(inv.invoice_number)} texted to ${to}.` });
   return { ok: true, url };
 }
 

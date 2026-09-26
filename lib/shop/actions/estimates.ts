@@ -16,6 +16,7 @@ import { buildEstimateDoc, estimateNumber } from '../documents';
 import { estimatePdf } from '../pdf';
 import { docUrl, newPublicToken } from '../links';
 import { sendShopEmail } from '../mail';
+import { sendShopSms, smsConfigured } from '../sms';
 import { storeSignature } from '../files';
 import { vehicleLabel } from '../board';
 import type { DraftLine } from '../ai';
@@ -293,7 +294,7 @@ export interface SendEstimateInput {
 }
 
 /** Give the customer the written estimate: email (PDF + approval link), in person, or a link to text. */
-export async function sendEstimate(access: ShopAccess, estimateId: string, input: SendEstimateInput): Promise<{ url: string; emailed: boolean; estimate_id: string }> {
+export async function sendEstimate(access: ShopAccess, estimateId: string, input: SendEstimateInput): Promise<{ url: string; emailed: boolean; texted: boolean; estimate_id: string }> {
   const detail = await requireJob(access, await jobIdForEstimate(access, estimateId));
   const est = findEstimate(detail, estimateId);
   const { db, siteId } = access;
@@ -344,6 +345,12 @@ export async function sendEstimate(access: ShopAccess, estimateId: string, input
     emailed = true;
     if (!detail.customer.email) await db.from('shop_customers').update({ email: to }).eq('site_id', siteId).eq('id', detail.customer.id);
   }
+  let texted = false;
+  if (via === 'text' && smsConfigured()) {
+    const phone = str(input.to, 40) || detail.customer.phone;
+    await sendShopSms(phone, `${doc.shop.name}: here’s the ${doc.title === 'REVISED ESTIMATE' ? 'revised estimate' : 'estimate'} for your ${vehicleLabel(detail.vehicle)} (${formatCents(doc.totals.total_cents)}). Review and approve it here: ${url}`);
+    texted = true;
+  }
 
   const { error } = await db.from('shop_estimates').update({
     status: 'sent',
@@ -360,13 +367,13 @@ export async function sendEstimate(access: ShopAccess, estimateId: string, input
   if (!est.is_revision && ['dropped', 'estimate'].includes(detail.job.stage)) {
     await db.from('shop_jobs').update({ stage: 'waiting' }).eq('site_id', siteId).eq('id', detail.job.id);
   }
-  const how = via === 'email' ? `emailed to ${str(input.to, 200) || detail.customer.email}` : via === 'in_person' ? 'handed to the customer' : 'shared as a link';
+  const how = via === 'email' ? `emailed to ${str(input.to, 200) || detail.customer.email}` : via === 'in_person' ? 'handed to the customer' : texted ? `texted to ${str(input.to, 40) || detail.customer.phone}` : 'shared as a link';
   await addEvent(db, siteId, detail.job.id, 'estimate', {
     actor: access.actor,
     body: `${est.is_revision ? 'Revised estimate' : 'Estimate'} v${est.version} ${est.status === 'sent' ? 're-sent' : 'given'}: ${how}. ${formatCents(doc.totals.total_cents)}, good until ${formatDate(validUntil)}.`,
     meta: { estimate_id: est.id, via },
   });
-  return { url, emailed, estimate_id: est.id };
+  return { url, emailed, texted, estimate_id: est.id };
 }
 
 export interface AuthorizeInput {
@@ -399,7 +406,10 @@ export async function authorizeEstimate(
   const today = todayISO();
 
   if (est.status === 'approved') throw new ShopRuleError('This estimate is already approved.', undefined, 409);
-  if (est.status !== 'sent' && !(est.status === 'draft' && method === 'in_person')) {
+  // A first estimate has to be given in writing (or read and signed at the counter). A revised
+  // estimate for extra work can be explained and approved on the call, then prints on the invoice.
+  const approveDraft = est.status === 'draft' && (method === 'in_person' || (est.is_revision && method !== 'online'));
+  if (est.status !== 'sent' && !approveDraft) {
     throw new ShopRuleError(est.status === 'draft'
       ? 'Give the customer the written estimate first. It can be approved on the spot if they’re at the counter.'
       : `This estimate was ${est.status}. Approve the current version instead.`, undefined, 409);
@@ -478,7 +488,7 @@ export async function authorizeEstimate(
     status: 'approved',
     approved_at: now,
     needs_review: false,
-    ...(est.status === 'draft' ? { sent_at: now, sent_via: 'in_person', valid_until: validUntil, public_token: est.public_token || newPublicToken() } : {}),
+    ...(est.status === 'draft' ? { sent_at: now, sent_via: method, valid_until: validUntil, public_token: est.public_token || newPublicToken() } : {}),
   }).eq('site_id', siteId).eq('id', est.id);
   fail(estErr, 'Approve estimate');
   const previous = detail.estimates.find(e => e.status === 'approved' && e.id !== est.id) ?? null;

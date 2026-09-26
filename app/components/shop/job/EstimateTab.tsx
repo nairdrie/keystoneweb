@@ -452,6 +452,7 @@ function SendEstimateModal({ d, est, onClose, onSent }: { d: Detail; est: Estima
   const { siteId, toast } = useShop();
   const [via, setVia] = useState<'email' | 'in_person' | 'text' | 'link'>(d.customer.email ? 'email' : 'in_person');
   const [to, setTo] = useState(d.customer.email || '');
+  const [phone, setPhone] = useState(d.customer.phone || '');
   const [message, setMessage] = useState('');
   const [validUntil, setValidUntil] = useState(est.valid_until || '');
   const [readyBy, setReadyBy] = useState(est.ready_by || '');
@@ -464,11 +465,12 @@ function SendEstimateModal({ d, est, onClose, onSent }: { d: Detail; est: Estima
   async function go() {
     setBusy(true); setError(null);
     try {
-      const res = await api<{ url: string; emailed: boolean }>(siteId, `/estimates/${est.id}`, { body: { action: 'send', via, to, message, valid_until: validUntil || null, ready_by: readyBy || null } });
+      const res = await api<{ url: string; emailed: boolean; texted: boolean }>(siteId, `/estimates/${est.id}`, { body: { action: 'send', via, to: via === 'text' ? phone : to, message, valid_until: validUntil || null, ready_by: readyBy || null } });
       setUrl(res.url);
       if (via === 'email') { toast(`Emailed to ${to} with the PDF and an approval link.`); onSent(); }
       if (via === 'in_person') { window.open(shopUrl(siteId, `/estimates/${est.id}/pdf`), '_blank'); toast('Marked as given in person. Print the PDF and hand it over.'); onSent(); }
-      if (via === 'text' && d.customer.phone) { window.location.href = `sms:${d.customer.phone}?&body=${encodeURIComponent(`Hi ${first}, here’s the estimate for your car from ${d.site.name}: ${res.url}`)}`; }
+      if (via === 'text' && res.texted) { toast(`Texted the link to ${phone}.`); onSent(); }
+      else if (via === 'text' && phone) { window.location.href = `sms:${phone}?&body=${encodeURIComponent(`Hi ${first}, here’s the estimate for your car from ${d.site.name}: ${res.url}`)}`; }
     } catch (err) { setError(err); } finally { setBusy(false); }
   }
 
@@ -486,6 +488,7 @@ function SendEstimateModal({ d, est, onClose, onSent }: { d: Detail; est: Estima
         <Field label="Email to" required htmlFor="se-to"><input id="se-to" className="input" type="email" value={to} onChange={e => setTo(e.target.value)} /></Field>
         <Field label="Message" hint="Leave blank for the standard note." htmlFor="se-msg"><textarea id="se-msg" className="input" value={message} onChange={e => setMessage(e.target.value)} placeholder={`Here’s the estimate for your car. You can approve it (or pick the items you want) online, or reply to this email.`} /></Field>
       </>}
+      {via === 'text' && <Field label="Text to" required hint={d.site.sms ? 'Keystone texts the link from its number, starting with your shop’s name.' : 'Opens your phone’s messages app with the link filled in.'} htmlFor="se-ph"><input id="se-ph" className="input" inputMode="tel" value={phone} onChange={e => setPhone(e.target.value)} /></Field>}
       {est.status === 'draft' && (
         <div className="grid2">
           <Field label="Good until" htmlFor="se-valid"><input id="se-valid" className="input" type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)} /></Field>
