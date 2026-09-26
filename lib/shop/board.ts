@@ -36,6 +36,10 @@ export function shortVehicleLabel(v: { year: number | null; make: string | null;
   return [v.year, v.make, v.model?.split(' ')[0]].filter(Boolean).join(' ') || 'Vehicle';
 }
 
+export const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  cash: 'Cash', debit: 'Debit', credit: 'Credit card', etransfer: 'E-transfer', cheque: 'Cheque', stripe: 'Card (online)', paypal: 'PayPal', other: 'Other',
+};
+
 export function roLabel(n: number): string { return `RO-${n}`; }
 export function invoiceLabel(n: number): string { return `INV-${String(n).padStart(4, '0')}`; }
 

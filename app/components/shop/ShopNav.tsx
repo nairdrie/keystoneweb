@@ -17,8 +17,8 @@ const VIEWS = [
 
 export default function ShopNav() {
   const pathname = usePathname();
-  const { ws, href, siteId } = useShop();
-  const current = pathname.replace(/^\/admin\/shop/, '');
+  const { ws, href, siteId, basePath } = useShop();
+  const current = pathname.startsWith(basePath) ? pathname.slice(basePath.length) : pathname;
   const active = current.startsWith('/jobs') ? '' : VIEWS.find(v => v.path && current.startsWith(v.path))?.path ?? '';
   const badges: Record<string, number> = {
     '/desk': ws ? deskTasks(ws).filter(t => t.group === 'now').length : 0,

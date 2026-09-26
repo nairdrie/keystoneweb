@@ -517,3 +517,10 @@
 .shop-ui .doc-lines .off{text-decoration:line-through;color:var(--muted)}
 .shop-ui .pay-buttons{display:flex;flex-wrap:wrap;gap:10px}
 .shop-ui .pay-buttons .btn{height:44px;font-size:14px;padding:0 18px}
+
+/* Keep toasts off dialog footers; left-align document headers on phones. */
+.shop-ui:has(.overlay) .toasts{top:calc(16px + env(safe-area-inset-top,0px));bottom:auto}
+.shop-ui .alts .linkbtn{font-size:11.5px}
+@media (max-width:560px){.shop-ui .paper .p-doc{text-align:left}}
+/* Scrolling to a field (keyboard focus, scrollIntoView) clears the sticky dialog header and footer. */
+.shop-ui .dialog{scroll-padding-top:76px;scroll-padding-bottom:76px}

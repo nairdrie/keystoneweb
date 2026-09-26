@@ -12,6 +12,8 @@ interface AuthRequest { jobId: string; estimateId?: string | null; onDone?: () =
 
 interface ShopContextValue {
   siteId: string;
+  /** Where the Shop screens live (the admin tab by default). */
+  basePath: string;
   ws: Workspace | null;
   loading: boolean;
   error: string | null;
@@ -35,7 +37,7 @@ export function useShop(): ShopContextValue {
   return ctx;
 }
 
-export function ShopProvider({ siteId, children }: { siteId: string; children: ReactNode }) {
+export function ShopProvider({ siteId, basePath = '/admin/shop', children }: { siteId: string; basePath?: string; children: ReactNode }) {
   const toast = useToast();
   const [ws, setWs] = useState<Workspace | null>(null);
   const [loading, setLoading] = useState(true);
@@ -71,6 +73,7 @@ export function ShopProvider({ siteId, children }: { siteId: string; children: R
 
   const value = useMemo<ShopContextValue>(() => ({
     siteId,
+    basePath,
     ws,
     loading,
     error,
@@ -79,14 +82,14 @@ export function ShopProvider({ siteId, children }: { siteId: string; children: R
     toast,
     href: (path, query) => {
       const params = new URLSearchParams({ siteId, ...(query || {}) });
-      return `/admin/shop${path}?${params.toString()}`;
+      return `${basePath}${path}?${params.toString()}`;
     },
     openIntake: prefill => setIntake(prefill || {}),
     openAuth: req => setAuth(req),
     openCustomer: id => setCustomerId(id),
     version,
     bump,
-  }), [siteId, ws, loading, error, refresh, toast, version, bump]);
+  }), [siteId, basePath, ws, loading, error, refresh, toast, version, bump]);
 
   return (
     <ShopContext.Provider value={value}>

@@ -9,7 +9,7 @@
  * values in one place so they can change with the new regulations.
  */
 
-import { addDays, addYears, addMonths, todayISO } from './dates';
+import { addDays, addYears, addMonths, formatDate, todayISO } from './dates';
 import { computeTotals, lineNeedsPrice } from './money';
 import type {
   Authorization, Customer, Estimate, EstimateLine, JobDetail, Job, PartCondition, ScheduleItem,
@@ -243,7 +243,7 @@ export function complianceChecklist(detail: JobDetail, now: string = todayISO())
 
   const sentEstimate = approved ?? (latest && latest.sent_at ? latest : null);
   items.push(sentEstimate
-    ? { status: 'ok', law: LAW.estimate, note: `v${sentEstimate.version} given ${sentEstimate.sent_via === 'in_person' ? 'in person' : 'in writing'}${sentEstimate.valid_until ? `, good until ${sentEstimate.valid_until}` : ''}.` }
+    ? { status: 'ok', law: LAW.estimate, note: `v${sentEstimate.version} given ${sentEstimate.sent_via === 'in_person' ? 'in person' : 'in writing'}${sentEstimate.valid_until ? `, good until ${formatDate(sentEstimate.valid_until)}` : ''}.` }
     : { status: 'todo', law: LAW.estimate, note: latest ? 'Draft. Not given to the customer yet.' : 'No estimate yet.' });
 
   const approvedAuth = approved
@@ -272,7 +272,7 @@ export function complianceChecklist(detail: JobDetail, now: string = todayISO())
   if (job.holding_since && invoice) {
     const due = invoice.issued_at.slice(0, 10);
     const saleOn = saleEligibleOn(due);
-    items.push({ status: 'warn', law: LAW.hold, note: `Holding the car. From ${saleOn} you can start a sale, with 15 days’ written notice first.${now >= saleOn ? ' That date has passed.' : ''}` });
+    items.push({ status: 'warn', law: LAW.hold, note: `Holding the car. From ${formatDate(saleOn)} you can start a sale, with 15 days’ written notice first.${now >= saleOn ? ' That date has passed.' : ''}` });
   }
   return items;
 }

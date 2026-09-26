@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { AlertTriangle, BarChart3, Check, ChevronLeft, ChevronRight, DollarSign, Download, FileText, Key, Landmark, Printer, RotateCcw } from 'lucide-react';
 import { LAW, saleEligibleOn } from '@/lib/shop/rules';
+import { PAYMENT_METHOD_LABELS } from '@/lib/shop/board';
 import { formatCents, parseMoneyToCents, centsToInput } from '@/lib/shop/money';
 import { addMonths, daysBetween, formatDate, quarterRange, todayISO } from '@/lib/shop/dates';
 import type { HstReturn, ProfitAndLoss, ReceivableRow, SupplierTab } from '@/lib/shop/reports';
@@ -137,7 +138,7 @@ export default function MoneyView() {
             <div className="table-wrap"><table className="t">
               <thead><tr><th>Date</th><th>Method</th><th>Reference</th><th className="r">Amount</th></tr></thead>
               <tbody>{data.payments.slice(0, 15).map(p => (
-                <tr key={p.id}><td>{formatDate(p.received_at.slice(0, 10))}</td><td>{p.method}{p.lien_id ? ' · plan' : ''}</td><td>{p.reference || '—'}</td><td className="r">{formatCents(p.amount_cents)}</td></tr>
+                <tr key={p.id}><td>{formatDate(p.received_at.slice(0, 10))}</td><td>{PAYMENT_METHOD_LABELS[p.method] ?? p.method}{p.lien_id ? ' · plan' : ''}</td><td>{p.reference || '—'}</td><td className="r">{formatCents(p.amount_cents)}</td></tr>
               ))}</tbody>
             </table>{!data.payments.length && <div className="empty">No payments in the last 60 days.</div>}</div>
           </div>

@@ -8,7 +8,7 @@ import { LAW, buildSchedule, capCheck, estimateFeeChargeable, lienCheck, ppsrExp
 import { applyAdjustments, centsToInput, computeTotals, formatCents, lineTotalCents, parseMoneyToCents } from '@/lib/shop/money';
 import { buildAcknowledgmentDoc, buildInvoiceSnapshot, shopIdentity } from '@/lib/shop/documents';
 import { addDays, daysBetween, formatDate, formatDateTime, todayISO } from '@/lib/shop/dates';
-import { invoiceLabel, roLabel, vehicleLabel } from '@/lib/shop/board';
+import { PAYMENT_METHOD_LABELS, invoiceLabel, roLabel, vehicleLabel } from '@/lib/shop/board';
 import type { Lien, LineAdjustment, PaymentMethod } from '@/lib/shop/types';
 import { api, shopUrl } from '../api';
 import { useShop } from '../ShopContext';
@@ -152,7 +152,7 @@ export default function InvoiceTab({ d, act, reload }: { d: Detail; act: Act; re
             <thead><tr><th>Date</th><th>Method</th><th>Reference</th><th className="r">Amount</th><th /></tr></thead>
             <tbody>{d.payments.filter(p => p.invoice_id === inv.id).map(p => (
               <tr key={p.id}>
-                <td>{formatDate(p.received_at.slice(0, 10))}</td><td>{p.method}{p.lien_id ? ' · plan' : ''}</td><td>{p.reference || '—'}</td><td className="r">{formatCents(p.amount_cents)}</td>
+                <td>{formatDate(p.received_at.slice(0, 10))}</td><td>{PAYMENT_METHOD_LABELS[p.method] ?? p.method}{p.lien_id ? ' · plan' : ''}</td><td>{p.reference || '—'}</td><td className="r">{formatCents(p.amount_cents)}</td>
                 <td className="r">{!p.provider_ref && daysBetween(p.received_at) < 7 && (
                   <button type="button" className="icon-btn" aria-label="Delete payment" onClick={() => { if (confirm('Delete this payment? Only for one entered by mistake.')) act(() => api(siteId, `/payments/${p.id}`, { method: 'DELETE' }), 'Payment deleted.'); }}><Trash2 className="i" /></button>
                 )}</td>

@@ -129,13 +129,17 @@ export function Dialog({ title, eyebrow, wide, onClose, children, footer, footLe
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const id = labelId || 'shop-dialog-title';
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+  // Focus the first field once, when the dialog opens. Parent re-renders (the board
+  // refreshes every minute) must not pull focus or scroll back while someone types or signs.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onCloseRef.current(); };
     document.addEventListener('keydown', onKey);
     const first = ref.current?.querySelector<HTMLElement>('input:not([type=hidden]):not([readonly]):not([type=checkbox]), select, textarea');
-    setTimeout(() => first?.focus(), 30);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
+    const t = setTimeout(() => first?.focus({ preventScroll: true }), 30);
+    return () => { document.removeEventListener('keydown', onKey); clearTimeout(t); };
+  }, []);
   return (
     <div className="overlay" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className={`dialog${wide ? ' wide' : ''}`} role="dialog" aria-modal="true" aria-labelledby={id} ref={ref}>
@@ -151,11 +155,13 @@ export function Dialog({ title, eyebrow, wide, onClose, children, footer, footLe
 }
 
 export function Drawer({ title, eyebrow, onClose, children, footer }: { title: ReactNode; eyebrow?: ReactNode; onClose: () => void; children: ReactNode; footer?: ReactNode }) {
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onCloseRef.current(); };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, []);
   return (
     <>
       <div className="overlay" style={{ justifyContent: 'flex-end', padding: 0 }} onMouseDown={onClose} />

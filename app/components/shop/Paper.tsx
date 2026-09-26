@@ -53,7 +53,7 @@ export function EstimatePaper({ doc }: { doc: EstimateDoc }) {
       <div className="p-legal">
         {doc.declined.length > 0 && <span><b>Recommended, declined for now:</b> {doc.declined.map(d => `${d.description} (${formatCents(d.amount_cents)})`).join('; ')}</span>}
         <span><b>{doc.ten_percent_statement}</b></span>
-        <span><b>Estimate fee:</b> {doc.estimate_fee_statement}</span>
+        <span>{doc.estimate_fee_statement.startsWith('Estimate fee:') ? <><b>Estimate fee:</b>{doc.estimate_fee_statement.slice('Estimate fee:'.length)}</> : doc.estimate_fee_statement}</span>
         <span><b>Replaced parts:</b> {doc.parts_statement}</span>
         {doc.other_charges && <span><b>Other charges:</b> {doc.other_charges}</span>}
         {doc.notes && <span><b>Notes:</b> {doc.notes}</span>}
