@@ -238,9 +238,10 @@ export async function middleware(request: NextRequest) {
     const subdomainResponse = NextResponse.rewrite(rewriteUrl);
     // Cache published site pages at Vercel's edge CDN to reduce serverless
     // invocations and DB queries from repeated/abusive requests.
+    // Shop estimate/invoice pages are private and change when the customer acts.
     subdomainResponse.headers.set(
       'Cache-Control',
-      'public, s-maxage=60, stale-while-revalidate=300'
+      pathname.startsWith('/shop-doc/') ? 'private, no-store' : 'public, s-maxage=60, stale-while-revalidate=300'
     );
     return subdomainResponse;
   }
@@ -306,7 +307,7 @@ export async function middleware(request: NextRequest) {
     const customDomainResponse = NextResponse.rewrite(rewriteUrl);
     customDomainResponse.headers.set(
       'Cache-Control',
-      'public, s-maxage=60, stale-while-revalidate=300'
+      pathname.startsWith('/shop-doc/') ? 'private, no-store' : 'public, s-maxage=60, stale-while-revalidate=300'
     );
     return customDomainResponse;
   }
