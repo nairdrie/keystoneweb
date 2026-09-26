@@ -210,6 +210,60 @@ Then decide which open job the parts are for. Use handwritten or reference text 
   };
 }
 
+// ── Supplier statements ────────────────────────────────────────────────────
+
+export interface ReadStatementResult {
+  supplier_name: string;
+  statement_date: string;
+  entries: { invoice_number: string; date: string; amount_cents: number }[];
+}
+
+const STATEMENT_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['supplier_name', 'statement_date', 'entries'],
+  properties: {
+    supplier_name: { type: 'string' },
+    statement_date: { type: 'string', description: 'YYYY-MM-DD, or empty if not printed.' },
+    entries: {
+      type: 'array',
+      description: 'One entry per invoice charged on the statement. Skip payments, credits and balance-forward lines.',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['invoice_number', 'date', 'amount_cents'],
+        properties: {
+          invoice_number: { type: 'string' },
+          date: { type: 'string', description: 'YYYY-MM-DD or empty.' },
+          amount_cents: { type: 'integer' },
+        },
+      },
+    },
+  },
+};
+
+/** A supplier's monthly statement → the invoice numbers it charges, to check against the pile. */
+export async function readSupplierStatement(input: { buffer: Buffer; mime: string }): Promise<ReadStatementResult> {
+  let block: ContentBlock;
+  if (input.mime === 'application/pdf') {
+    block = { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: input.buffer.toString('base64') } };
+  } else {
+    const img = await shrinkImage(input.buffer, input.mime);
+    block = { type: 'image', source: { type: 'base64', media_type: img.mime, data: img.buffer.toString('base64') } };
+  }
+  const system = 'You read monthly account statements from auto-parts suppliers. List every invoice charged on the statement exactly as printed. Never guess an invoice number; skip lines you can’t read.';
+  const result = (await callClaude(system, [block, { type: 'text', text: 'Read this statement.' }], STATEMENT_SCHEMA)) as ReadStatementResult;
+  return {
+    supplier_name: String(result.supplier_name || '').trim(),
+    statement_date: /^\d{4}-\d{2}-\d{2}$/.test(result.statement_date || '') ? result.statement_date : '',
+    entries: (Array.isArray(result.entries) ? result.entries : []).slice(0, 300).map(e => ({
+      invoice_number: String(e.invoice_number || '').trim(),
+      date: /^\d{4}-\d{2}-\d{2}$/.test(e.date || '') ? e.date : '',
+      amount_cents: Math.round(Number(e.amount_cents) || 0),
+    })).filter(e => e.invoice_number),
+  };
+}
+
 // ── Voice notes ────────────────────────────────────────────────────────────
 
 export interface DraftLine {

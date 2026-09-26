@@ -79,3 +79,12 @@ export function monthRange(iso: string = todayISO()): { start: string; end: stri
   const label = new Date(`${start}T12:00:00Z`).toLocaleDateString('en-CA', { timeZone: 'UTC', month: 'long', year: 'numeric' });
   return { start, end, label };
 }
+
+/** Local midnight of a shop date as an ISO timestamp with the Toronto offset (EST or EDT). */
+export function shopMidnight(isoDate: string): string {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: SHOP_TZ, timeZoneName: 'shortOffset' }).formatToParts(new Date(`${isoDate}T12:00:00Z`));
+  const m = /GMT([+-]\d{1,2})(?::(\d{2}))?/.exec(parts.find(p => p.type === 'timeZoneName')?.value || '');
+  const hours = m ? parseInt(m[1], 10) : -5;
+  const mins = m?.[2] ? parseInt(m[2], 10) : 0;
+  return `${isoDate}T00:00:00${hours < 0 ? '-' : '+'}${String(Math.abs(hours)).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+}
