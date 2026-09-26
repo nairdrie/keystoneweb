@@ -48,6 +48,9 @@ export interface SiteData {
   // Marketing
   marketingEnabled?: boolean;
   googleAdsCustomerId?: string | null;
+
+  // Shop (service desk + books, feature-flagged)
+  shopEnabled?: boolean;
 }
 
 export interface SiteDesignData {

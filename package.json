@@ -14,6 +14,7 @@
     "test:blocks": "node scripts/verify-block-regressions.mjs && node scripts/verify-layout-settings.mjs && node scripts/verify-estimate-quote.mjs && node scripts/verify-settings-schemas.mjs",
     "test:marketing": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-marketing-bidding.mjs && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-marketing-schedule.mjs && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-marketing-geo.mjs && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-marketing-conversions.mjs",
     "test:settings-schema": "node scripts/verify-settings-schemas.mjs",
+    "test:shop": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-shop.mjs",
     "test:visual:card-presets": "node scripts/playwright-card-preset-edit-smoke.mjs"
   },
   "dependencies": {
@@ -41,6 +42,7 @@
     "lucide-react": "^0.574.0",
     "maplibre-gl": "^5.24.0",
     "next": "16.1.6",
+    "pdf-lib": "^1.17.1",
     "pg": "^8.18.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",

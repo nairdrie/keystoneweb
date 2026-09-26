@@ -16,6 +16,7 @@ export interface AdminSiteData {
   inboxCustomEmail?: string;
   marketingEnabled?: boolean;
   googleAdsCustomerId?: string | null;
+  shopEnabled?: boolean;
   siteSlug?: string;
   createdAt: string;
   updatedAt: string;

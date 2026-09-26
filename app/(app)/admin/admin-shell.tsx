@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth/context';
 import Link from 'next/link';
-import { ExternalLink, X, BarChart3, Globe, ShoppingBag, Calendar, Loader2, Menu, Mail, TrendingUp, Search, Package, CalendarDays, MessageSquare, Link2, BookOpen, UtensilsCrossed, FileImage, Users, Minimize2, Paintbrush, ChevronDown, EyeOff, Plus, Stethoscope, LayoutDashboard, Pencil, Check } from 'lucide-react';
+import { ExternalLink, X, BarChart3, Globe, ShoppingBag, Calendar, Loader2, Menu, Mail, TrendingUp, Search, Package, CalendarDays, MessageSquare, Link2, BookOpen, UtensilsCrossed, FileImage, Users, Minimize2, Paintbrush, ChevronDown, EyeOff, Plus, Stethoscope, LayoutDashboard, Pencil, Check, Wrench } from 'lucide-react';
 import AlertModal from '@/app/components/ui/AlertModal';
 import EditorLoadingScreen from '@/app/components/EditorLoadingScreen';
 import WalkthroughModal, { WalkthroughStep } from '@/app/components/WalkthroughModal';
@@ -43,6 +43,7 @@ interface TabDef {
   core?: boolean;
   requiresAnyBlock?: string[];
   requiresMarketing?: boolean;
+  requiresShop?: boolean;
   comingSoon?: boolean;
 }
 
@@ -59,6 +60,8 @@ const ALL_TABS: TabDef[] = [
   { id: 'media',    label: 'Media',     icon: FileImage, path: '/admin/media', core: true },
   { id: 'health',   label: 'Health',    icon: Stethoscope, path: '/admin/health', core: true },
   { id: 'marketing', label: 'Marketing', icon: TrendingUp, path: '/admin/marketing', requiresMarketing: true },
+  // Feature-flagged like Marketing: visible only when sites.shop_enabled is on.
+  { id: 'shop',      label: 'Shop',      icon: Wrench,     path: '/admin/shop',      requiresShop: true },
   // Coming soon — only appear when "show all" is on
   { id: 'events', label: 'Events', icon: CalendarDays, path: '/admin/events', requiresAnyBlock: ['events'] },
   { id: 'blog',   label: 'Blog',   icon: BookOpen,    path: '/admin/blog',   requiresAnyBlock: ['blog'] },
@@ -480,6 +483,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const visibleTabs = ALL_TABS.filter(tab => {
     if (tab.core) return true;
     if (tab.requiresMarketing) return site?.marketingEnabled === true;
+    if (tab.requiresShop) return site?.shopEnabled === true;
     if (showAllFeatures) return true;
     if (tab.requiresAnyBlock) return tab.requiresAnyBlock.some(b => siteBlockTypes.has(b));
     return false; // coming-soon tabs without a block: only visible with showAllFeatures
