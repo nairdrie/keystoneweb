@@ -8,6 +8,11 @@ import { submitIndexNow } from '@/lib/seo/indexnow';
 import { requireSiteAccess, siteAccessErrorResponse } from '@/lib/auth/site-access';
 import { ensureKswdInboxAddress } from '@/lib/email/inbox-addresses';
 import { hasPaidAccess } from '@/lib/subscription/access';
+import { createAdminClient } from '@/lib/db/supabase-admin';
+import { getSiteEngine } from '@/lib/v2/store';
+import { ENGINE_V2 } from '@/lib/v2/types';
+import { publishV2Site } from '@/lib/v2/publish';
+import { OpError } from '@/lib/v2/ops';
 
 interface PublishRequest {
   siteId: string;
@@ -155,6 +160,33 @@ export async function POST(request: NextRequest) {
           { error: 'Domain is already taken' },
           { status: 409 }
         );
+      }
+    }
+
+    // Agent-built (v2) sites publish by freezing their draft into a release.
+    // Everything above (access, billing, limits, domain) applies to both engines.
+    const adminDb = createAdminClient();
+    if ((await getSiteEngine(adminDb, siteId)) === ENGINE_V2) {
+      try {
+        const result = await publishV2Site(adminDb, {
+          siteId,
+          subdomain,
+          actor: { type: access.isAdminMode ? 'staff' : 'owner', label: access.user.email || access.user.id },
+        });
+        trackEvent('site_publish', { userId: targetUserId, siteId, metadata: { domain: result.publicUrl, engine: ENGINE_V2 } });
+        return NextResponse.json({
+          success: true,
+          siteId,
+          publishedDomain: result.publishedDomain,
+          publicUrl: result.publicUrl,
+          message: `Your site is now live at ${result.publicUrl}`,
+          warnings: result.warnings,
+        });
+      } catch (e) {
+        if (e instanceof OpError) {
+          return NextResponse.json({ error: e.message, details: e.details }, { status: e.status });
+        }
+        throw e;
       }
     }
 

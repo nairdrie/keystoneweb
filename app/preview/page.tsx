@@ -1,4 +1,8 @@
 import { createAdminClient } from '@/lib/db/supabase-admin';
+import { redirect } from 'next/navigation';
+import { getSiteEngine } from '@/lib/v2/store';
+import { ENGINE_V2 } from '@/lib/v2/types';
+import { draftUrl } from '@/lib/v2/preview-token';
 import EditorContent from '@/app/(app)/editor/editor-content-v2';
 import { getTemplateComponent } from '@/app/templates/registry';
 import { getTemplateMetadata } from '@/lib/db/template-queries';
@@ -56,6 +60,19 @@ export default async function PreviewPage({
         </div>
       </div>
     );
+  }
+
+  // Agent-built (v2) sites have their own draft renderer, served sandboxed.
+  if (/^[0-9a-f-]{36}$/i.test(siteId)) {
+    const engineDb = createAdminClient();
+    if ((await getSiteEngine(engineDb, siteId)) === ENGINE_V2) {
+      let path = '/';
+      if (pageId) {
+        const { data: v2Page } = await engineDb.from('pages').select('slug').eq('id', pageId).eq('site_id', siteId).maybeSingle();
+        if (v2Page?.slug && v2Page.slug !== 'home') path = `/${v2Page.slug}`;
+      }
+      redirect(await draftUrl('', siteId, 'preview', 7 * 24 * 3600, path));
+    }
   }
 
   try {

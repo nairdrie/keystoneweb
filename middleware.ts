@@ -80,6 +80,53 @@ async function lookupSiteRedirect(
   }
 }
 
+/**
+ * Engine v2 (agent-built) sites are served by /v2r/pub/<siteId>/… instead of
+ * the block renderer. Returns the site id when the host belongs to a published
+ * v2 site; null otherwise (including before the engine migration is applied),
+ * so v1 routing is untouched.
+ */
+async function lookupV2SiteId(
+  request: NextRequest,
+  match: { published_domain: string } | { custom_domain: string },
+): Promise<string | null> {
+  try {
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { cookies: { getAll() { return request.cookies.getAll(); }, setAll() {} } },
+    );
+    const query = supabase.from('sites').select('id, engine').eq('is_published', true).limit(1);
+    const { data, error } =
+      'published_domain' in match
+        ? await query.eq('published_domain', match.published_domain).maybeSingle()
+        : await query.eq('custom_domain', match.custom_domain).maybeSingle();
+    if (error || !data) return null;
+    return data.engine === 'sections_v2' ? (data.id as string) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Paths a v2 site leaves to the shared (engine-independent) routes. */
+function isSharedSitePath(pathname: string): boolean {
+  return (
+    pathname === '/sitemap.xml' ||
+    pathname === '/robots.txt' ||
+    pathname === '/llms.txt' ||
+    pathname.startsWith('/.well-known/') ||
+    pathname.startsWith('/shop-doc/')
+  );
+}
+
+function rewriteToV2(request: NextRequest, siteId: string, pathname: string): NextResponse {
+  const url = request.nextUrl.clone();
+  url.pathname = `/v2r/pub/${siteId}${pathname === '/' ? '' : pathname}`;
+  const response = NextResponse.rewrite(url);
+  response.headers.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
+  return response;
+}
+
 export async function middleware(request: NextRequest) {
   const hostname = request.headers.get('host') || '';
   const pathname = request.nextUrl.pathname;
@@ -184,7 +231,8 @@ export async function middleware(request: NextRequest) {
     console.log(`[Middleware] Detected published subdomain: '${subdomain}'`);
 
     // Do not rewrite API routes so they can be handled by app/api/
-    if (pathname.startsWith('/api/')) {
+    // (/ks/ holds the v2 site runtime scripts.)
+    if (pathname.startsWith('/api/') || pathname.startsWith('/ks/')) {
       return NextResponse.next();
     }
 
@@ -231,6 +279,11 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(destUrl);
     }
 
+    if (!isSharedSitePath(pathname)) {
+      const v2SiteId = await lookupV2SiteId(request, { published_domain: subdomain });
+      if (v2SiteId) return rewriteToV2(request, v2SiteId, pathname);
+    }
+
     // Rewrite internally to the public route
     const rewriteUrl = request.nextUrl.clone();
     rewriteUrl.pathname = `/public/${subdomain}${pathname}`;
@@ -254,7 +307,7 @@ export async function middleware(request: NextRequest) {
 
     console.log(`[Middleware] Detected possible custom domain: '${cleanDomain}'`);
 
-    if (pathname.startsWith('/api/')) {
+    if (pathname.startsWith('/api/') || pathname.startsWith('/ks/')) {
       return NextResponse.next();
     }
 
@@ -298,6 +351,11 @@ export async function middleware(request: NextRequest) {
 
       console.log(`[Middleware] Custom domain admin/design redirect → ${destUrl.toString()}`);
       return NextResponse.redirect(destUrl);
+    }
+
+    if (!isSharedSitePath(pathname)) {
+      const v2SiteId = await lookupV2SiteId(request, { custom_domain: cleanDomain });
+      if (v2SiteId) return rewriteToV2(request, v2SiteId, pathname);
     }
 
     // Rewrite to the (site)/[domain] route for custom domain resolution

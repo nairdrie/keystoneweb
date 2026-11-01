@@ -8,6 +8,7 @@ import { ArrowLeft, CreditCard, ExternalLink, Loader2, User, History, Globe, Lin
 import { isProEntitled } from '@/lib/subscription/access';
 import { previousNavEntry } from '@/lib/nav/history';
 import BillingCycleCard from '@/app/components/billing/BillingCycleCard';
+import AgentAccessCard from '@/app/components/settings/AgentAccessCard';
 
 interface SubscriptionData {
     subscription_status: string;
@@ -762,6 +763,8 @@ export default function SettingsPage() {
                                 )}
                             </div>
                         </div>
+
+                        <AgentAccessCard />
 
                     </div>
                 </div>
