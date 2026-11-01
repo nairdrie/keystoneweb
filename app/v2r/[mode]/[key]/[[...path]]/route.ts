@@ -16,6 +16,7 @@ import { findPageByPath, renderPage, ALLOWED_SCRIPT_HOSTS_FOR_CSP } from '@/lib/
 import { loadDraftBundle, loadRelease, loadSiteRow } from '@/lib/v2/store';
 import { ENGINE_V2 } from '@/lib/v2/types';
 import { verifyDraftToken } from '@/lib/v2/preview-token';
+import { collectionsIn, fetchCollections, pageSectionHtmls } from '@/lib/v2/collections';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,7 +48,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const hostKind = parseHost(host).kind;
     const siteUrl = site.custom_domain ? `https://${site.custom_domain}` : bundle.site.domain ? `https://${bundle.site.domain}` : `https://${host}`;
     const page = findPageByPath(bundle, pathname);
-    const rendered = renderPage(bundle, page || null, { mode: 'published', siteUrl, version: site.v2_release_id });
+    const kinds = collectionsIn(pageSectionHtmls(bundle, page || null));
+    const collections = kinds.size ? await fetchCollections(db, site.id, kinds) : undefined;
+    const rendered = renderPage(bundle, page || null, { mode: 'published', siteUrl, version: site.v2_release_id, collections });
 
     const csp = [
       `script-src 'self' blob: ${ALLOWED_SCRIPT_HOSTS_FOR_CSP} https://www.googletagmanager.com`,
@@ -71,6 +74,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const bundle = await loadDraftBundle(db, claims.siteId);
     if (!bundle) return notFound();
     const page = findPageByPath(bundle, pathname);
+    const draftKinds = collectionsIn(pageSectionHtmls(bundle, page || null));
+    const collections = draftKinds.size ? await fetchCollections(db, claims.siteId, draftKinds) : undefined;
     const appOrigin = new URL(APP_URL).origin;
     const requestOrigin = request.nextUrl.origin;
     const rendered = renderPage(bundle, page || null, {
@@ -78,6 +83,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       linkBase: `/v2r/draft/${key}`,
       editorOrigin: claims.mode === 'edit' ? requestOrigin || appOrigin : undefined,
       version: 'draft',
+      collections,
     });
     return htmlResponse(rendered.html, rendered.status, {
       'Cache-Control': 'private, no-store',

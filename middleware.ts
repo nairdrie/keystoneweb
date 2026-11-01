@@ -119,11 +119,20 @@ function isSharedSitePath(pathname: string): boolean {
   );
 }
 
+/** Keystone-hosted flows on v2 sites (cart, booking, product pages, order confirmation). */
+function isV2FlowPath(pathname: string): boolean {
+  return pathname === '/cart' || pathname === '/book' || pathname === '/order-confirmation' || /^\/product\/[^/]+$/.test(pathname);
+}
+
 function rewriteToV2(request: NextRequest, siteId: string, pathname: string): NextResponse {
   const url = request.nextUrl.clone();
-  url.pathname = `/v2r/pub/${siteId}${pathname === '/' ? '' : pathname}`;
+  const flow = isV2FlowPath(pathname);
+  url.pathname = flow ? `/v2flow/${siteId}${pathname}` : `/v2r/pub/${siteId}${pathname === '/' ? '' : pathname}`;
   const response = NextResponse.rewrite(url);
-  response.headers.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
+  response.headers.set(
+    'Cache-Control',
+    flow && !pathname.startsWith('/product/') ? 'private, no-store' : 'public, s-maxage=60, stale-while-revalidate=300',
+  );
   return response;
 }
 

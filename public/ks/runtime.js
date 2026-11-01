@@ -9,7 +9,10 @@
   'use strict';
   var html = document.documentElement;
   var cfg = {};
-  try { cfg = JSON.parse(html.getAttribute('data-ks-config') || '{}'); } catch (e) { cfg = {}; }
+  try {
+    var cfgSource = html.getAttribute('data-ks-config') || (document.getElementById('ks-config') || {}).textContent || '{}';
+    cfg = JSON.parse(cfgSource);
+  } catch (e) { cfg = {}; }
   var published = cfg.mode === 'published';
 
   var ks = {
@@ -32,6 +35,100 @@
       console.error('[keystone] ' + label, e);
     }
   }
+
+  // ── Cart (same storage format as Keystone's checkout: localStorage cart_<siteId>) ──
+  var CART_KEY = 'cart_' + cfg.siteId;
+  function readCart() {
+    try { var v = JSON.parse(localStorage.getItem(CART_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; }
+  }
+  function writeCart(items) {
+    try { localStorage.setItem(CART_KEY, JSON.stringify(items)); } catch (e) { /* storage blocked */ }
+    syncCart();
+  }
+  function cartCount() {
+    return readCart().reduce(function (n, i) { return n + (Number(i.qty) || 0); }, 0);
+  }
+  function syncCart() {
+    var count = cartCount();
+    Array.prototype.forEach.call(document.querySelectorAll('[data-ks-cart-count]'), function (el) { el.textContent = String(count); });
+    html.setAttribute('data-ks-cart', count ? 'filled' : 'empty');
+    try { document.dispatchEvent(new CustomEvent('ks:cart', { detail: { count: count } })); } catch (e) { /* old browsers */ }
+  }
+  function addToCart(product, qty) {
+    var items = readCart();
+    var existing = items.find(function (i) { return i.productId === product.productId && !i.variants && !i.options; });
+    if (existing) existing.qty += qty || 1;
+    else items.push({ productId: product.productId, name: product.name, price_cents: product.price_cents, currency: product.currency || 'CAD', qty: qty || 1, image: product.image });
+    writeCart(items);
+  }
+  ks.cart = {
+    items: readCart,
+    count: cartCount,
+    add: function (product, qty) { addToCart(product, qty); },
+    open: function () { if (published) location.href = '/cart'; },
+  };
+  syncCart();
+  window.addEventListener('storage', function (e) { if (e.key === CART_KEY) syncCart(); });
+  // Keystone's own flows (product pages, checkout) change the cart in this tab too.
+  setInterval(function () {
+    var count = cartCount();
+    if (String(count) !== (html.getAttribute('data-ks-cart-n') || '')) { html.setAttribute('data-ks-cart-n', String(count)); syncCart(); }
+  }, 1500);
+
+  var toastTimer;
+  function toast(message, linkText, href) {
+    var el = document.getElementById('ks-toast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'ks-toast';
+      el.className = 'ks-toast';
+      el.setAttribute('role', 'status');
+      el.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:2147483000;display:flex;gap:12px;align-items:center;' +
+        'padding:12px 16px;border-radius:999px;background:var(--ks-toast-bg,#111);color:var(--ks-toast-fg,#fff);font:500 14px/1.2 system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.25)';
+      document.body.appendChild(el);
+    }
+    el.innerHTML = '';
+    var text = document.createElement('span');
+    text.textContent = message;
+    el.appendChild(text);
+    if (linkText && href) {
+      var a = document.createElement('a');
+      a.href = href;
+      a.textContent = linkText;
+      a.style.cssText = 'color:inherit;font-weight:700;text-decoration:underline';
+      el.appendChild(a);
+    }
+    el.style.display = 'flex';
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.style.display = 'none'; }, 4000);
+  }
+
+  // ── Actions: add-to-cart, open-cart, book ────────────────────────────────
+  document.addEventListener('click', function (event) {
+    var trigger = event.target && event.target.closest ? event.target.closest('[data-ks-action]') : null;
+    if (!trigger || cfg.mode === 'edit') return;
+    var action = trigger.getAttribute('data-ks-action');
+    if (action === 'add-to-cart') {
+      event.preventDefault();
+      var holder = trigger.closest('[data-ks-product]');
+      var product = null;
+      try { product = holder ? JSON.parse(holder.getAttribute('data-ks-product')) : null; } catch (e) { product = null; }
+      if (!product) { toast('Products appear here once they are added in Keystone.'); return; }
+      if (product.needsOptions) { if (published) location.href = product.url; else toast('Choosing options happens on the product page.'); return; }
+      addToCart(product, Number(trigger.getAttribute('data-ks-qty')) || 1);
+      ks.track('add_to_cart', { item_id: product.productId });
+      toast('Added to cart', published ? 'View cart' : '', '/cart');
+    } else if (action === 'open-cart' || action === 'checkout') {
+      event.preventDefault();
+      if (published) location.href = '/cart';
+      else toast('The cart opens on the live site.');
+    } else if (action === 'book') {
+      event.preventDefault();
+      var svc = trigger.getAttribute('data-ks-service') || (trigger.closest('[data-ks-service]') || { getAttribute: function () { return ''; } }).getAttribute('data-ks-service');
+      if (published) location.href = '/book' + (svc ? '?service=' + encodeURIComponent(svc) : '');
+      else toast('Booking opens on the live site.');
+    }
+  });
 
   // ── Agent modules ────────────────────────────────────────────────────────
   if (cfg.mode !== 'edit') {

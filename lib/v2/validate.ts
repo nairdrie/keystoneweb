@@ -134,7 +134,7 @@ export function validateBundle(bundle: SiteBundle): ValidationReport {
   };
 }
 
-const SYSTEM_PATHS = ['/api/', '/product/', '/checkout', '/booking', '/blog/', '/signin', '/signup', '/member'];
+const SYSTEM_PATHS = ['/api/', '/product/', '/cart', '/book', '/order-confirmation', '/checkout', '/booking', '/blog/', '/signin', '/signup', '/member'];
 
 function scanJs(js: string, section: string | undefined): SiteIssue[] {
   const out: SiteIssue[] = [];

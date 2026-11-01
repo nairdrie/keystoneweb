@@ -51,6 +51,7 @@ export default function V2Editor({ siteId }: { siteId: string }) {
   const [publishing, setPublishing] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const stateRef = useRef<EditorState | null>(null);
   const scrollY = useRef(0);
 
   const toast = useCallback((text: string, tone: Toast['tone'] = 'ok') => {
@@ -62,6 +63,9 @@ export default function V2Editor({ siteId }: { siteId: string }) {
   const refresh = useCallback(async (opts: { canvas?: boolean } = { canvas: true }) => {
     try {
       const next = await loadEditorState(siteId);
+      // Update synchronously: the next queued edit reads versions from here
+      // before React has re-rendered.
+      stateRef.current = next;
       setState(next);
       setPageId((current) => (current && next.pages.some((p) => p.id === current) ? current : next.pages[0]?.id ?? null));
       if (opts.canvas) setCanvasVersion((v) => v + 1);
@@ -85,6 +89,12 @@ export default function V2Editor({ siteId }: { siteId: string }) {
         if (opts.success) toast(opts.success);
       } catch (e) {
         const err = e as EditorApiError;
+        if (err instanceof EditorApiError && err.isStale) {
+          // Someone else (usually the AI designer) changed it first: show the latest version.
+          await refresh({ canvas: true });
+          toast(err.message || 'This was just changed by someone else. We reloaded it — please make your change again.', 'warn');
+          return;
+        }
         toast(err.message || 'Something went wrong', 'error');
       }
     });
@@ -92,16 +102,38 @@ export default function V2Editor({ siteId }: { siteId: string }) {
     return next;
   }, [refresh, toast]);
 
+  // Versions are read when a queued edit actually runs, so quick successive
+  // clicks never look stale to the server — only someone else's change does.
+  const revOf = (instance: string, path: string): number | undefined => {
+    const field = path.split('.')[0];
+    return stateRef.current?.content.find((c) => c.instance === instance)?.values[field]?.rev;
+  };
+  const layoutVersionOf = (pageId: string): number | undefined => stateRef.current?.pages.find((p) => p.id === pageId)?.layoutVersion;
+
+  const saveContent = useCallback(async (instance: string, path: string, value: unknown) => {
+    const r = await editorOp<{ results?: Array<{ status: string; message?: string }> }>(siteId, 'content', {
+      changes: [{ instance, path, value, expected_rev: revOf(instance, path) }],
+    });
+    const result = r.results?.[0];
+    if (result?.status === 'conflict') {
+      const typed = typeof value === 'string' ? value : (value as { html?: string; label?: string })?.html || (value as { label?: string })?.label;
+      const plain = typed ? String(typed).replace(/<[^>]+>/g, '').slice(0, 140) : '';
+      throw new EditorApiError(
+        `This was just changed by someone else, so your edit wasn't saved. We reloaded the latest version${plain ? ` — what you typed: “${plain}”` : ''}.`,
+        { reason: 'stale' },
+        409,
+      );
+    }
+    if (result?.status === 'error') throw new EditorApiError(result.message || 'Could not save');
+  }, [siteId]);
+
   // ── Actions shared by the canvas and the panels ───────────────────────────
   const actions: PanelActions = useMemo(() => ({
-    setField: (instance, path, value) => run(() => editorOp(siteId, 'content', { changes: [{ instance, path, value }] }).then((r) => {
-      const failed = (r.results as Array<{ status: string; message?: string }> | undefined)?.find((x) => x.status === 'error');
-      if (failed) throw new EditorApiError(failed.message || 'Could not save');
-    })),
-    listOp: (instance, path, op, index, to) => run(() => editorOp(siteId, 'list', { instance, path, listOp: op, index, to })),
+    setField: (instance, path, value) => run(() => saveContent(instance, path, value)),
+    listOp: (instance, path, op, index, to) => run(() => editorOp(siteId, 'list', { instance, path, listOp: op, index, to, expected_rev: revOf(instance, path) })),
     pickImage: (instance, path, field, current) => setPick({ kind: 'image', instance, path, field, current }),
     pickLink: (instance, path, field, current) => setPick({ kind: 'link', instance, path, field, current }),
-  }), [run, siteId]);
+  }), [run, saveContent, siteId]);
 
   const fieldAt = useCallback((instance: string, path: string): FieldInfo | undefined => {
     const content = state?.content.find((c) => c.instance === instance);
@@ -137,7 +169,7 @@ export default function V2Editor({ siteId }: { siteId: string }) {
           setTab('sections');
           break;
         case 'field':
-          void run(() => editorOp(siteId, 'content', { changes: [{ instance: d.instance, path: d.path, value: d.value }] }), { canvas: false });
+          void run(() => saveContent(d.instance, d.path, d.value), { canvas: false });
           break;
         case 'pick': {
           const field = fieldAt(d.instance, d.path) || { id: d.path, type: d.fieldType };
@@ -159,6 +191,13 @@ export default function V2Editor({ siteId }: { siteId: string }) {
           if (target) { setPageId(target.id); scrollY.current = 0; }
           break;
         }
+        case 'collection': {
+          const where = d.kind === 'services' ? 'Admin → Booking' : 'Admin → Store';
+          toast(d.sample
+            ? `These are sample ${d.kind}. Add your real ${d.kind} in ${where} and they'll appear here in this design.`
+            : `These ${d.kind} come from ${where}. Edit them there and the site updates automatically.`);
+          break;
+        }
         case 'notice':
           toast(String(d.message || ''), d.level === 'warning' ? 'warn' : 'ok');
           break;
@@ -166,7 +205,7 @@ export default function V2Editor({ siteId }: { siteId: string }) {
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [actions, fieldAt, run, selected, siteId, state, toast]);
+  }, [actions, fieldAt, run, saveContent, selected, siteId, state, toast]);
 
   // ── Publish (same flow as the classic editor) ─────────────────────────────
   const publish = async () => {
@@ -278,7 +317,7 @@ export default function V2Editor({ siteId }: { siteId: string }) {
                   setSelected((s) => (s === instance ? null : instance));
                   iframeRef.current?.contentWindow?.postMessage({ type: 'ks:highlight', instance }, '*');
                 }}
-                onSectionAction={(action, instance, extra) => run(() => editorOp(siteId, 'section', { page: page.id, action, instance, ...extra }))}
+                onSectionAction={(action, instance, extra) => run(() => editorOp(siteId, 'section', { page: page.id, action, instance, ...extra, expected_version: layoutVersionOf(page.id) }))}
               />
             )}
             {tab === 'pages' && (

@@ -85,9 +85,9 @@ export async function POST(request: NextRequest) {
       case 'content':
         return NextResponse.json(await opSetContent(ctx, body.changes));
       case 'list':
-        return NextResponse.json(await opListOp(ctx, { instance: body.instance, path: body.path, op: body.listOp, index: body.index, to: body.to }));
+        return NextResponse.json(await opListOp(ctx, { instance: body.instance, path: body.path, op: body.listOp, index: body.index, to: body.to, expected_rev: body.expected_rev }));
       case 'section':
-        return NextResponse.json(await opPageSections(ctx, { page: body.page, action: body.action, instance: body.instance, section: body.section, index: body.index, to: body.to }));
+        return NextResponse.json(await opPageSections(ctx, { page: body.page, action: body.action, instance: body.instance, section: body.section, index: body.index, to: body.to, expected_version: body.expected_version }));
       case 'page.add': {
         const slug = String(body.slug || '').toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '');
         const result = await opPutPage(ctx, { slug, title: body.title, show_in_nav: body.showInNav ?? true });

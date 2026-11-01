@@ -14,7 +14,7 @@ Every existing site is `blocks_v1` (the column default) and is untouched: v2 cod
 
 ## Setup
 
-1. Apply `migrations/095_agent_sites_v2.sql`.
+1. Apply `migrations/095_agent_sites_v2.sql` and `096_agent_sites_v2_concurrency.sql`.
 2. Optional: set `KS_V2_PREVIEW_SECRET` (signs draft/preview links; falls back to a hash of
    `SUPABASE_SERVICE_ROLE_KEY`).
 3. Create a token: **Account Settings → Agent access → Create token** (tick *Can publish* only for
@@ -47,6 +47,37 @@ Rules enforced in `lib/v2/ops.ts` (shared by the editor and MCP):
 The section markup contract (data-ks attributes) is documented for agents in `lib/v2/guide.ts`
 (served by the `get_guide` tool). The compiler (`compile.ts`) rejects visible text or images that
 the owner couldn't edit.
+
+## Business features (store, booking, reviews)
+
+Agents design how business data looks; Keystone runs the logic (`get_guide topic=business`):
+
+- **Live collections in agent markup**: `data-ks-collection="products|services"` with an item template and
+  `data-ks-bind` / `data-ks-bind-bg` / `data-ks-if`, filled from the products and booking tables at request time
+  (`lib/v2/collections.ts`), so new products show up without republishing.
+- **Actions**: `data-ks-action="add-to-cart|open-cart|book"`, live `data-ks-cart-count`. The cart uses the same
+  storage format as Keystone's checkout (`public/ks/runtime.js`).
+- **Hosted flows in the site's design**: `/cart`, `/book[?service=id]`, `/product/<id>` and `/order-confirmation`
+  run Keystone's existing cart/checkout, booking and product components wrapped in the agent's header, footer and
+  tokens (`app/v2flow`, middleware rewrite). `set_theme.platform` picks their colours.
+- **Structured data**: lists marked `data-ks-schema="reviews|faq"` and live services become JSON-LD.
+- **Agent tools**: `get_business_data`, `upsert_services`, `upsert_products`.
+- **Admin**: the Booking and Ecommerce tabs appear for v2 sites whose design uses those features.
+
+## Agent screenshots
+
+The MCP `screenshot` tool returns desktop/tablet/mobile JPEGs of a draft (scripts running) plus problems found:
+sideways scrolling (and which elements cause it), broken images, text left invisible by animations, small tap
+targets and JS errors. Provider: `KS_SCREENSHOT_URL` + `KS_SCREENSHOT_TOKEN` pointing at the service in
+`services/screenshot` (Dockerfile included; Vercel functions can't run Chromium well), or a local Playwright
+install (dev/staging).
+
+## Stale-write protection
+
+Every write is a compare-and-swap (migration 096 adds `v2_content.rev`; sections, layouts and the theme use
+`version`). Callers that pass the version they read (`expected_version` / `expected_rev`, which the owner editor
+always does) get a 409 "changed by someone else" instead of overwriting; internal races retry on fresh data, so
+concurrent edits never lose each other.
 
 ## Security
 
@@ -84,7 +115,5 @@ the owner couldn't edit.
 
 ## Not yet in v2
 
-Booking, products/cart, menu, events, blog lists, membership gating and translations still render
-only in classic sites. Platform data can't yet be looped over in agent markup (`data-ks-collection`
-is reserved). Preview screenshots for agents, OAuth for third-party agent connectors, and the
-in-editor "Ask AI" are later phases.
+Menu, events, blog lists, membership gating and translations still render only in classic sites.
+OAuth for third-party agent connectors and the in-editor "Ask AI" are later phases.

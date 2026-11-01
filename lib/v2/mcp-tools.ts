@@ -3,7 +3,7 @@
  * uses (lib/v2/ops.ts), plus agent-only helpers (guide, research, media,
  * preview links, publish/approval).
  */
-import { APP_URL } from '@/lib/env/domain';
+import { APP_URL, PUBLISHED_ROOT } from '@/lib/env/domain';
 import { sendComposedEmail } from '@/lib/email';
 import type { TokenIdentity, TokenScope } from './api-tokens';
 import type { Actor } from './types';
@@ -33,7 +33,9 @@ import { draftUrl } from './preview-token';
 import { checkPublishEligibility, publishV2Site, resolveSubdomain } from './publish';
 import { importImageFromUrl, searchStockPhotos } from './media';
 import { exportLegacySite } from './legacy';
-import { escapeHtml } from './sanitize';
+import { escapeHtml, safeSrc, toPlainText } from './sanitize';
+import { captureScreenshots, type ViewportName } from './screenshot';
+import { COLLECTION_FIELDS } from './collections';
 
 type Json = Record<string, unknown>;
 
@@ -251,6 +253,12 @@ export const TOOLS: ToolDef[] = [
         fonts: { type: 'array', items: { type: 'object', properties: { family: { type: 'string' }, weights: { type: 'string' } }, required: ['family'] } },
         global_css: str('Global CSS (not scoped).'),
         global_js: str('ES module: export default (ks) => { ... }'),
+        platform: {
+          type: 'object',
+          description: 'Which colour tokens Keystone\'s own pages (cart, checkout, booking, product pages) use: { primary, secondary, accent } → token name.',
+          properties: { primary: { type: 'string' }, secondary: { type: 'string' }, accent: { type: 'string' } },
+        },
+        expected_version: { type: 'number', description: 'Theme version you last read (get_site.theme.version). Rejected if someone changed it since.' },
       },
       required: ['site_id'],
     },
@@ -273,6 +281,7 @@ export const TOOLS: ToolDef[] = [
         html: str('Annotated HTML. May end with <style> and <script type="module"> blocks.'),
         css: str('Optional CSS (scoped to the section automatically).'),
         js: str('Optional ES module: export default (root, ks) => { ... }'),
+        expected_version: { type: 'number', description: 'Section version you last read (get_site sections[].version; 0 = must not exist yet). Rejected if it changed since.' },
       },
       required: ['site_id', 'key', 'html'],
     },
@@ -342,6 +351,7 @@ export const TOOLS: ToolDef[] = [
           },
         },
         force: { type: 'boolean', description: 'Overwrite fields the owner edited. Only when the human asked.' },
+        expected_version: { type: 'number', description: 'Page layoutVersion you last read (get_site pages[].layoutVersion). Rejected if the owner or anyone changed the page since.' },
       },
       required: ['site_id', 'slug'],
     },
@@ -385,7 +395,16 @@ export const TOOLS: ToolDef[] = [
         ...siteIdProp,
         changes: {
           type: 'array',
-          items: { type: 'object', properties: { instance: { type: 'string' }, path: { type: 'string' }, value: {} }, required: ['instance', 'path', 'value'] },
+          items: {
+            type: 'object',
+            properties: {
+              instance: { type: 'string' },
+              path: { type: 'string' },
+              value: {},
+              expected_rev: { type: 'number', description: 'Field rev you last read (get_content; 0 = template default). That change is rejected ("conflict") if the field changed since.' },
+            },
+            required: ['instance', 'path', 'value'],
+          },
         },
         force: { type: 'boolean' },
       },
@@ -410,12 +429,13 @@ export const TOOLS: ToolDef[] = [
         op: { type: 'string', enum: ['add', 'duplicate', 'remove', 'move'] },
         index: { type: 'number' },
         to: { type: 'number' },
+        expected_rev: { type: 'number', description: 'Field rev you last read; rejected if it changed since.' },
       },
       required: ['site_id', 'instance', 'path', 'op'],
     },
     run: async (args, ctx) => {
       const { ops } = await siteContext(args, ctx);
-      return opListOp(ops, { instance: String(args.instance), path: String(args.path), op: args.op, index: args.index, to: args.to } as never);
+      return opListOp(ops, { instance: String(args.instance), path: String(args.path), op: args.op, index: args.index, to: args.to, expected_rev: args.expected_rev } as never);
     },
   },
   {
@@ -459,6 +479,204 @@ export const TOOLS: ToolDef[] = [
       const { ops } = await siteContext(args, ctx);
       const hours = Math.max(1, Math.min(24 * 30, Number(args.hours) || 168));
       return { preview_url: await draftUrl(APP_URL, ops.siteId, 'preview', hours * 3600, String(args.path || '/')) };
+    },
+  },
+  {
+    name: 'screenshot',
+    title: 'Screenshot the draft',
+    description: 'See your work: real-browser screenshots of a draft page at desktop / tablet / mobile size (scripts run, like a visitor sees it), plus problems found — horizontal scrolling, broken images, text stuck invisible by animations, small tap targets and JavaScript errors. Use after every meaningful change and fix what you see.',
+    scope: 'sites:read',
+    readOnly: true,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        ...siteIdProp,
+        path: str('Page path, e.g. "/" or "/about", or a flow: "/cart", "/book" (published sites only).'),
+        viewports: { type: 'array', items: { type: 'string', enum: ['desktop', 'tablet', 'mobile'] }, description: 'Default ["desktop","mobile"].' },
+        full_page: { type: 'boolean', description: 'Whole page (default) or just the first screen.' },
+      },
+      required: ['site_id'],
+    },
+    run: async (args, ctx) => {
+      const { ops, site } = await siteContext(args, ctx);
+      const path = String(args.path || '/');
+      const isFlow = /^\/(cart|book|order-confirmation)$|^\/product\//.test(path.split('?')[0]);
+      let url: string;
+      if (isFlow) {
+        // Keystone's hosted flows only exist on the live site.
+        const host = site.custom_domain || (site.published_domain ? `${site.published_domain}.${PUBLISHED_ROOT}` : null);
+        if (!site.is_published || !host) throw new OpError('Cart, booking and product pages can only be captured once the site is published.', 409);
+        url = `https://${host}${path}`;
+      } else {
+        url = await draftUrl(APP_URL, ops.siteId, 'preview', 600, path);
+      }
+      const viewports = (Array.isArray(args.viewports) && args.viewports.length ? args.viewports : ['desktop', 'mobile']) as ViewportName[];
+      const shots = await captureScreenshots(url, viewports, args.full_page !== false);
+      const problems = shots.flatMap((s) => {
+        const d = s.diagnostics;
+        return [
+          d.overflowX ? `${s.viewport}: page scrolls sideways by ${d.overflowX}px — caused by ${d.overflowElements.join(', ') || 'unknown elements'}` : '',
+          d.brokenImages.length ? `${s.viewport}: broken images: ${d.brokenImages.join(', ')}` : '',
+          d.invisibleText.length ? `${s.viewport}: text still invisible after scrolling (animation never revealed it?): ${d.invisibleText.join(', ')}` : '',
+          d.smallTapTargets ? `${s.viewport}: ${d.smallTapTargets} links/buttons smaller than 32px` : '',
+          d.consoleErrors.length ? `${s.viewport}: JavaScript errors: ${d.consoleErrors.join(' | ')}` : '',
+        ].filter(Boolean);
+      });
+      return {
+        path,
+        problems,
+        shots: shots.map((s) => ({ viewport: s.viewport, width: s.width, height: s.height, truncated: s.truncated, pageHeight: s.diagnostics.pageHeight })),
+        __images: shots.map((s) => ({ label: `${s.viewport} (${s.width}px wide${s.truncated ? ', truncated' : ''})`, data: s.data, mimeType: s.mimeType })),
+      };
+    },
+  },
+  {
+    name: 'get_business_data',
+    title: 'Get products & services',
+    description: 'The site\'s live products and bookable services (what data-ks-collection sections will show), with the fields you can bind. Products/services are managed in Keystone Admin; use upsert_products / upsert_services to add them for a new business.',
+    scope: 'sites:read',
+    readOnly: true,
+    inputSchema: { type: 'object', properties: siteIdProp, required: ['site_id'] },
+    run: async (args, ctx) => {
+      const { ops } = await siteContext(args, ctx);
+      const [products, services, settings] = await Promise.all([
+        ctx.db.from('products').select('id, name, price_cents, currency, category, status, is_active, is_featured, images').eq('site_id', ops.siteId).eq('is_archived', false).order('sort_order').limit(200),
+        ctx.db.from('booking_services').select('id, name, price_cents, duration_minutes, status, is_active, is_featured').eq('site_id', ops.siteId).eq('is_archived', false).order('sort_order').limit(200),
+        ctx.db.from('booking_settings').select('site_id').eq('site_id', ops.siteId).maybeSingle(),
+      ]);
+      return {
+        products: products.data || [],
+        services: services.data || [],
+        bookingConfigured: !!settings.data,
+        bindableFields: COLLECTION_FIELDS,
+      };
+    },
+  },
+  {
+    name: 'upsert_services',
+    title: 'Add or update bookable services',
+    description: 'Create or update the services customers can book (name, description, duration, price). Pass id to update. New services are published. Payment methods, hours and staff are configured by the owner in Admin → Booking.',
+    scope: 'sites:write',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        ...siteIdProp,
+        services: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: str('Existing service id to update.'),
+              name: { type: 'string' },
+              description: { type: 'string' },
+              duration_minutes: { type: 'number' },
+              price_cents: { type: 'number', description: '0 = free / quote on site.' },
+              featured: { type: 'boolean' },
+              sort_order: { type: 'number' },
+            },
+            required: ['name'],
+          },
+        },
+      },
+      required: ['site_id', 'services'],
+    },
+    run: async (args, ctx) => {
+      const { ops } = await siteContext(args, ctx);
+      const list = Array.isArray(args.services) ? (args.services as Json[]).slice(0, 50) : [];
+      if (!list.length) throw new OpError('services is required');
+      // A settings row (with its default weekly hours) makes the site bookable.
+      await ctx.db.from('booking_settings').upsert({ site_id: ops.siteId }, { onConflict: 'site_id', ignoreDuplicates: true });
+      const results = [];
+      for (const [i, svc] of list.entries()) {
+        const row = {
+          site_id: ops.siteId,
+          name: toPlainText(String(svc.name || '')).slice(0, 120),
+          description: toPlainText(String(svc.description || '')).slice(0, 2000) || null,
+          duration_minutes: Math.max(5, Math.min(24 * 60, Math.round(Number(svc.duration_minutes) || 60))),
+          price_cents: Math.max(0, Math.round(Number(svc.price_cents) || 0)),
+          is_featured: !!svc.featured,
+          sort_order: Number.isFinite(Number(svc.sort_order)) ? Number(svc.sort_order) : i,
+          is_active: true,
+          status: 'published',
+        };
+        if (!row.name) throw new OpError(`services[${i}].name is required`);
+        if (svc.id) {
+          const { data, error } = await ctx.db.from('booking_services').update(row).eq('id', String(svc.id)).eq('site_id', ops.siteId).select('id').maybeSingle();
+          if (error || !data) throw new OpError(`Could not update service ${svc.id}: ${error?.message || 'not found'}`);
+          results.push({ id: data.id, updated: true });
+        } else {
+          const { data, error } = await ctx.db.from('booking_services').insert(row).select('id').single();
+          if (error) throw new OpError(`Could not create service "${row.name}": ${error.message}`, 500);
+          results.push({ id: data.id, created: true });
+        }
+      }
+      return { services: results };
+    },
+  },
+  {
+    name: 'upsert_products',
+    title: 'Add or update products',
+    description: 'Create or update store products (name, description, price, images, category). Pass id to update. Import images with import_media first. Variants, shipping, taxes and payments are managed by the owner in Admin → Ecommerce.',
+    scope: 'sites:write',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        ...siteIdProp,
+        products: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: str('Existing product id to update.'),
+              name: { type: 'string' },
+              description: { type: 'string' },
+              price_cents: { type: 'number' },
+              compare_at_cents: { type: 'number', description: 'Original price, to show a sale.' },
+              images: { type: 'array', items: { type: 'string' } },
+              category: { type: 'string' },
+              featured: { type: 'boolean' },
+              inventory_count: { type: 'number', description: 'Omit for untracked stock.' },
+              sort_order: { type: 'number' },
+            },
+            required: ['name', 'price_cents'],
+          },
+        },
+      },
+      required: ['site_id', 'products'],
+    },
+    run: async (args, ctx) => {
+      const { ops } = await siteContext(args, ctx);
+      const list = Array.isArray(args.products) ? (args.products as Json[]).slice(0, 100) : [];
+      if (!list.length) throw new OpError('products is required');
+      const results = [];
+      for (const [i, p] of list.entries()) {
+        const images = (Array.isArray(p.images) ? p.images : []).map((u) => safeSrc(u)).filter(Boolean).slice(0, 10);
+        const row: Json = {
+          site_id: ops.siteId,
+          name: toPlainText(String(p.name || '')).slice(0, 160),
+          description: toPlainText(String(p.description || '')).slice(0, 5000) || null,
+          price_cents: Math.max(0, Math.round(Number(p.price_cents) || 0)),
+          compare_at_cents: p.compare_at_cents ? Math.max(0, Math.round(Number(p.compare_at_cents))) : null,
+          images,
+          category: p.category ? toPlainText(String(p.category)).slice(0, 80) : null,
+          is_featured: !!p.featured,
+          sort_order: Number.isFinite(Number(p.sort_order)) ? Number(p.sort_order) : i,
+          is_active: true,
+          status: 'published',
+        };
+        if (p.inventory_count !== undefined) row.inventory_count = Math.max(0, Math.round(Number(p.inventory_count) || 0));
+        if (!row.name) throw new OpError(`products[${i}].name is required`);
+        if (p.id) {
+          const { data, error } = await ctx.db.from('products').update(row).eq('id', String(p.id)).eq('site_id', ops.siteId).select('id').maybeSingle();
+          if (error || !data) throw new OpError(`Could not update product ${p.id}: ${error?.message || 'not found'}`);
+          results.push({ id: data.id, updated: true });
+        } else {
+          const { data, error } = await ctx.db.from('products').insert(row).select('id').single();
+          if (error) throw new OpError(`Could not create product "${row.name}": ${error.message}`, 500);
+          results.push({ id: data.id, created: true });
+        }
+      }
+      return { products: results };
     },
   },
   {

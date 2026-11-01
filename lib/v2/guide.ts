@@ -5,7 +5,7 @@
  */
 import { GLOBAL_BINDINGS, SCRIPT_HOST_ALLOWLIST, BUDGETS } from './policy';
 
-export const GUIDE_TOPICS = ['overview', 'sections', 'theme', 'content', 'forms', 'scripts', 'quality', 'workflow', 'example'] as const;
+export const GUIDE_TOPICS = ['overview', 'sections', 'theme', 'content', 'business', 'forms', 'scripts', 'quality', 'workflow', 'example'] as const;
 export type GuideTopic = (typeof GUIDE_TOPICS)[number];
 
 const overview = `# Building a Keystone site
@@ -22,7 +22,7 @@ A site has three layers:
 There are no fixed blocks and no style limits: write any HTML/CSS/JS you want, as long as everything a
 visitor can read or see is editable by the owner (see "sections").
 
-Call get_guide with topic = sections | theme | content | forms | scripts | quality | workflow | example.`;
+Call get_guide with topic = sections | theme | content | business | forms | scripts | quality | workflow | example.`;
 
 const sections = `# Sections (annotated HTML)
 
@@ -69,7 +69,10 @@ set_theme takes:
 - **global_css**: resets, typography, utilities, shared component classes. Not scoped.
 - **global_js**: an ES module \`export default (ks) => { ... }\`, run once per page.
 
-Header and footer are sections too: create them with put_section, then set_layout({ header, footer }).`;
+Header and footer are sections too: create them with put_section, then set_layout({ header, footer }).
+
+Set \`platform: { primary, secondary, accent }\` to the token names Keystone's own pages (cart, checkout, booking,
+product pages) should use for their colours, so they match your design.`;
 
 const content = `# Content
 
@@ -84,7 +87,64 @@ const content = `# Content
 - Fields the owner already edited are skipped (status "skipped_owner_edit"). Only pass force: true if the human asked for it.
 - Write real, specific copy for the business (from research_business / the brief). Never lorem ipsum, never "Service 1".
 - Images: use import_media for every image (stock or the business's own photos) — hotlinked images are flagged.
-  search_stock_media finds photos.`;
+  search_stock_media finds photos.
+- Concurrency: the owner may be editing while you work. get_site returns versions (theme.version, sections[].version,
+  pages[].layoutVersion) and get_content returns each field's rev. Pass them back as expected_version / expected_rev
+  and the write is rejected (status "conflict" / error reason "stale") if someone changed it since — re-read and retry.
+  Without them your write still never clobbers a concurrent one, but it won't tell you the page moved on.`;
+
+const business = `# Business features (store, booking, reviews)
+
+Keystone runs the business logic; you design how it looks. Everything below works inside your own markup.
+
+## Products and services — live data in your design
+\`\`\`html
+<div class="grid" data-ks-collection="products" data-ks-limit="6" data-ks-filter="featured">
+  <article class="card" data-ks-item>
+    <img data-ks-bind="image" src="https://…/sample.jpg" alt="">
+    <h3 data-ks-bind="name">Sample product</h3>
+    <p><s data-ks-if="on_sale" data-ks-bind="compare_price">$60</s> <span data-ks-bind="price">$49</span></p>
+    <a data-ks-bind="url" href="/product/x">Details</a>
+    <button data-ks-action="add-to-cart">Add to cart</button>
+  </article>
+  <p data-ks-empty data-ks="emptyText">New products are coming soon.</p>
+</div>
+\`\`\`
+- \`data-ks-collection\`: products | services. The first \`data-ks-item\` child is the template; your sample text in it is
+  only shown in drafts until real records exist. Real records are filled in at request time — new products appear
+  without republishing.
+- Options: \`data-ks-limit="6"\`, \`data-ks-filter="featured"\` (or on_sale, in_stock, "!field" to negate),
+  \`data-ks-category="Roofing supplies"\`, \`data-ks-ids="id1,id2"\` (fixed picks, in order).
+- Bindings: \`data-ks-bind="field"\` (img → src, a → href for url, else text), \`data-ks-bind-bg="image"\`
+  (background image), \`data-ks-if="field"\` / \`data-ks-if="!field"\` (keep only when set / unset).
+  get_business_data lists every field. Don't put data-ks inside items.
+- \`data-ks-empty\`: shown when there are no records (bind its text with data-ks like any copy).
+
+## Actions
+- \`data-ks-action="add-to-cart"\` inside a products item: adds it (products needing a size/option go to their
+  product page instead) and shows a small "Added" toast you can restyle via \`.ks-toast\` / \`--ks-toast-bg\`.
+- \`data-ks-action="open-cart"\` → the cart & checkout. \`<span data-ks-cart-count>0</span>\` anywhere shows the live
+  count; \`<html data-ks-cart="empty|filled">\` lets CSS hide an empty cart badge.
+- \`data-ks-action="book"\` → booking; inside a services item it pre-selects that service. Plain links work too:
+  \`/book\`, \`/book?service=<id>\`, \`/cart\`, \`/product/<id>\` (the url field).
+
+## Keystone-hosted pages
+/cart (cart + checkout with the owner's payment, shipping, tax and coupon settings), /book (booking with the
+owner's hours, add-ons and payments), /product/<id> (gallery, variants, options) and /order-confirmation are run by
+Keystone, wrapped in YOUR header and footer and coloured with the tokens you set in \`platform\`.
+Agent JS can use \`ks.cart.count()\`, \`ks.cart.items()\`, \`ks.cart.add({productId,name,price_cents,currency,image})\`
+and listen for \`document.addEventListener('ks:cart', …)\`.
+
+## Reviews and FAQs → Google rich results
+Mark owner-editable lists so search engines understand them:
+- \`data-ks-list="reviews" data-ks-schema="reviews"\` with item fields \`author\`, \`quote\`, optional \`rating\` (1–5).
+- \`data-ks-list="faq" data-ks-schema="faq"\` with item fields \`question\`, \`answer\`.
+Seed reviews from research_business (real Google review snippets, quoted accurately with the reviewer's name)
+— never invent reviews. Services in a services collection also become structured data automatically.
+
+## Setting up data for a new business
+get_business_data shows what exists. upsert_services / upsert_products add records (import images first).
+The owner manages payments, hours, shipping and taxes in Admin; tell them what's left to configure.`;
 
 const forms = `# Forms
 
@@ -129,7 +189,8 @@ const workflow = `# Workflow
 3. set_theme (tokens, fonts, global CSS).
 4. put_section for header and footer → set_layout.
 5. put_section for each home page section → put_page("home", sections + content).
-6. preview → open the link (desktop and 390px mobile) → refine. Repeat per page (about, services, contact…).
+6. screenshot (desktop + mobile) after each section or page: look at the images and fix every listed problem
+   (sideways scrolling, invisible text, broken images, JS errors). Repeat per page (about, services, contact…).
 7. validate → fix errors.
 8. publish (if your token has sites:publish and the owner has a plan) or request_approval to send the owner the preview.
 Every write returns issues and a preview link — read them before the next step.`;
@@ -164,7 +225,7 @@ export default (root) => {
 </script>
 \`\`\``;
 
-const TOPICS: Record<GuideTopic, string> = { overview, sections, theme, content, forms, scripts, quality, workflow, example };
+const TOPICS: Record<GuideTopic, string> = { overview, sections, theme, content, business, forms, scripts, quality, workflow, example };
 
 export function getGuide(topic?: string): string {
   if (topic === 'all') return GUIDE_TOPICS.map((t) => TOPICS[t]).join('\n\n---\n\n');

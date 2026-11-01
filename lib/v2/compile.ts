@@ -12,6 +12,7 @@ import type { AnyNode, Element } from 'domhandler';
 import type { CompileIssue, CompiledSection, FieldSchema, FieldType } from './types';
 import { sanitizeInline, sanitizeRich } from './sanitize';
 import { BUDGETS, FIELD_ID_RE, GLOBAL_BINDINGS, isAllowedScriptUrl } from './policy';
+import { COLLECTION_FIELDS, COLLECTION_KINDS, type CollectionKind } from './collections';
 
 const EXPLICIT_TYPES = new Set<FieldType>(['text', 'richtext', 'image', 'link', 'bg']);
 /** Elements whose text is form/UI furniture rather than page copy. */
@@ -98,7 +99,7 @@ function walk(node: AnyNode, scope: Scope, ctx: Ctx, covered: boolean): void {
   checkSecurity(el, tag, attrs, ctx);
   if (tag === 'script' || tag === 'style') return;
 
-  if ('data-ks-static' in attrs || STATIC_TAGS.has(tag)) {
+  if ('data-ks-static' in attrs || 'data-ks-cart-count' in attrs || STATIC_TAGS.has(tag)) {
     // Decorative or form furniture: allowed to have unbound text.
     for (const child of el.children) walk(child, scope, ctx, true);
     return;
@@ -117,13 +118,7 @@ function walk(node: AnyNode, scope: Scope, ctx: Ctx, covered: boolean): void {
   }
 
   if ('data-ks-collection' in attrs) {
-    ctx.issues.push({
-      level: 'warning',
-      rule: 'collection-unsupported',
-      message: 'data-ks-collection is not available yet; this element renders as written.',
-      snippet: snippetOf(ctx.$, el),
-    });
-    for (const child of el.children) walk(child, scope, ctx, true);
+    compileCollection(el, attrs, scope, ctx);
     return;
   }
 
@@ -294,6 +289,90 @@ function compileList(el: Element, attrs: Record<string, string>, scope: Scope, c
   scope.fields.push({ id, type: 'list', item: itemFields, ...readHints(attrs, id) });
   scope.defaults[id] = { items: itemDefaults };
   ctx.stats.boundFields++;
+
+  // Structured-data hints: data-ks-schema="reviews" | "faq" on a list.
+  const schemaHint = attrs['data-ks-schema'];
+  if (schemaHint) {
+    const required = SCHEMA_HINTS[schemaHint];
+    if (!required) {
+      ctx.issues.push({ level: 'error', rule: 'schema-hint', message: `Unknown data-ks-schema "${schemaHint}". Use ${Object.keys(SCHEMA_HINTS).join(' or ')}.`, snippet: snippetOf(ctx.$, el) });
+    } else {
+      const ids = new Set(itemFields.map((f) => f.id));
+      const missing = required.filter((f) => !ids.has(f));
+      if (missing.length) {
+        ctx.issues.push({ level: 'error', rule: 'schema-hint', message: `List "${id}" is marked data-ks-schema="${schemaHint}" but its items lack field(s): ${missing.join(', ')}.`, snippet: snippetOf(ctx.$, el) });
+      }
+    }
+  }
+}
+
+/** data-ks-schema hints → item fields they need (rating is optional for reviews). */
+export const SCHEMA_HINTS: Record<string, string[]> = {
+  reviews: ['author', 'quote'],
+  faq: ['question', 'answer'],
+};
+
+/**
+ * <div data-ks-collection="products|services" data-ks-limit data-ks-filter …>
+ *   <article data-ks-item> … data-ks-bind="name" … data-ks-action="add-to-cart" … </article>
+ *   <p data-ks-empty data-ks="emptyText">No products yet.</p>
+ * </div>
+ * Item templates are filled with live data, so their sample text needn't be bound.
+ */
+function compileCollection(el: Element, attrs: Record<string, string>, scope: Scope, ctx: Ctx) {
+  const kind = attrs['data-ks-collection'].trim() as CollectionKind;
+  if (!(COLLECTION_KINDS as readonly string[]).includes(kind)) {
+    ctx.issues.push({
+      level: 'error',
+      rule: 'collection',
+      message: `Unknown data-ks-collection "${kind}". Available: ${COLLECTION_KINDS.join(', ')}.`,
+      snippet: snippetOf(ctx.$, el),
+    });
+    return;
+  }
+  const items = el.children.filter((c): c is Element => c.type === 'tag' && 'data-ks-item' in ((c as Element).attribs || {}));
+  if (!items.length) {
+    ctx.issues.push({
+      level: 'error',
+      rule: 'collection-template',
+      message: `Collection "${kind}" needs a direct child marked data-ks-item to use as the item template.`,
+      snippet: snippetOf(ctx.$, el),
+    });
+  }
+  const known = COLLECTION_FIELDS[kind];
+  for (const item of items) {
+    ctx.$(item).find('[data-ks-bind],[data-ks-bind-bg],[data-ks-if]').addBack('[data-ks-bind],[data-ks-bind-bg],[data-ks-if]').each((_, node) => {
+      const a = (node as Element).attribs || {};
+      for (const attr of ['data-ks-bind', 'data-ks-bind-bg', 'data-ks-if']) {
+        const name = a[attr]?.replace(/^!/, '');
+        if (name && !(name in known)) {
+          ctx.issues.push({
+            level: 'error',
+            rule: 'collection-field',
+            message: `"${name}" is not a ${kind} field. Available: ${Object.keys(known).join(', ')}.`,
+            snippet: snippetOf(ctx.$, node as Element),
+          });
+        }
+      }
+    });
+    ctx.$(item).find('[data-ks]').each((_, node) => {
+      ctx.issues.push({
+        level: 'error',
+        rule: 'collection-field',
+        message: 'Inside a collection item, use data-ks-bind (live data), not data-ks (owner content).',
+        snippet: snippetOf(ctx.$, node as Element),
+      });
+    });
+    checkSecurity(item, item.tagName.toLowerCase(), item.attribs || {}, ctx);
+  }
+  if (attrs['data-ks-limit'] && !(Number(attrs['data-ks-limit']) > 0)) {
+    ctx.issues.push({ level: 'error', rule: 'collection', message: 'data-ks-limit must be a positive number.', snippet: snippetOf(ctx.$, el) });
+  }
+  // Everything else in the container (headings, the empty message) is owner content.
+  for (const child of el.children) {
+    if (items.includes(child as Element)) continue;
+    walk(child, scope, ctx, false);
+  }
 }
 
 function readHints(attrs: Record<string, string>, id: string): Partial<FieldSchema> {
@@ -306,6 +385,7 @@ function readHints(attrs: Record<string, string>, id: string): Partial<FieldSche
   if (Number.isFinite(minItems) && minItems >= 0 && attrs['data-ks-min']) hints.minItems = minItems;
   if (Number.isFinite(maxItems) && maxItems > 0) hints.maxItems = maxItems;
   if ('data-ks-optional' in attrs) hints.optional = true;
+  if (attrs['data-ks-schema'] && attrs['data-ks-schema'] in SCHEMA_HINTS) hints.schema = attrs['data-ks-schema'] as FieldSchema['schema'];
   return hints;
 }
 

@@ -30,6 +30,8 @@
     '[data-ks-g]:hover{outline:2px dashed rgba(124,58,237,.9)!important;outline-offset:3px;cursor:pointer}',
     '[data-ks-editing]{outline:2px solid #2563eb!important;outline-offset:3px;cursor:text!important;background:rgba(37,99,235,.06)}',
     '[data-ks-instance][data-ks-hidden]>*{opacity:.35!important}',
+    '[data-ks-c]>[data-ks-sample]{opacity:.5;outline:1px dashed #94a3b8;outline-offset:2px}',
+    '[data-ks-c]>*:not([data-ks-f]){cursor:help}',
     '.ks-sel>*{box-shadow:inset 0 0 0 2px rgba(37,99,235,.55)}',
     '#ks-item-bar{position:fixed;z-index:2147483647;display:none;gap:2px;padding:3px;background:#0f172a;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.25);font:600 12px/1 system-ui,sans-serif}',
     '#ks-item-bar button{all:unset;color:#fff;padding:6px 8px;border-radius:5px;cursor:pointer}',
@@ -137,6 +139,12 @@
     if (global && (!field || global.contains(field) === false)) {
       e.preventDefault();
       post({ type: 'global', binding: global.getAttribute('data-ks-g') });
+      return;
+    }
+    var collection = e.target.closest ? e.target.closest('[data-ks-c]') : null;
+    if (collection && (!field || !collection.contains(field) || field === collection)) {
+      e.preventDefault();
+      post({ type: 'collection', kind: collection.getAttribute('data-ks-c'), sample: !!e.target.closest('[data-ks-sample]') });
       return;
     }
     if (field) {

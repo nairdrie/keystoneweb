@@ -25,8 +25,10 @@ import {
   logActivity,
   maybeSnapshot,
   restoreBundle,
+  readContentRow,
   saveLayout,
   saveTheme,
+  StaleWriteError,
   writeContentRow,
   type Db,
 } from './store';
@@ -83,6 +85,101 @@ function findPage(bundle: SiteBundle, ref: string): PageRecord {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Stale-write protection
+//
+// Every write is a compare-and-swap against the version that was read. When
+// the caller passes the version it saw (expected_version / expected_rev) and
+// something changed since, the write is rejected with 409 so the caller can
+// reload. Without one, an internal race simply retries on fresh data.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const MAX_ATTEMPTS = 4;
+
+function staleError(what: string, details: Record<string, unknown>) {
+  return new OpError(`${what} was changed by someone else since you loaded it. Reload and try again.`, 409, { reason: 'stale', ...details });
+}
+
+/** Read-modify-write a page's section list with stale-write protection. */
+async function mutateLayout(
+  ctx: OpsContext,
+  pageId: string,
+  mutate: (instances: SectionInstance[]) => SectionInstance[] | Promise<SectionInstance[]>,
+  expectedVersion?: number,
+): Promise<{ instances: SectionInstance[]; version: number }> {
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const { data } = await ctx.db.from('v2_page_layouts').select('instances, version').eq('page_id', pageId).maybeSingle();
+    const current = data ? Number(data.version) || 1 : 0;
+    if (expectedVersion !== undefined && expectedVersion !== null && Number(expectedVersion) !== current) {
+      throw staleError('This page', { currentVersion: current });
+    }
+    const instances = await mutate(Array.isArray(data?.instances) ? [...(data!.instances as SectionInstance[])] : []);
+    try {
+      const version = await saveLayout(ctx.db, ctx.siteId, pageId, instances, current);
+      return { instances, version };
+    } catch (e) {
+      if (!(e instanceof StaleWriteError)) throw e;
+      if (expectedVersion !== undefined && expectedVersion !== null) throw staleError('This page', {});
+    }
+  }
+  throw new OpError('This page is being changed by someone else right now. Try again.', 409, { reason: 'busy' });
+}
+
+/** Patch the theme with stale-write protection (patch may be computed from the fresh row). */
+async function mutateTheme(
+  ctx: OpsContext,
+  patch: (row: Record<string, unknown>) => Record<string, unknown>,
+  expectedVersion?: number,
+): Promise<number> {
+  await ensureTheme(ctx.db, ctx.siteId);
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const { data } = await ctx.db.from('v2_themes').select('*').eq('site_id', ctx.siteId).maybeSingle();
+    const current = Number(data?.version) || 1;
+    if (expectedVersion !== undefined && expectedVersion !== null && Number(expectedVersion) !== current) {
+      throw staleError('The theme', { currentVersion: current });
+    }
+    try {
+      return await saveTheme(ctx.db, ctx.siteId, patch(data || {}), ctx.actor, current);
+    } catch (e) {
+      if (!(e instanceof StaleWriteError)) throw e;
+      if (expectedVersion !== undefined && expectedVersion !== null) throw staleError('The theme', {});
+    }
+  }
+  throw new OpError('The theme is being changed by someone else right now. Try again.', 409, { reason: 'busy' });
+}
+
+/**
+ * Read-modify-write one content field. `apply` returns the new value (and
+ * owner flag), or null to skip writing. `expectedRev` (0 = no stored value)
+ * rejects the write if the field changed since the caller read it.
+ */
+async function mutateField(
+  ctx: OpsContext,
+  instance: string,
+  field: string,
+  fallback: unknown,
+  apply: (current: unknown, ownerEdited: boolean) => { value: unknown; ownerEdited: boolean } | null,
+  expectedRev?: number | null,
+): Promise<{ rev: number; value: unknown } | null> {
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const row = await readContentRow(ctx.db, ctx.siteId, instance, field);
+    const currentRev = row ? row.rev : 0;
+    if (expectedRev !== undefined && expectedRev !== null && Number(expectedRev) !== currentRev) {
+      throw staleError('This field', { currentRev, instance, field });
+    }
+    const next = apply(row ? structuredClone(row.value) : structuredClone(fallback), row?.ownerEdited ?? false);
+    if (!next) return null;
+    try {
+      const rev = await writeContentRow(ctx.db, ctx.siteId, instance, field, next.value, next.ownerEdited, ctx.actor, row ? row.rev : null);
+      return { rev, value: next.value };
+    } catch (e) {
+      if (!(e instanceof StaleWriteError)) throw e;
+      if (expectedRev !== undefined && expectedRev !== null) throw staleError('This field', { instance, field });
+    }
+  }
+  throw new OpError('This field is being changed by someone else right now. Try again.', 409, { reason: 'busy' });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Site summary
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -120,6 +217,8 @@ export async function opGetSite(ctx: OpsContext, opts: { includeCode?: boolean }
       fonts: bundle.theme.fonts,
       header: bundle.theme.header_section,
       footer: bundle.theme.footer_section,
+      platform: bundle.theme.platform || {},
+      version: bundle.theme.version,
       ...(opts.includeCode ? { globalCss: bundle.theme.global_css, globalJs: bundle.theme.global_js } : {
         globalCssBytes: bundle.theme.global_css.length,
         globalJsBytes: bundle.theme.global_js.length,
@@ -128,6 +227,7 @@ export async function opGetSite(ctx: OpsContext, opts: { includeCode?: boolean }
     sections: Object.values(bundle.sections).map((s) => ({
       key: s.key,
       name: s.name,
+      version: s.version,
       fields: summarizeFields(schemaOf(bundle, s.key).fields),
       ...(opts.includeCode ? { html: s.html, css: s.css, js: s.js } : {}),
     })),
@@ -140,6 +240,7 @@ export async function opGetSite(ctx: OpsContext, opts: { includeCode?: boolean }
       navOrder: p.nav_order,
       seo: p.seo,
       sections: p.instances,
+      layoutVersion: p.layoutVersion ?? 0,
     })),
     ownerEditedFields: bundle.ownerEdited,
   };
@@ -150,6 +251,9 @@ export async function opGetSite(ctx: OpsContext, opts: { includeCode?: boolean }
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface ThemeInput {
+  expected_version?: number;
+  /** which tokens Keystone's own flows use: { primary, secondary, accent } → token name */
+  platform?: Record<string, string>;
   tokens?: ThemeToken[];
   fonts?: Array<{ family: string; weights?: string }>;
   global_css?: string;
@@ -198,15 +302,27 @@ export async function opSetTheme(ctx: OpsContext, input: ThemeInput) {
     if (Buffer.byteLength(js, 'utf8') > BUDGETS.globalJsBytes) throw new OpError(`Global JS is over ${BUDGETS.globalJsBytes / 1000}KB`);
     patch.global_js = js;
   }
+  if (input.platform !== undefined) {
+    const platform: Record<string, string> = {};
+    for (const role of ['primary', 'secondary', 'accent']) {
+      const name = input.platform?.[role];
+      if (name === undefined || name === null || name === '') continue;
+      if (!TOKEN_NAME_RE.test(String(name).replace(/^--/, ''))) throw new OpError(`platform.${role} must be a token name`);
+      platform[role] = String(name).replace(/^--/, '');
+    }
+    patch.platform = platform;
+  }
   if (!Object.keys(patch).length) throw new OpError('Nothing to change');
 
   await maybeSnapshot(ctx.db, ctx.siteId, ctx.actor, 'theme change');
-  await saveTheme(ctx.db, ctx.siteId, patch, ctx.actor);
+  const version = await mutateTheme(ctx, () => patch, input.expected_version);
   await logActivity(ctx.db, ctx.siteId, ctx.actor, 'set_theme', { keys: Object.keys(patch) });
-  return { ok: true, changed: Object.keys(patch) };
+  return { ok: true, changed: Object.keys(patch), version };
 }
 
 export interface SectionInput {
+  /** reject the write if the section changed since this version was read (0 = must be new) */
+  expected_version?: number;
   key: string;
   name?: string;
   html: string;
@@ -236,6 +352,11 @@ export async function opPutSection(ctx: OpsContext, input: SectionInput) {
     .eq('key', key)
     .maybeSingle();
 
+  const currentVersion = existing ? Number(existing.version) || 1 : 0;
+  if (input.expected_version !== undefined && input.expected_version !== null && Number(input.expected_version) !== currentVersion) {
+    throw staleError(`Section "${key}"`, { currentVersion });
+  }
+
   await maybeSnapshot(ctx.db, ctx.siteId, ctx.actor, `section ${key}`);
   const row = {
     site_id: ctx.siteId,
@@ -249,8 +370,21 @@ export async function opPutSection(ctx: OpsContext, input: SectionInput) {
     updated_by: actorLabel(ctx.actor),
     updated_at: new Date().toISOString(),
   };
-  const { error } = await ctx.db.from('v2_sections').upsert(row, { onConflict: 'site_id,key' });
-  if (error) throw new OpError(`Failed to save section: ${error.message}`, 500);
+  if (existing) {
+    const { data: updated, error } = await ctx.db
+      .from('v2_sections')
+      .update(row)
+      .eq('site_id', ctx.siteId)
+      .eq('key', key)
+      .eq('version', currentVersion)
+      .select('version');
+    if (error) throw new OpError(`Failed to save section: ${error.message}`, 500);
+    if (!updated?.length) throw staleError(`Section "${key}"`, {});
+  } else {
+    const { error } = await ctx.db.from('v2_sections').insert(row);
+    if (error?.code === '23505') throw staleError(`Section "${key}"`, {});
+    if (error) throw new OpError(`Failed to save section: ${error.message}`, 500);
+  }
 
   // Report fields that disappeared or changed type — stored content for them is no longer shown.
   const before = new Map(((existing?.schema as CompiledSection | undefined)?.fields || []).map((f) => [f.id, f.type]));
@@ -282,14 +416,14 @@ export async function opDeleteSection(ctx: OpsContext, key: string, force = fals
   await maybeSnapshot(ctx.db, ctx.siteId, ctx.actor, `delete section ${key}`);
   for (const page of bundle.pages) {
     if (page.instances.some((i) => i.section === key)) {
-      await saveLayout(ctx.db, ctx.siteId, page.id, page.instances.filter((i) => i.section !== key));
+      await mutateLayout(ctx, page.id, (instances) => instances.filter((i) => i.section !== key));
     }
   }
   if (inLayout) {
-    await saveTheme(ctx.db, ctx.siteId, {
-      ...(bundle.theme.header_section === key ? { header_section: null } : {}),
-      ...(bundle.theme.footer_section === key ? { footer_section: null } : {}),
-    }, ctx.actor);
+    await mutateTheme(ctx, (row) => ({
+      ...(row.header_section === key ? { header_section: null } : {}),
+      ...(row.footer_section === key ? { footer_section: null } : {}),
+    }));
   }
   await ctx.db.from('v2_sections').delete().eq('site_id', ctx.siteId).eq('key', key);
   await logActivity(ctx.db, ctx.siteId, ctx.actor, 'delete_section', { key });
@@ -307,7 +441,7 @@ export async function opSetLayout(ctx: OpsContext, input: { header?: string | nu
   }
   if (Object.keys(patch).length) {
     await maybeSnapshot(ctx.db, ctx.siteId, ctx.actor, 'layout');
-    await saveTheme(ctx.db, ctx.siteId, patch, ctx.actor);
+    await mutateTheme(ctx, () => patch);
   }
   const contentResults = [];
   if (input.header_content) contentResults.push(...(await opSetContent(ctx, Object.entries(input.header_content).map(([path, value]) => ({ instance: GLOBAL_INSTANCE_HEADER, path, value })))).results);
@@ -328,6 +462,8 @@ export interface PageInput {
   nav_order?: number;
   seo?: { title?: string; description?: string; ogImage?: string };
   sections?: Array<{ id?: string; section: string; hidden?: boolean; content?: Record<string, unknown> }>;
+  /** reject replacing the section list if the page layout changed since this version was read */
+  expected_version?: number;
 }
 
 export async function opPutPage(ctx: OpsContext, input: PageInput, opts: { force?: boolean } = {}) {
@@ -382,7 +518,11 @@ export async function opPutPage(ctx: OpsContext, input: PageInput, opts: { force
       seen.add(id);
       return { id, section: s.section, ...(s.hidden ? { hidden: true } : {}) };
     });
-    await saveLayout(ctx.db, ctx.siteId, page.id, instances);
+    if (input.expected_version !== undefined && input.expected_version !== null) {
+      await mutateLayout(ctx, page.id, () => instances, input.expected_version);
+    } else {
+      await saveLayout(ctx.db, ctx.siteId, page.id, instances); // a full replacement: last write wins
+    }
     page.instances = instances;
 
     const changes = input.sections.flatMap((s, index) =>
@@ -439,47 +579,50 @@ export async function opDeletePage(ctx: OpsContext, ref: string) {
 /** Owner-editor section actions on a page. */
 export async function opPageSections(
   ctx: OpsContext,
-  input: { page: string; action: 'add' | 'move' | 'duplicate' | 'remove' | 'hide' | 'show'; instance?: string; section?: string; index?: number; to?: number },
+  input: { page: string; action: 'add' | 'move' | 'duplicate' | 'remove' | 'hide' | 'show'; instance?: string; section?: string; index?: number; to?: number; expected_version?: number },
 ) {
   const bundle = await bundleOrThrow(ctx);
   const page = findPage(bundle, input.page);
-  const instances = [...page.instances];
-  const at = input.instance ? instances.findIndex((i) => i.id === input.instance) : -1;
-  if (input.action !== 'add' && at === -1) throw new OpError('Section not found on this page', 404);
+  if (input.action === 'add' && (!input.section || !bundle.sections[input.section])) throw new OpError('Choose a section design to add', 404);
 
   await maybeSnapshot(ctx.db, ctx.siteId, ctx.actor, `${input.action} section`);
-  let created: string | undefined;
-  switch (input.action) {
-    case 'add': {
-      if (!input.section || !bundle.sections[input.section]) throw new OpError('Choose a section design to add', 404);
-      created = newInstanceId();
-      const index = input.index === undefined ? instances.length : Math.max(0, Math.min(instances.length, input.index));
-      instances.splice(index, 0, { id: created, section: input.section });
-      break;
+  const created = input.action === 'add' || input.action === 'duplicate' ? newInstanceId() : undefined;
+  let copiedFrom: string | null = null;
+
+  const result = await mutateLayout(ctx, page.id, (current) => {
+    const instances = [...current];
+    const at = input.instance ? instances.findIndex((i) => i.id === input.instance) : -1;
+    if (input.action !== 'add' && at === -1) throw new OpError('Section not found on this page', 404);
+    switch (input.action) {
+      case 'add': {
+        const index = input.index === undefined ? instances.length : Math.max(0, Math.min(instances.length, input.index));
+        instances.splice(index, 0, { id: created!, section: input.section! });
+        break;
+      }
+      case 'move': {
+        const to = Math.max(0, Math.min(instances.length - 1, Number(input.to)));
+        const [moved] = instances.splice(at, 1);
+        instances.splice(to, 0, moved);
+        break;
+      }
+      case 'duplicate':
+        instances.splice(at + 1, 0, { id: created!, section: instances[at].section });
+        copiedFrom = instances[at].id;
+        break;
+      case 'remove':
+        instances.splice(at, 1);
+        break;
+      case 'hide':
+      case 'show':
+        instances[at] = { ...instances[at], hidden: input.action === 'hide' };
+        break;
     }
-    case 'move': {
-      const to = Math.max(0, Math.min(instances.length - 1, Number(input.to)));
-      const [moved] = instances.splice(at, 1);
-      instances.splice(to, 0, moved);
-      break;
-    }
-    case 'duplicate': {
-      created = newInstanceId();
-      instances.splice(at + 1, 0, { id: created, section: instances[at].section });
-      await copyInstanceContent(ctx.db, ctx.siteId, instances[at].id, created, ctx.actor);
-      break;
-    }
-    case 'remove':
-      instances.splice(at, 1);
-      break;
-    case 'hide':
-    case 'show':
-      instances[at] = { ...instances[at], hidden: input.action === 'hide' };
-      break;
-  }
-  await saveLayout(ctx.db, ctx.siteId, page.id, instances);
+    return instances;
+  }, input.expected_version);
+
+  if (copiedFrom && created) await copyInstanceContent(ctx.db, ctx.siteId, copiedFrom, created, ctx.actor);
   await logActivity(ctx.db, ctx.siteId, ctx.actor, `section_${input.action}`, { page: page.slug, instance: input.instance || created });
-  return { ok: true, instances, created };
+  return { ok: true, instances: result.instances, layoutVersion: result.version, created };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -490,78 +633,105 @@ export interface ContentChange {
   instance: string;
   path: string;
   value: unknown;
+  /** the field revision the caller read (0 = template default); stale → rejected */
+  expected_rev?: number;
 }
 
 export interface ContentResult {
   instance: string;
   path: string;
-  status: 'saved' | 'skipped_owner_edit' | 'error';
+  status: 'saved' | 'skipped_owner_edit' | 'conflict' | 'error';
   message?: string;
+  rev?: number;
 }
 
 export async function opSetContent(ctx: OpsContext, changes: ContentChange[], opts: { force?: boolean; skipSnapshot?: boolean } = {}) {
   if (!Array.isArray(changes) || !changes.length) throw new OpError('No content changes given');
   if (changes.length > 300) throw new OpError('Too many changes in one call (max 300)');
   const bundle = await bundleOrThrow(ctx);
-  const owner = new Set(bundle.ownerEdited);
   if (!opts.skipSnapshot) await maybeSnapshot(ctx.db, ctx.siteId, ctx.actor, 'content edit');
 
   // Group by stored field so several paths into one list become one write.
-  const pending = new Map<string, { instance: string; field: string; value: unknown; fields: FieldSchema[] }>();
-  const results: ContentResult[] = [];
+  const groups = new Map<string, { instance: string; field: string; schema: CompiledSection; items: Array<{ change: ContentChange; rest: string[]; index: number }> }>();
+  const results: ContentResult[] = changes.map((c) => ({ instance: c.instance, path: c.path, status: 'saved' as const }));
 
-  for (const change of changes) {
+  changes.forEach((change, index) => {
     try {
       const where = findInstance(bundle, change.instance);
       if (!where) throw new ContentError(`Section instance "${change.instance}" not found`);
       const schema = schemaOf(bundle, where.section);
       const { field, rest } = splitPath(change.path);
+      if (!schema.fields.some((f) => f.id === field)) throw new ContentError(`Unknown field "${field}"`);
       const key = `${change.instance}/${field}`;
-      if (ctx.actor.type !== 'owner' && owner.has(key) && !opts.force) {
-        results.push({ instance: change.instance, path: change.path, status: 'skipped_owner_edit', message: 'The owner edited this field. Only overwrite it if the human asked you to (pass force: true).' });
-        continue;
-      }
-      const base = pending.get(key)?.value ?? bundle.content[change.instance]?.[field] ?? schema.defaults[field];
-      const next = applyFieldChange(schema.fields, structuredClone(base), field, rest, change.value);
-      pending.set(key, { instance: change.instance, field, value: next, fields: schema.fields });
-      results.push({ instance: change.instance, path: change.path, status: 'saved' });
+      if (!groups.has(key)) groups.set(key, { instance: change.instance, field, schema, items: [] });
+      groups.get(key)!.items.push({ change, rest, index });
     } catch (e) {
-      results.push({ instance: change.instance, path: change.path, status: 'error', message: (e as Error).message });
+      results[index] = { instance: change.instance, path: change.path, status: 'error', message: (e as Error).message };
     }
-  }
+  });
 
-  for (const [key, p] of pending) {
-    const ownerEdited = ctx.actor.type === 'owner' ? true : opts.force ? false : owner.has(key);
-    await writeContentRow(ctx.db, ctx.siteId, p.instance, p.field, p.value, ownerEdited, ctx.actor);
+  let saved = 0;
+  for (const [key, group] of groups) {
+    const expectedRev = group.items.find((i) => i.change.expected_rev !== undefined)?.change.expected_rev;
+    try {
+      const outcome = await mutateField(ctx, group.instance, group.field, group.schema.defaults[group.field], (current, ownerEdited) => {
+        if (ctx.actor.type !== 'owner' && ownerEdited && !opts.force) {
+          for (const item of group.items) {
+            results[item.index] = { instance: group.instance, path: item.change.path, status: 'skipped_owner_edit', message: 'The owner edited this field. Only overwrite it if the human asked you to (pass force: true).' };
+          }
+          return null;
+        }
+        let value = current;
+        let applied = 0;
+        for (const item of group.items) {
+          try {
+            value = applyFieldChange(group.schema.fields, value, group.field, item.rest, item.change.value);
+            results[item.index] = { instance: group.instance, path: item.change.path, status: 'saved' };
+            applied++;
+          } catch (e) {
+            results[item.index] = { instance: group.instance, path: item.change.path, status: 'error', message: (e as Error).message };
+          }
+        }
+        if (!applied) return null;
+        return { value, ownerEdited: ctx.actor.type === 'owner' ? true : opts.force ? false : ownerEdited };
+      }, expectedRev);
+      if (outcome) {
+        saved++;
+        for (const item of group.items) if (results[item.index].status === 'saved') results[item.index].rev = outcome.rev;
+      }
+    } catch (e) {
+      const message = (e as Error).message;
+      const status = e instanceof OpError && e.status === 409 ? 'conflict' : 'error';
+      for (const item of group.items) results[item.index] = { instance: group.instance, path: item.change.path, status, message };
+    }
+    void key;
   }
-  if (pending.size) await logActivity(ctx.db, ctx.siteId, ctx.actor, 'set_content', { fields: [...pending.keys()].slice(0, 50) });
+  if (saved) await logActivity(ctx.db, ctx.siteId, ctx.actor, 'set_content', { fields: [...groups.keys()].slice(0, 50) });
   return { results };
 }
 
-export async function opListOp(ctx: OpsContext, input: { instance: string; path: string } & ListOp) {
+export async function opListOp(ctx: OpsContext, input: { instance: string; path: string; expected_rev?: number } & ListOp) {
   const bundle = await bundleOrThrow(ctx);
   const where = findInstance(bundle, input.instance);
   if (!where) throw new OpError('Section instance not found', 404);
   const schema = schemaOf(bundle, where.section);
   const { field, rest } = splitPath(input.path);
-  const key = `${input.instance}/${field}`;
-  if (ctx.actor.type !== 'owner' && bundle.ownerEdited.includes(key)) {
-    throw new OpError('The owner edited this list; agents may not restructure it without being asked.', 409);
-  }
   await maybeSnapshot(ctx.db, ctx.siteId, ctx.actor, 'list edit');
-  const base = bundle.content[input.instance]?.[field] ?? schema.defaults[field];
   const template = defaultListItem(schema.defaults as Record<string, unknown>, field, rest);
-  const { instance: _i, path: _p, ...operation } = input;
+  const { instance: _i, path: _p, expected_rev: expectedRev, ...operation } = input;
   void _i; void _p;
-  let next: unknown;
-  try {
-    next = applyListOp(schema.fields, structuredClone(base), field, rest, operation as ListOp, template);
-  } catch (e) {
-    throw new OpError((e as Error).message);
-  }
-  await writeContentRow(ctx.db, ctx.siteId, input.instance, field, next, ctx.actor.type === 'owner' || bundle.ownerEdited.includes(key), ctx.actor);
+  const outcome = await mutateField(ctx, input.instance, field, schema.defaults[field], (current, ownerEdited) => {
+    if (ctx.actor.type !== 'owner' && ownerEdited) {
+      throw new OpError('The owner edited this list; agents may not restructure it without being asked.', 409, { reason: 'owner_edited' });
+    }
+    try {
+      return { value: applyListOp(schema.fields, current, field, rest, operation as ListOp, template), ownerEdited: ctx.actor.type === 'owner' || ownerEdited };
+    } catch (e) {
+      throw new OpError((e as Error).message);
+    }
+  }, expectedRev);
   await logActivity(ctx.db, ctx.siteId, ctx.actor, `list_${operation.op}`, { instance: input.instance, path: input.path });
-  return { ok: true, value: next };
+  return { ok: true, value: outcome?.value, rev: outcome?.rev };
 }
 
 export async function opGetContent(ctx: OpsContext, opts: { page?: string; instance?: string } = {}) {
@@ -573,6 +743,7 @@ export async function opGetContent(ctx: OpsContext, opts: { page?: string; insta
       const stored = bundle.content[instanceId]?.[f.id];
       values[f.id] = {
         value: stored ?? schema.defaults[f.id],
+        rev: bundle.contentRev?.[`${instanceId}/${f.id}`] ?? 0,
         source: stored === undefined ? 'template default' : bundle.ownerEdited.includes(`${instanceId}/${f.id}`) ? 'owner' : 'stored',
       };
     }
@@ -620,7 +791,15 @@ export async function opSetOwnerTokens(ctx: OpsContext, overrides: Record<string
     next[name] = clean;
   }
   await maybeSnapshot(ctx.db, ctx.siteId, ctx.actor, 'brand settings');
-  await saveTheme(ctx.db, ctx.siteId, { owner_overrides: next }, ctx.actor);
+  // Re-apply onto the freshest overrides so concurrent brand edits don't clobber each other.
+  await mutateTheme(ctx, (row) => {
+    const merged = { ...((row.owner_overrides as Record<string, string>) || {}) };
+    for (const [name, value] of Object.entries(overrides || {})) {
+      if (value === null || value === '') delete merged[name];
+      else merged[name] = next[name];
+    }
+    return { owner_overrides: merged };
+  });
   await logActivity(ctx.db, ctx.siteId, ctx.actor, 'brand', { tokens: Object.keys(overrides || {}) });
   return { ok: true, ownerOverrides: next };
 }

@@ -20,6 +20,7 @@ export interface FieldHints {
   minItems?: number;     // lists
   maxItems?: number;     // lists
   optional?: boolean;    // owner may hide this element
+  schema?: 'reviews' | 'faq'; // lists: emit structured data for search engines
 }
 
 export interface FieldSchema extends FieldHints {
@@ -72,6 +73,8 @@ export interface ThemeRecord {
   global_js: string;
   header_section: string | null;
   footer_section: string | null;
+  /** Theme tokens Keystone's own flows (cart, booking…) use: { primary, secondary, accent } → token name */
+  platform?: Record<string, string>;
   version?: number;
 }
 
@@ -100,6 +103,8 @@ export interface PageRecord {
   nav_order: number;
   seo: { title?: string; description?: string; ogImage?: string };
   instances: SectionInstance[];
+  /** Layout row version (0 = none yet); used to reject stale writes. */
+  layoutVersion?: number;
 }
 
 export interface SiteMeta {
@@ -122,6 +127,8 @@ export interface SiteBundle {
   content: Record<string, Record<string, unknown>>;
   /** fields the owner has edited: "instanceId/fieldId" */
   ownerEdited: string[];
+  /** stored revision per field: "instanceId/fieldId" → rev (absent = template default) */
+  contentRev?: Record<string, number>;
 }
 
 export type RenderMode = 'published' | 'edit' | 'preview';

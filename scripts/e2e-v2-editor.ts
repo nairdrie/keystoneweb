@@ -162,6 +162,8 @@ async function main() {
   db.table('api_tokens').push({ id: 'tok-e2e', name: 'E2E agent', user_id: OWNER, token_hash: hashToken(TOKEN), scopes: ['sites:read', 'sites:write', 'sites:publish'], revoked_at: null, expires_at: null, last_used_at: null });
   const auth = fake.addSession({ id: OWNER, email: 'owner@example.com' });
 
+  // Start from a fresh dev cache: a stale Turbopack cache can stall route compiles.
+  fs.rmSync(path.resolve(__dirname, '../.next/dev'), { recursive: true, force: true });
   const next: ChildProcess = spawn('npx', ['next', 'dev', '-p', String(NEXT_PORT)], {
     cwd: path.resolve(__dirname, '..'),
     env: {
@@ -398,6 +400,110 @@ async function main() {
       assert.equal(state, 'success');
       assert.deepEqual(errors, []);
       await visitor.close();
+    });
+
+    let productId = '';
+    let serviceId = '';
+    await step('agent adds services, products and a shop page; screenshot tool shows the agent its work', async () => {
+      const svc = await tool('upsert_services', { site_id: siteId, services: [{ name: 'Roof inspection', description: 'Full inspection with photos.', duration_minutes: 60, price_cents: 0, featured: true }] });
+      serviceId = svc.services[0].id;
+      const prod = await tool('upsert_products', { site_id: siteId, products: [{ name: 'Ridge vent kit', price_cents: 4900, compare_at_cents: 6000, featured: true, description: 'Everything for a 20ft ridge.' }] });
+      productId = prod.products[0].id;
+      await tool('set_theme', { site_id: siteId, platform: { primary: 'brand', secondary: 'ink', accent: 'paper' } });
+      await tool('put_section', { site_id: siteId, key: 'shop', name: 'Shop & book', html: `<section class="shop wrap"><h2 data-ks="heading">Book or shop</h2>
+<a class="cartlink" href="/cart" data-ks-action="open-cart"><span data-ks="cartLabel">Cart</span> <span class="count" data-ks-cart-count>0</span></a>
+<ul class="svc" data-ks-collection="services"><li data-ks-item><h3 data-ks-bind="name">Service</h3><p data-ks-bind="duration">1 hr</p><a class="btn" data-ks-action="book" href="/book">Book now</a></li></ul>
+<div class="prods" data-ks-collection="products"><article data-ks-item><h3 data-ks-bind="name">Product</h3><p><s data-ks-if="on_sale" data-ks-bind="compare_price">$9</s> <b data-ks-bind="price">$5</b></p>
+<button class="btn" data-ks-action="add-to-cart">Add to cart</button> <a data-ks-bind="url" href="#">Details</a></article></div></section>
+<style>.shop{padding:3rem 0}.svc,.prods{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem;list-style:none;padding:0}
+.svc li,.prods article{background:#fff;border-radius:20px;padding:1.5rem}</style>` });
+      await tool('put_page', { site_id: siteId, slug: 'shop', title: 'Shop', seo: { description: 'Shop and book' }, sections: [{ section: 'shop', id: 'shop-main' }] });
+
+      const res = await mcp('tools/call', { name: 'screenshot', arguments: { site_id: siteId, path: '/shop', viewports: ['desktop', 'mobile'] } });
+      assert.ok(!res.result.isError, JSON.stringify(res.result.content[0]).slice(0, 400));
+      const images = res.result.content.filter((c: { type: string }) => c.type === 'image');
+      assert.equal(images.length, 2);
+      assert.equal(images[0].mimeType, 'image/jpeg');
+      const report = JSON.parse(res.result.content[0].text);
+      assert.ok(Array.isArray(report.problems));
+      if (SHOTS) {
+        fs.mkdirSync(SHOTS, { recursive: true });
+        fs.writeFileSync(path.join(SHOTS, '6-agent-screenshot-desktop.jpg'), Buffer.from(images[0].data, 'base64'));
+        fs.writeFileSync(path.join(SHOTS, '7-agent-screenshot-mobile.jpg'), Buffer.from(images[1].data, 'base64'));
+      }
+      // A deliberately broken section: the screenshot report catches sideways scrolling.
+      await tool('put_section', { site_id: siteId, key: 'wide', name: 'Too wide', html: '<section><div style="width:1400px;height:20px" data-ks-static></div><p data-ks="t">Wide</p></section>' });
+      await tool('put_page', { site_id: siteId, slug: 'wide-test', seo: { description: 'x' }, sections: [{ section: 'wide' }] });
+      const wide = await mcp('tools/call', { name: 'screenshot', arguments: { site_id: siteId, path: '/wide-test', viewports: ['mobile'], full_page: false } });
+      const wideReport = JSON.parse(wide.result.content[0].text);
+      assert.ok(wideReport.problems.some((p: string) => /scrolls sideways/.test(p)), JSON.stringify(wideReport.problems));
+      await tool('delete_page', { site_id: siteId, slug: 'wide-test' });
+      await tool('delete_section', { site_id: siteId, key: 'wide' });
+
+      const pub = await page.evaluate(async (id) => {
+        const r = await fetch('/api/sites/publish', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ siteId: id, publishedDomain: 'northline.kswd.ca' }) });
+        return r.status;
+      }, siteId);
+      assert.equal(pub, 200);
+    });
+
+    await step('shoppers: live products, add to cart, hosted cart in the site design, product page', async () => {
+      const shopper = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+      const v = await shopper.newPage();
+      const errors: string[] = [];
+      v.on('pageerror', (e) => errors.push(e.message));
+      await v.goto('http://northline.kswd.ca/shop', { waitUntil: 'networkidle' });
+      await v.locator('h3', { hasText: 'Roof inspection' }).waitFor();
+      await v.locator('s', { hasText: '$60.00' }).waitFor();
+      await v.getByRole('button', { name: 'Add to cart' }).click();
+      await v.locator('#ks-toast', { hasText: 'Added to cart' }).waitFor();
+      await v.locator('[data-ks-cart-count]', { hasText: '1' }).waitFor();
+      if (SHOTS) await v.screenshot({ path: path.join(SHOTS, '8-shop-live.png'), fullPage: true });
+
+      // Dev mode compiles hosted pages on first visit, so allow extra time.
+      await v.getByRole('link', { name: 'View cart' }).click({ noWaitAfter: true });
+      await v.waitForURL('**/cart', { timeout: 120_000 });
+      await v.locator('header.bar').waitFor(); // the agent's own header wraps Keystone's cart
+      await v.getByText('Ridge vent kit').first().waitFor({ timeout: 30_000 });
+      await v.waitForTimeout(1000); // let the drawer finish sliding in
+      if (SHOTS) await v.screenshot({ path: path.join(SHOTS, '9-cart-in-site-design.png') });
+
+      await v.goto(`http://northline.kswd.ca/product/${productId}`, { waitUntil: 'networkidle', timeout: 120_000 });
+      await v.getByText('Ridge vent kit').first().waitFor();
+      await v.locator('footer.foot').waitFor();
+      assert.deepEqual(errors, []);
+      await shopper.close();
+    });
+
+    await step('booking: services link to Keystone booking, pre-selected, inside the site design', async () => {
+      const visitor = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+      const v = await visitor.newPage();
+      await v.goto('http://northline.kswd.ca/shop', { waitUntil: 'networkidle' });
+      await v.getByText('Book now').click({ noWaitAfter: true });
+      await v.waitForURL(`**/book?service=${serviceId}`, { timeout: 120_000 });
+      await v.locator('header.bar').waitFor();
+      await v.getByText('Roof inspection').first().waitFor({ timeout: 30_000 });
+      // Pre-selected: the flow skips the service list and asks for a date.
+      await v.getByText(/select a date|choose a date|pick a date/i).first().waitFor({ timeout: 30_000 });
+      if (SHOTS) await v.screenshot({ path: path.join(SHOTS, '10-booking-in-site-design.png') });
+      await visitor.close();
+    });
+
+    await step('editor: an edit based on an out-of-date copy is rejected and reloaded, not silently lost', async () => {
+      await page.goto(`${BASE}/design?siteId=${siteId}`, { waitUntil: 'domcontentloaded' });
+      const frame = page.frameLocator('iframe[title="Your site"]');
+      await frame.locator('h1').waitFor({ timeout: 60_000 });
+      // The agent changes the eyebrow while the owner has the page open…
+      await tool('set_content', { site_id: siteId, changes: [{ instance: 'home-hero', path: 'eyebrow', value: 'Agent changed this' }] });
+      // …then the owner edits the same field from their stale view.
+      await frame.locator('[data-ks-f="eyebrow"]').click();
+      await page.keyboard.press('ControlOrMeta+A');
+      await page.keyboard.type('Owner text');
+      await page.keyboard.press('Enter');
+      await page.getByText(/changed by someone else/).first().waitFor();
+      await frame.locator('[data-ks-f="eyebrow"]', { hasText: 'Agent changed this' }).waitFor();
+      const row = db.table('v2_content').find((r) => r.instance_id === 'home-hero' && r.field === 'eyebrow');
+      assert.equal((row?.value as { html: string }).html, 'Agent changed this');
     });
 
     if (SHOTS) {

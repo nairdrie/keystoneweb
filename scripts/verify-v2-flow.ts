@@ -20,6 +20,7 @@ async function main() {
   const { renderPage, findPageByPath } = await import('../lib/v2/render');
   const { verifyDraftToken } = await import('../lib/v2/preview-token');
   const { duplicateSite } = await import('../lib/sites/duplicate');
+  const { fetchCollections, collectionsIn, pageSectionHtmls } = await import('../lib/v2/collections');
 
   const db = new FakeSupabase();
   const OWNER = '11111111-1111-1111-1111-111111111111';
@@ -222,6 +223,97 @@ async function main() {
     assert.match(html, /href="tel:9055550123"[^>]*>\(905\) 555-0123/);
   });
 
+  await step('stale writes are rejected; parallel writes never lose each other', async () => {
+    const owner = { db: db as never, siteId, actor: { type: 'owner' as const, label: 'owner@example.com' } };
+    const agent = { db: db as never, siteId, actor: { type: 'agent' as const, label: 'agent' } };
+
+    // Content: a client that read an old revision is rejected; the current one is accepted.
+    const content = await ops.opGetContent(owner, { instance: 'home-services' });
+    const heading = (content.content[0] as { values: Record<string, { rev: number }> }).values.heading;
+    const first = await ops.opSetContent(owner, [{ instance: 'home-services', path: 'heading', value: 'Our services', expected_rev: heading.rev }]);
+    assert.equal(first.results[0].status, 'saved');
+    const stale = await ops.opSetContent(owner, [{ instance: 'home-services', path: 'heading', value: 'Stale copy', expected_rev: heading.rev }]);
+    assert.equal(stale.results[0].status, 'conflict');
+    const fresh = await ops.opSetContent(owner, [{ instance: 'home-services', path: 'heading', value: 'What we do best', expected_rev: first.results[0].rev }]);
+    assert.equal(fresh.results[0].status, 'saved');
+
+    // Parallel edits to different items of the same list both survive.
+    await Promise.all([
+      ops.opSetContent(agent, [{ instance: 'work-grid', path: 'items.0.name', value: 'Parallel A' }]),
+      ops.opSetContent(agent, [{ instance: 'work-grid', path: 'items.1.name', value: 'Parallel B' }]),
+      ops.opListOp(agent, { instance: 'work-grid', path: 'items', op: 'add' }),
+    ]);
+    let bundle = await loadDraftBundle(db as never, siteId);
+    const items = (bundle!.content['work-grid'].items as { items: Array<{ name?: { html: string } }> }).items;
+    assert.equal(items[0].name?.html, 'Parallel A');
+    assert.equal(items[1].name?.html, 'Parallel B');
+    assert.equal(items.length, 3);
+
+    // Parallel section actions on one page both land (the earlier lost-update bug).
+    const home = bundle!.pages.find((p) => p.slug === 'home')!;
+    await Promise.all([
+      ops.opPageSections(owner, { page: home.id, action: 'hide', instance: 'home-contact' }),
+      ops.opPageSections(owner, { page: home.id, action: 'move', instance: 'home-services', to: 0 }),
+    ]);
+    bundle = await loadDraftBundle(db as never, siteId);
+    const after = bundle!.pages.find((p) => p.slug === 'home')!;
+    assert.equal(after.instances[0].id, 'home-services');
+    assert.equal(after.instances.find((i) => i.id === 'home-contact')?.hidden, true);
+    // …and a client acting on an outdated page version is told to reload.
+    await assert.rejects(ops.opPageSections(owner, { page: home.id, action: 'show', instance: 'home-contact', expected_version: home.layoutVersion }), /changed by someone else/);
+    await ops.opPageSections(owner, { page: home.id, action: 'show', instance: 'home-contact', expected_version: after.layoutVersion });
+    await ops.opPageSections(owner, { page: home.id, action: 'move', instance: 'home-services', to: 1 });
+
+    // Sections and theme: expected_version over MCP.
+    const site = await ok(tokens['owner-agent'], 'get_site', { site_id: siteId });
+    const footerVersion = site.sections.find((x: { key: string }) => x.key === 'footer').version;
+    const staleSection = await tool(tokens['owner-agent'], 'put_section', { site_id: siteId, key: 'footer', html: SAMPLE_SECTIONS.footer, expected_version: footerVersion - 1 });
+    assert.equal(staleSection.isError, true);
+    assert.equal(staleSection.data.details.reason, 'stale');
+    await ok(tokens['owner-agent'], 'put_section', { site_id: siteId, key: 'footer', html: SAMPLE_SECTIONS.footer, expected_version: footerVersion });
+    const staleTheme = await tool(tokens['owner-agent'], 'set_theme', { site_id: siteId, global_css: 'body{margin:0}', expected_version: site.theme.version - 1 });
+    assert.equal(staleTheme.isError, true);
+  });
+
+  await step('agents add services/products and design how they look; live data renders in their markup', async () => {
+    const services = await ok(tokens['owner-agent'], 'upsert_services', { site_id: siteId, services: [
+      { name: 'Roof inspection', description: 'Full inspection with photos.', duration_minutes: 60, price_cents: 0, featured: true },
+      { name: 'Leak repair', duration_minutes: 120, price_cents: 25000 },
+    ] });
+    assert.equal(services.services.length, 2);
+    assert.ok(db.table('booking_settings').some((r) => r.site_id === siteId), 'booking made bookable');
+    const products = await ok(tokens['owner-agent'], 'upsert_products', { site_id: siteId, products: [
+      { name: 'Ridge vent', price_cents: 4900, compare_at_cents: 6000, images: ['https://cdn.example.com/vent.jpg', 'javascript:alert(1)'], featured: true },
+    ] });
+    const productId = products.products[0].id;
+    assert.deepEqual(db.table('products').find((p) => p.id === productId)?.images, ['https://cdn.example.com/vent.jpg']);
+    const data = await ok(tokens['owner-agent'], 'get_business_data', { site_id: siteId });
+    assert.equal(data.services.length, 2);
+    assert.ok(data.bindableFields.products.price);
+
+    await ok(tokens['owner-agent'], 'put_section', { site_id: siteId, key: 'service-list', name: 'Services', html: `<section><h2 data-ks="heading">Book a visit</h2>
+      <ul data-ks-collection="services"><li data-ks-item><b data-ks-bind="name">Service</b> <i data-ks-bind="duration">1 hr</i> <span data-ks-if="price" data-ks-bind="price">$1</span>
+      <a data-ks-action="book" href="/book">Book</a></li></ul></section>` });
+    await ok(tokens['owner-agent'], 'put_section', { site_id: siteId, key: 'shop', name: 'Shop', html: `<section><h2 data-ks="heading">Shop</h2>
+      <div data-ks-collection="products"><article data-ks-item><h3 data-ks-bind="name">P</h3><s data-ks-if="on_sale" data-ks-bind="compare_price">x</s>
+      <b data-ks-bind="price">$1</b><button data-ks-action="add-to-cart">Add to cart</button></article></div></section>` });
+    await ok(tokens['owner-agent'], 'put_page', { site_id: siteId, slug: 'services', title: 'Services', seo: { description: 'Book us' }, sections: [{ section: 'service-list', id: 'svc' }, { section: 'shop', id: 'shop' }] });
+
+    const bundle = await loadDraftBundle(db as never, siteId);
+    const page = bundle!.pages.find((p) => p.slug === 'services')!;
+    const kinds = collectionsIn(pageSectionHtmls(bundle!, page));
+    assert.deepEqual([...kinds].sort(), ['products', 'services']);
+    const collections = await fetchCollections(db as never, siteId, kinds);
+    const html = renderPage(bundle!, page, { mode: 'published', siteUrl: 'https://northline.kswd.ca', collections }).html;
+    assert.match(html, /<b>Roof inspection<\/b> <i>1 hr<\/i>\s*<a data-ks-action="book" href="\/book\?service=/);
+    assert.match(html, /<b>Leak repair<\/b> <i>2 hr<\/i> <span>\$250.00<\/span>/);
+    assert.match(html, /<s>\$60.00<\/s>\s*<b>\$49.00<\/b>/);
+    assert.match(html, new RegExp(`data-ks-product="[^"]*${productId}`));
+    assert.match(html, /"@type":"Service"/, 'services become structured data');
+    const report = await ok(tokens['owner-agent'], 'validate', { site_id: siteId });
+    assert.equal(report.ok, true, JSON.stringify(report.errors));
+  });
+
   let releaseId = '';
   await step('publish freezes a release; later draft edits do not leak to the live site', async () => {
     const pub = await ok(tokens['owner-agent'], 'publish', { site_id: siteId, subdomain: 'northline' });
@@ -273,7 +365,7 @@ async function main() {
     const row = await loadSiteRow(db as never, newId);
     assert.equal(row?.engine, 'sections_v2');
     const bundle = await loadDraftBundle(db as never, newId);
-    assert.equal(Object.keys(bundle!.sections).length, 5);
+    assert.equal(Object.keys(bundle!.sections).length, 7);
     const home = bundle!.pages.find((p) => p.slug === 'home')!;
     assert.equal(home.instances.length, 3);
     const html = renderPage(bundle!, home, { mode: 'published' }).html;

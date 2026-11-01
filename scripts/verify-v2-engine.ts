@@ -8,6 +8,8 @@ import { renderPage, renderInstance, findPageByPath } from '../lib/v2/render';
 import { scopeCss, splitSectionSource } from '../lib/v2/css-scope';
 import { applyFieldChange, normalizeFieldValue } from '../lib/v2/content';
 import { sampleBundle, SAMPLE_SECTIONS } from './fixtures/v2-sample-site';
+import { renderChrome, platformPalette } from '../lib/v2/render';
+import { featuresIn } from '../lib/v2/collections';
 
 let passed = 0;
 function test(name: string, fn: () => void) {
@@ -185,6 +187,95 @@ test('background URLs cannot break out of the style attribute', () => {
   b.content['i-hero'] = { bg: { src: "https://x.example/a.jpg');color:red;background:url('x" } };
   const { html } = renderPage(b, findPageByPath(b, '/')!, { mode: 'published' });
   assert.match(html, /url\('https:\/\/x.example\/a.jpg%27%29;color:red;background:url%28%27x'\)/);
+});
+
+const SHOP = `<section class="shop"><h2 data-ks="heading">Shop</h2>
+<a href="/cart" data-ks-action="open-cart"><span data-ks="cartLabel">Cart</span> <span data-ks-cart-count>0</span></a>
+<div class="grid" data-ks-collection="products" data-ks-limit="2" data-ks-filter="featured">
+  <article data-ks-item><img data-ks-bind="image" src="https://x.example/s.jpg" alt=""><h3 data-ks-bind="name">Sample</h3>
+  <s data-ks-if="on_sale" data-ks-bind="compare_price">$9</s><b data-ks-bind="price">$5</b><a data-ks-bind="url" href="#">More</a>
+  <button data-ks-action="add-to-cart">Add</button></article>
+  <p data-ks-empty data-ks="empty">Coming soon</p>
+</div>
+<ul data-ks-list="reviews" data-ks-schema="reviews"><li data-ks-item><q data-ks="quote">Great work</q><cite data-ks="author">Sam</cite><span data-ks="rating">5</span></li></ul>
+<dl data-ks-list="faq" data-ks-schema="faq"><div data-ks-item><dt data-ks="question">Do you do repairs?</dt><dd data-ks="answer">Yes, all year.</dd></div></dl>
+</section>`;
+
+function shopBundle() {
+  const b = bundleWithSplitSources();
+  b.sections.shop = { key: 'shop', name: 'Shop', html: SHOP, css: '', js: '', schema: compileSection(SHOP) };
+  b.pages[0].instances = [{ id: 'i-shop', section: 'shop' }];
+  return b;
+}
+const PRODUCTS = {
+  products: [
+    { id: 'p1', name: 'Ridge vent', description: '', price: '$49.00', compare_price: '$60.00', on_sale: 'true', image: 'https://cdn.example.com/p1.jpg', url: '/product/p1', category: 'Vents', brand: '', featured: 'true', in_stock: 'true', needs_options: '' },
+    { id: 'p2', name: 'Shingle pack', description: '', price: '$89.00', compare_price: '', on_sale: '', image: '', url: '/product/p2', category: '', brand: '', featured: 'true', in_stock: 'true', needs_options: 'true' },
+    { id: 'p3', name: 'Not featured', description: '', price: '$1.00', compare_price: '', on_sale: '', image: '', url: '/product/p3', category: '', brand: '', featured: '', in_stock: 'true', needs_options: '' },
+  ],
+  productPayload: { p1: { productId: 'p1', name: 'Ridge vent', price_cents: 4900, currency: 'CAD', image: 'https://cdn.example.com/p1.jpg', needsOptions: false, url: '/product/p1' } },
+};
+
+test('collections compile: valid markup passes, bad fields and data-ks in items are errors', () => {
+  const ok = compileSection(SHOP);
+  assert.deepEqual(ok.issues.filter((i) => i.level === 'error'), [], JSON.stringify(ok.issues));
+  const reviews = ok.fields.find((f) => f.id === 'reviews');
+  assert.equal(reviews?.schema, 'reviews');
+  const bad = compileSection('<div data-ks-collection="products"><div data-ks-item><b data-ks-bind="nope">x</b><i data-ks="t">y</i></div></div><div data-ks-collection="widgets"><p data-ks-item>z</p></div>');
+  const rules = bad.issues.map((i) => i.rule);
+  assert.equal(rules.filter((r) => r === 'collection-field').length, 2);
+  assert.ok(rules.includes('collection'));
+  const badSchema = compileSection('<ul data-ks-list="r" data-ks-schema="reviews"><li data-ks-item><span data-ks="text">x</span></li></ul>');
+  assert.ok(badSchema.issues.some((i) => i.rule === 'schema-hint'));
+});
+
+test('collections render live data with filters, bindings and cart payloads', () => {
+  const b = shopBundle();
+  const { html } = renderPage(b, b.pages[0], { mode: 'published', siteUrl: 'https://x.kswd.ca', collections: PRODUCTS });
+  assert.match(html, /<h3>Ridge vent<\/h3>/);
+  assert.match(html, /<h3>Shingle pack<\/h3>/);
+  assert.doesNotMatch(html, /Not featured/, 'filter=featured');
+  assert.doesNotMatch(html, /Sample/, 'template sample replaced');
+  assert.match(html, /<s>\$60.00<\/s>/);
+  assert.equal((html.match(/<s>/g) || []).length, 1, 'data-ks-if removed compare price for non-sale item');
+  assert.match(html, /src="https:\/\/cdn.example.com\/p1.jpg" alt="Ridge vent"/);
+  assert.match(html, /href="\/product\/p2"/);
+  assert.match(html, /data-ks-product="\{&quot;productId&quot;:&quot;p1&quot;/);
+  assert.doesNotMatch(html, /Coming soon/, 'empty message removed when items exist');
+  assert.match(html, /data-ks-cart-count/, 'cart count hook kept for the runtime');
+  assert.doesNotMatch(html, /data-ks-bind/);
+});
+
+test('empty collections: published shows the empty message, drafts keep marked samples', () => {
+  const b = shopBundle();
+  const pub = renderPage(b, b.pages[0], { mode: 'published', collections: { products: [] } }).html;
+  assert.match(pub, /Coming soon/);
+  assert.doesNotMatch(pub, /Sample/);
+  const draft = renderPage(b, b.pages[0], { mode: 'edit', collections: { products: [] } }).html;
+  assert.match(draft, /data-ks-sample/);
+  assert.match(draft, /data-ks-c="products"/);
+});
+
+test('review and FAQ lists become structured data', () => {
+  const b = shopBundle();
+  const { html } = renderPage(b, b.pages[0], { mode: 'published', siteUrl: 'https://x.kswd.ca', collections: PRODUCTS });
+  assert.match(html, /"@type":"FAQPage"/);
+  assert.match(html, /Do you do repairs\?/);
+  assert.match(html, /"reviewBody":"Great work"|"Review"/);
+});
+
+test('hosted-page chrome carries the header, footer, tokens and platform colours', () => {
+  const b = shopBundle();
+  b.theme.platform = { primary: 'color-brand' };
+  b.theme.owner_overrides = { 'color-brand': '#222222' };
+  const chrome = renderChrome(b);
+  assert.match(chrome.header, /<header class="bar">/);
+  assert.match(chrome.footer, /<footer>/);
+  assert.match(chrome.head, /--color-brand:#222222/);
+  assert.equal(chrome.palette.primary, '#222222');
+  assert.equal(platformPalette({ ...b.theme, platform: {} }).primary, '#222222', 'falls back to the first colour token');
+  assert.deepEqual(featuresIn([SHOP]), { ecommerce: true, booking: false });
+  assert.deepEqual(featuresIn(['<a href="/book">Book</a>']), { ecommerce: false, booking: true });
 });
 
 console.log(`\n${passed} passed`);

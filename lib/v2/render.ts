@@ -24,6 +24,7 @@ import { compileSection } from './compile';
 import { scopeCss, sectionScopeSelector } from './css-scope';
 import { escapeHtml, safeHref, safeSrc, safeTokenValue, sanitizeInline, sanitizeRich, toPlainText } from './sanitize';
 import { SCRIPT_HOST_ALLOWLIST } from './policy';
+import type { CollectionData, CollectionItem, CollectionKind } from './collections';
 
 const STATIC_TAGS = new Set(['svg', 'select', 'option', 'textarea', 'noscript', 'template', 'canvas', 'video', 'audio', 'iframe', 'math']);
 
@@ -39,6 +40,8 @@ export interface RenderOptions {
   assetBase?: string;
   /** Release id or 'draft', used for cache busting */
   version?: string;
+  /** Live business data for data-ks-collection elements */
+  collections?: CollectionData;
 }
 
 interface GlobalValues {
@@ -94,6 +97,7 @@ interface FillCtx {
   globals: GlobalValues;
   bundle: SiteBundle;
   page: PageRecord | null;
+  collections?: CollectionData;
 }
 
 /** Field values for an instance: template defaults overlaid with stored content. */
@@ -114,11 +118,12 @@ export function renderInstance(
   instance: SectionInstance,
   page: PageRecord | null,
   mode: RenderMode,
+  collections?: CollectionData,
 ): string {
   const $ = load(section.html || '', null, false);
   const schema = ensureSchema(section);
   const values = instanceValues(section, bundle.content[instance.id]);
-  const ctx: FillCtx = { $, mode, globals: globalsFor(bundle), bundle, page };
+  const ctx: FillCtx = { $, mode, globals: globalsFor(bundle), bundle, page, collections };
 
   fillScope($.root().contents(), values, schema.fields, '', ctx);
   if (mode === 'published') stripEditorAttributes($);
@@ -143,7 +148,17 @@ function fillNode(node: AnyNode, values: Record<string, unknown>, fields: Map<st
   const tag = el.tagName.toLowerCase();
   const attrs = el.attribs || {};
 
-  if ('data-ks-static' in attrs || STATIC_TAGS.has(tag)) return;
+  if ('data-ks-static' in attrs || 'data-ks-cart-count' in attrs || STATIC_TAGS.has(tag)) return;
+
+  if ('data-ks-collection' in attrs) {
+    renderCollection($el, attrs['data-ks-collection'].trim() as CollectionKind, ctx);
+    // The container's own content (headings, empty message) is owner content.
+    $el.contents().each((_, child) => {
+      if (child.type === 'tag' && 'data-ks-item' in ((child as Element).attribs || {})) return;
+      fillNode(child, values, fields, path, ctx);
+    });
+    return;
+  }
 
   if ('data-ks-nav' in attrs) {
     renderNav($el, ctx);
@@ -277,6 +292,95 @@ function renderList($list: Cheerio<Element>, id: string, value: unknown, field: 
   }
 }
 
+function renderCollection($box: Cheerio<Element>, kind: CollectionKind, ctx: FillCtx) {
+  const $ = ctx.$;
+  const itemEls = $box.children('[data-ks-item]');
+  if (!itemEls.length) return;
+  const template = $.html(itemEls.first());
+  const $empty = $box.children('[data-ks-empty]');
+  const all = ctx.collections?.[kind];
+
+  let rows: CollectionItem[] = Array.isArray(all) ? all : [];
+  const filter = ($box.attr('data-ks-filter') || '').trim();
+  if (filter) rows = rows.filter((r) => !!r[filter.replace(/^!/, '')] !== filter.startsWith('!'));
+  const category = ($box.attr('data-ks-category') || '').trim().toLowerCase();
+  if (category) rows = rows.filter((r) => (r.category || '').toLowerCase() === category);
+  const ids = ($box.attr('data-ks-ids') || '').split(',').map((x) => x.trim()).filter(Boolean);
+  if (ids.length) rows = ids.map((id) => rows.find((r) => r.id === id)).filter((r): r is CollectionItem => !!r);
+  const limit = Number($box.attr('data-ks-limit'));
+  if (limit > 0) rows = rows.slice(0, limit);
+
+  if (ctx.mode === 'edit') $box.attr('data-ks-c', kind);
+
+  if (!rows.length) {
+    if (ctx.mode === 'published') {
+      itemEls.remove();
+      $empty.removeAttr('hidden');
+    } else {
+      // Drafts with no data yet: keep the designer's sample items, marked as samples.
+      itemEls.attr('data-ks-sample', '');
+      $empty.attr('hidden', '');
+    }
+    return;
+  }
+
+  const rendered = rows.map((row) => {
+    const $item = load(template, null, false);
+    const $root = $item.root().children().first();
+    $item('[data-ks-if]').add($root.filter('[data-ks-if]')).each((_, node) => {
+      const cond = String($item(node).attr('data-ks-if') || '');
+      const truthy = !!row[cond.replace(/^!/, '')];
+      if (truthy === cond.startsWith('!')) $item(node).remove();
+      else $item(node).removeAttr('data-ks-if');
+    });
+    $item('[data-ks-bind]').add($root.filter('[data-ks-bind]')).each((_, node) => {
+      const $n = $item(node);
+      const field = String($n.attr('data-ks-bind'));
+      const value = row[field] ?? '';
+      const t = (node as Element).tagName.toLowerCase();
+      if (t === 'img') {
+        const src = safeSrc(value);
+        if (src) {
+          $n.attr('src', src).removeAttr('srcset').removeAttr('sizes');
+          if (!$n.attr('alt')) $n.attr('alt', row.name || '');
+        } else {
+          $n.remove();
+        }
+      } else if (t === 'a' && (field === 'url' || /^https?:|^\//.test(value))) {
+        $n.attr('href', safeHref(value));
+      } else {
+        $n.text(value);
+      }
+      $n.removeAttr('data-ks-bind');
+    });
+    $item('[data-ks-bind-bg]').add($root.filter('[data-ks-bind-bg]')).each((_, node) => {
+      const $n = $item(node);
+      const src = safeSrc(row[String($n.attr('data-ks-bind-bg'))]);
+      if (src) {
+        const style = ($n.attr('style') || '').replace(/background-image\s*:[^;]*;?/gi, '').trim();
+        const encoded = src.replace(/['"\\\n\r()]/g, (c) => URL_ESCAPES[c] ?? '');
+        $n.attr('style', `${style}${style && !style.endsWith(';') ? ';' : ''}background-image:url('${encoded}')`);
+      }
+      $n.removeAttr('data-ks-bind-bg');
+    });
+    if (kind === 'products') {
+      const payload = ctx.collections?.productPayload?.[row.id];
+      if (payload) $root.attr('data-ks-product', JSON.stringify(payload));
+    } else if (kind === 'services') {
+      $root.attr('data-ks-service', row.id);
+      $item('[data-ks-action="book"]').each((_, node) => {
+        if ((node as Element).tagName.toLowerCase() === 'a') $item(node).attr('href', row.url);
+      });
+    }
+    $root.removeAttr('data-ks-item');
+    return $item.html();
+  });
+
+  itemEls.slice(1).remove();
+  itemEls.first().replaceWith(rendered.join(''));
+  $empty.remove();
+}
+
 function renderNav($nav: Cheerio<Element>, ctx: FillCtx) {
   const $ = ctx.$;
   const navPages = ctx.bundle.pages
@@ -349,6 +453,7 @@ function stripEditorAttributes($: CheerioAPI) {
     for (const name of Object.keys(el.attribs || {})) {
       if (!name.startsWith('data-ks')) continue;
       if (name.startsWith('data-ks-form') || name === 'data-ks-action' || name.startsWith('data-ks-action-')) continue;
+      if (name === 'data-ks-product' || name === 'data-ks-service' || name === 'data-ks-cart-count') continue;
       delete el.attribs[name];
     }
   });
@@ -379,6 +484,7 @@ export function renderPage(bundle: SiteBundle, page: PageRecord | null, options:
   const { mode } = options;
   const theme = bundle.theme;
   const used = new Map<string, SectionRecord>();
+  const renderedInstances: Array<{ section: SectionRecord; instance: SectionInstance }> = [];
 
   const renderOne = (instance: SectionInstance): string => {
     const section = bundle.sections[instance.section];
@@ -387,7 +493,8 @@ export function renderPage(bundle: SiteBundle, page: PageRecord | null, options:
     }
     if (instance.hidden && mode !== 'edit') return '';
     used.set(section.key, section);
-    return renderInstance(bundle, section, instance, page, mode);
+    renderedInstances.push({ section, instance });
+    return renderInstance(bundle, section, instance, page, mode, options.collections);
   };
 
   const header = theme.header_section ? renderOne({ id: GLOBAL_INSTANCE_HEADER, section: theme.header_section }) : '';
@@ -431,6 +538,7 @@ export function renderPage(bundle: SiteBundle, page: PageRecord | null, options:
   let jsonLd = '';
   if (mode === 'published' && page && options.siteUrl) {
     try {
+      const hints = structuredDataHints(bundle, renderedInstances, options.collections);
       const entries = buildJsonLd({
         businessProfile: bundle.site.businessProfile as unknown as BusinessProfile | null,
         siteUrl: options.siteUrl,
@@ -438,6 +546,8 @@ export function renderPage(bundle: SiteBundle, page: PageRecord | null, options:
         pageTitle: title,
         pageDescription: description,
         isHomePage: isHome,
+        testimonials: hints.testimonials,
+        blocks: hints.blocks,
       });
       jsonLd = entries
         .map((e) => `<script type="application/ld+json">${JSON.stringify(e.data).replace(/</g, '\\u003c')}</script>`)
@@ -486,8 +596,8 @@ ${body}
 </main>
 ${footer}
 ${modules.join('\n')}
-<script src="${assetBase}/ks/runtime.js?v=2" defer></script>
-${mode === 'edit' ? `<script src="${assetBase}/ks/editor.js?v=2" defer></script>` : ''}
+<script src="${assetBase}/ks/runtime.js?v=3" defer></script>
+${mode === 'edit' ? `<script src="${assetBase}/ks/editor.js?v=3" defer></script>` : ''}
 </body>
 </html>`;
 
@@ -536,3 +646,102 @@ const EDIT_MODE_CSS = `
 `;
 
 export const ALLOWED_SCRIPT_HOSTS_FOR_CSP = SCRIPT_HOST_ALLOWLIST.map((h) => `https://${h}`).join(' ');
+
+/**
+ * Structured data from content: lists marked data-ks-schema="reviews" / "faq"
+ * and live services, mapped onto the shapes lib/seo/jsonld already understands.
+ */
+function structuredDataHints(
+  bundle: SiteBundle,
+  rendered: Array<{ section: SectionRecord; instance: SectionInstance }>,
+  collections?: CollectionData,
+) {
+  const testimonials: Array<{ name?: string; quote?: string; rating?: number }> = [];
+  const faqItems: Array<{ question: string; answer: string }> = [];
+  const text = (v: unknown) => toPlainText(asString((v as { html?: unknown })?.html ?? v));
+  for (const { section, instance } of rendered) {
+    const schema = ensureSchema(section);
+    const values = instanceValues(section, bundle.content[instance.id]);
+    for (const field of schema.fields) {
+      if (field.type !== 'list' || !field.schema) continue;
+      const list = values[field.id] as { items?: Array<Record<string, unknown>>; hidden?: boolean } | undefined;
+      if (!list || list.hidden) continue;
+      for (const item of list.items || []) {
+        if (field.schema === 'reviews') {
+          const rating = Number(text(item.rating).replace(/[^0-9.]/g, ''));
+          testimonials.push({ name: text(item.author), quote: text(item.quote), ...(rating > 0 && rating <= 5 ? { rating } : {}) });
+        } else if (field.schema === 'faq') {
+          const question = text(item.question);
+          const answer = text(item.answer);
+          if (question && answer) faqItems.push({ question, answer });
+        }
+      }
+    }
+  }
+  const blocks: Array<{ type: string; data: Record<string, unknown> }> = [];
+  if (faqItems.length) blocks.push({ type: 'faq', data: { items: faqItems } });
+  if (collections?.services?.length) {
+    blocks.push({ type: 'servicesGrid', data: { items: collections.services.map((s) => ({ title: s.name, description: s.description })) } });
+  }
+  return { testimonials: testimonials.filter((t) => t.quote), blocks };
+}
+
+/** Colours Keystone's own flows (cart, booking, product pages) use, from the theme. */
+export function platformPalette(theme: ThemeRecord): { primary: string; secondary: string; accent: string } {
+  const tokens = resolveTokens(theme);
+  const value = (name?: string) => (name ? tokens.find((t) => t.name === name)?.value : undefined);
+  const colors = (theme.tokens || []).filter((t) => t.type === 'color').map((t) => value(t.name)).filter((v): v is string => !!v);
+  const map = theme.platform || {};
+  return {
+    primary: value(map.primary) || colors[0] || '#111827',
+    secondary: value(map.secondary) || colors[1] || colors[0] || '#374151',
+    accent: value(map.accent) || colors[2] || '#f3f4f6',
+  };
+}
+
+export interface RenderedChrome {
+  /** fonts + token/global/header/footer CSS for <head> */
+  head: string;
+  header: string;
+  footer: string;
+  /** agent JS modules for header/footer (inert text the runtime imports) */
+  modules: string;
+  config: string;
+  palette: { primary: string; secondary: string; accent: string };
+}
+
+/**
+ * The site's header, footer and design tokens, for Keystone-hosted pages
+ * (cart, booking, product pages) on agent-built sites.
+ */
+export function renderChrome(bundle: SiteBundle, options: { siteUrl?: string; collections?: CollectionData } = {}): RenderedChrome {
+  const theme = bundle.theme;
+  const used: SectionRecord[] = [];
+  const one = (id: string, key: string | null) => {
+    if (!key || !bundle.sections[key]) return '';
+    used.push(bundle.sections[key]);
+    return renderInstance(bundle, bundle.sections[key], { id, section: key }, null, 'published', options.collections);
+  };
+  const header = one(GLOBAL_INSTANCE_HEADER, theme.header_section);
+  const footer = one(GLOBAL_INSTANCE_FOOTER, theme.footer_section);
+  const tokens = resolveTokens(theme);
+  const tokenCss = tokens.length ? `:root{${tokens.map((t) => `--${t.name}:${safeTokenValue(t.value)}`).join(';')}}` : '';
+  const css = [tokenCss, theme.global_css || '', ...used.map((s) => scopeCss(s.css || '', sectionScopeSelector(s.key)).css)].filter(Boolean).join('\n');
+  const fontsHref = googleFontsHref(theme, tokens);
+  const modules = [
+    (theme.global_js || '').trim() ? moduleTag('@global', theme.global_js) : '',
+    ...used.map((s) => ((s.js || '').trim() ? moduleTag(s.key, s.js) : '')),
+  ].filter(Boolean);
+  const config = JSON.stringify({ siteId: bundle.site.id, pageId: null, mode: 'published', editorOrigin: null, version: 'flow' });
+  return {
+    head: [
+      fontsHref ? `<link rel="stylesheet" href="${escapeHtml(fontsHref)}">` : '',
+      css ? `<style>${css.replace(/<\/style/gi, '<\\/style')}</style>` : '',
+    ].filter(Boolean).join('\n'),
+    header,
+    footer,
+    modules: modules.join('\n'),
+    config,
+    palette: platformPalette(theme),
+  };
+}

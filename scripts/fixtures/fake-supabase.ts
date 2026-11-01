@@ -21,7 +21,9 @@ const DEFAULTS: Record<string, () => Row> = {
   v2_themes: () => ({ tokens: [], owner_overrides: {}, fonts: [], global_css: '', global_js: '', header_section: null, footer_section: null, version: 1 }),
   v2_sections: () => ({ css: '', js: '', schema: {}, version: 1 }),
   v2_page_layouts: () => ({ instances: [], version: 1 }),
-  v2_content: () => ({ locale: 'default', owner_edited: false }),
+  v2_content: () => ({ locale: 'default', owner_edited: false, rev: 1 }),
+  products: () => ({ is_archived: false, is_active: true, status: 'draft', sort_order: 0, currency: 'CAD', images: [] }),
+  booking_services: () => ({ is_archived: false, is_active: true, status: 'draft', sort_order: 0, currency: 'CAD' }),
   api_tokens: () => ({ scopes: ['sites:read', 'sites:write'], revoked_at: null, expires_at: null, last_used_at: null }),
 };
 

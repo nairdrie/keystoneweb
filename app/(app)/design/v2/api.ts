@@ -16,7 +16,7 @@ export interface InstanceContent {
   instance: string;
   section: string;
   fields: FieldInfo[];
-  values: Record<string, { value: unknown; source: string }>;
+  values: Record<string, { value: unknown; source: string; rev?: number }>;
 }
 
 export interface ThemeTokenInfo {
@@ -37,6 +37,7 @@ export interface PageInfo {
   navOrder: number;
   seo: { title?: string; description?: string; ogImage?: string };
   sections: Array<{ id: string; section: string; hidden?: boolean }>;
+  layoutVersion?: number;
 }
 
 export interface EditorState {
@@ -66,9 +67,15 @@ export interface EditorState {
 
 export class EditorApiError extends Error {
   details?: unknown;
-  constructor(message: string, details?: unknown) {
+  status?: number;
+  constructor(message: string, details?: unknown, status?: number) {
     super(message);
     this.details = details;
+    this.status = status;
+  }
+  /** Someone else (e.g. the AI designer) changed this since the editor loaded it. */
+  get isStale(): boolean {
+    return this.status === 409 && (this.details as { reason?: string } | undefined)?.reason === 'stale';
   }
 }
 
@@ -87,7 +94,7 @@ export async function editorOp<T = Record<string, unknown>>(siteId: string, op: 
     body: JSON.stringify({ siteId, op, ...args }),
   });
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new EditorApiError(body.error || 'Something went wrong', body.details);
+  if (!res.ok) throw new EditorApiError(body.error || 'Something went wrong', body.details, res.status);
   return body as T;
 }
 

@@ -95,11 +95,24 @@ async function handleMessage(msg: RpcMessage, ctx: ToolContext) {
           result: { content: [{ type: 'text', text: JSON.stringify({ error, ...(details ? { details } : {}) }, null, 2) }], isError: true },
         };
       }
-      const structured = result && typeof result === 'object' && !Array.isArray(result) ? (result as Record<string, unknown>) : { result };
+      // Tools may attach images (e.g. screenshot) under __images; they become image content blocks.
+      let images: Array<{ label?: string; data: string; mimeType: string }> = [];
+      let payload: unknown = result;
+      if (result && typeof result === 'object' && !Array.isArray(result) && Array.isArray((result as { __images?: unknown }).__images)) {
+        const { __images, ...rest } = result as { __images: typeof images };
+        images = __images;
+        payload = rest;
+      }
+      const structured = payload && typeof payload === 'object' && !Array.isArray(payload) ? (payload as Record<string, unknown>) : { result: payload };
+      const content: Array<Record<string, unknown>> = [{ type: 'text', text: JSON.stringify(payload, null, 2) }];
+      for (const image of images) {
+        if (image.label) content.push({ type: 'text', text: image.label });
+        content.push({ type: 'image', data: image.data, mimeType: image.mimeType });
+      }
       return {
         jsonrpc: '2.0',
         id,
-        result: { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }], structuredContent: structured },
+        result: { content, structuredContent: structured },
       };
     }
     case 'resources/list':
