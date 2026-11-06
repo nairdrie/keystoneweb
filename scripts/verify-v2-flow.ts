@@ -21,6 +21,7 @@ async function main() {
   const { verifyDraftToken } = await import('../lib/v2/preview-token');
   const { duplicateSite } = await import('../lib/sites/duplicate');
   const { fetchCollections, collectionsIn, pageSectionHtmls } = await import('../lib/v2/collections');
+  const { PUBLISHED_ROOT } = await import('../lib/env/domain');
 
   const db = new FakeSupabase();
   const OWNER = '11111111-1111-1111-1111-111111111111';
@@ -317,7 +318,7 @@ async function main() {
   let releaseId = '';
   await step('publish freezes a release; later draft edits do not leak to the live site', async () => {
     const pub = await ok(tokens['owner-agent'], 'publish', { site_id: siteId, subdomain: 'northline' });
-    assert.equal(pub.publicUrl, 'https://northline.kswd.ca');
+    assert.equal(pub.publicUrl, `https://northline.${PUBLISHED_ROOT}`); // staging.kswd.ca on staging builds
     releaseId = pub.releaseId;
     const site = await loadSiteRow(db as never, siteId);
     assert.equal(site?.is_published, true);
