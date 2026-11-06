@@ -1,6 +1,7 @@
 /**
  * Personal access tokens for the Keystone MCP server / API.
- * Tokens look like `ks_pat_<40 chars>`; only a SHA-256 hash is stored.
+ * Personal tokens look like `ks_pat_<40 chars>`; OAuth access tokens `ks_oat_…`.
+ * Only a SHA-256 hash is stored.
  */
 import { createHash, randomBytes } from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -32,7 +33,8 @@ export interface TokenIdentity {
 
 /** Resolve a bearer token to its user. Returns null for unknown, revoked or expired tokens. */
 export async function authenticateToken(db: SupabaseClient, token: string | null | undefined): Promise<TokenIdentity | null> {
-  if (!token || !token.startsWith('ks_pat_') || token.length > 120) return null;
+  // ks_pat_: personal access token · ks_oat_: OAuth access token (from "Add connector" sign-in)
+  if (!token || !(token.startsWith('ks_pat_') || token.startsWith('ks_oat_')) || token.length > 120) return null;
   const { data } = await db
     .from('api_tokens')
     .select('id, name, user_id, scopes, revoked_at, expires_at, last_used_at')
