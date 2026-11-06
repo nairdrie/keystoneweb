@@ -45,6 +45,13 @@ function parseFilter(raw: string): (v: unknown) => boolean {
   }
 }
 
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
+  'Access-Control-Expose-Headers': 'Content-Range',
+};
+
 export async function startFakeSupabase(port: number) {
   const db = new FakeSupabase();
   const sessions = new Map<string, FakeSession>();
@@ -56,10 +63,12 @@ export async function startFakeSupabase(port: number) {
     for await (const c of req) chunks.push(c as Buffer);
     const raw = Buffer.concat(chunks);
     const send = (status: number, body?: unknown, headers: Record<string, string> = {}) => {
-      res.writeHead(status, { 'Content-Type': 'application/json', ...headers });
+      res.writeHead(status, { 'Content-Type': 'application/json', ...CORS, ...headers });
       res.end(body === undefined ? '' : typeof body === 'string' ? body : JSON.stringify(body));
     };
     log.push(`${req.method} ${url.pathname}${url.search}`);
+    // Browser-side Supabase clients (e.g. the auth context) call this server cross-origin.
+    if (req.method === 'OPTIONS') return send(204);
 
     try {
       // ── Auth ──────────────────────────────────────────────────────────────

@@ -33,17 +33,23 @@ const rpcError = (id: RpcMessage['id'], code: number, message: string, data?: un
   error: { code, message, ...(data !== undefined ? { data } : {}) },
 });
 
-export async function handleMcpHttp(db: Db, authorization: string | null, payload: unknown): Promise<McpHttpResult> {
+/** 401 for missing/invalid credentials, pointing clients at OAuth sign-in (MCP authorization spec). */
+export function unauthorizedResult(origin?: string): McpHttpResult {
+  const metadata = origin ? `, resource_metadata="${origin}/.well-known/oauth-protected-resource/api/mcp"` : '';
+  return {
+    status: 401,
+    body: rpcError(null, -32001, 'Sign in required. Add this server as a connector in your AI app and sign in with your Keystone account.'),
+    headers: { 'WWW-Authenticate': `Bearer realm="keystone"${metadata}` },
+  };
+}
+
+export async function handleMcpHttp(db: Db, authorization: string | null, payload: unknown, keystoneToken?: string | null, origin?: string): Promise<McpHttpResult> {
   const header = authorization || '';
-  const token = header.toLowerCase().startsWith('bearer ') ? header.slice(7).trim() : null;
+  // Authorization: Bearer <token>, or X-Keystone-Token: <token> for clients
+  // that reserve the Authorization header for their own OAuth flow.
+  const token = header.toLowerCase().startsWith('bearer ') ? header.slice(7).trim() : (keystoneToken || '').trim() || null;
   const auth = await authenticateToken(db, token);
-  if (!auth) {
-    return {
-      status: 401,
-      body: rpcError(null, -32001, 'Missing or invalid token. Create one in Keystone → Account Settings → Agent access.'),
-      headers: { 'WWW-Authenticate': 'Bearer realm="keystone", error="invalid_token"' },
-    };
-  }
+  if (!auth) return unauthorizedResult(origin);
   if (payload === undefined) return { status: 400, body: rpcError(null, -32700, 'Parse error'), headers: {} };
 
   const batch = Array.isArray(payload);
