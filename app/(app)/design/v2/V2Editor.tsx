@@ -12,8 +12,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  ArrowLeft, Building2, Eye, FileText, History, Layers, Loader2, MessageSquare, Monitor, Palette, PenLine, Rocket, Smartphone, Tablet,
+  Building2, Eye, FileText, History, Layers, LayoutDashboard, Loader2, MessageSquare, Monitor, Paintbrush, Palette, PenLine, Rocket, Smartphone, Tablet,
 } from 'lucide-react';
+import KeystoneLogo from '@/app/components/KeystoneLogo';
 import { hasPaidAccess } from '@/lib/subscription/access';
 import { editorOp, EditorApiError, loadEditorState, pagePath, type EditorState, type FieldInfo } from './api';
 import { BrandPanel, BusinessPanel, PagesPanel, SectionsPanel, type PanelActions } from './panels';
@@ -101,6 +102,17 @@ export default function V2Editor({ siteId }: { siteId: string }) {
     queue.current = next;
     return next;
   }, [refresh, toast]);
+
+  // Leaving the editor (logo, Admin): let a text field that is still focused
+  // send its last edit, and let queued saves finish, before navigating away.
+  // Cmd/Ctrl/middle-click still opens a new tab straight away.
+  const leaveTo = useCallback(async (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+    e.preventDefault();
+    await new Promise((r) => setTimeout(r, 150));
+    await queue.current.catch(() => {});
+    router.push(href);
+  }, [router]);
 
   // Versions are read when a queued edit actually runs, so quick successive
   // clicks never look stale to the server — only someone else's change does.
@@ -251,7 +263,7 @@ export default function V2Editor({ siteId }: { siteId: string }) {
       <div className="flex min-h-screen items-center justify-center bg-slate-50 p-6 text-center">
         <div>
           <p className="mb-4 text-slate-700">{loadError}</p>
-          <Link href="/dashboard" className="text-sm font-semibold text-blue-600">Back to dashboard</Link>
+          <Link href="/admin" className="text-sm font-semibold text-blue-600">Back to admin</Link>
         </div>
       </div>
     );
@@ -262,12 +274,27 @@ export default function V2Editor({ siteId }: { siteId: string }) {
 
   const base = mode === 'edit' ? state.canvas.editBase : state.canvas.previewBase;
   const canvasSrc = `${base}${pagePath(page.slug)}?v=${canvasVersion}`;
+  const adminHref = `/admin?siteId=${encodeURIComponent(siteId)}`;
 
   return (
     <div className="flex h-screen flex-col bg-slate-100">
       {/* Top bar */}
       <header className="flex h-14 shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-3">
-        <Link href="/dashboard" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100" aria-label="Back to dashboard"><ArrowLeft className="h-4 w-4" /></Link>
+        <a href={adminHref} onClick={(e) => void leaveTo(e, adminHref)} className="shrink-0" aria-label="Back to admin">
+          <KeystoneLogo href={undefined} size="md" showText={false} />
+        </a>
+        <div className="flex shrink-0 items-center gap-0.5 rounded-full bg-slate-100 p-0.5">
+          <span className="flex select-none items-center gap-1 whitespace-nowrap rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-slate-800 shadow-sm">
+            <Paintbrush className="h-3 w-3" /> Design
+          </span>
+          <a
+            href={adminHref}
+            onClick={(e) => void leaveTo(e, adminHref)}
+            className="flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-bold text-slate-500 transition-colors hover:bg-white/70 hover:text-slate-800"
+          >
+            <LayoutDashboard className="h-3 w-3" /> Admin
+          </a>
+        </div>
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-slate-900">{state.site.title}</p>
           <p className="truncate text-[11px] text-slate-500">{state.site.isPublished && state.site.domain ? state.site.domain : 'Not published yet'}</p>
