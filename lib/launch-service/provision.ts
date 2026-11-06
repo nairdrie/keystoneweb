@@ -8,6 +8,9 @@ import { completeDomainPurchase } from '@/app/api/domains/purchase/route';
 import { getTemplateMetadata } from '@/lib/db/template-queries';
 import { migratePaletteTokensInDesignData } from '@/lib/template-palette-migration';
 import { ensureKswdInboxAddress } from '@/lib/email/inbox-addresses';
+import { getSiteEngine } from '@/lib/v2/store';
+import { ENGINE_V2 } from '@/lib/v2/types';
+import { publishV2Site } from '@/lib/v2/publish';
 
 type SupabaseAdmin = ReturnType<typeof createAdminClient>;
 
@@ -192,6 +195,22 @@ async function publishSite(
   customDomain: string | null,
 ): Promise<{ ok: boolean; error?: string }> {
   const now = new Date().toISOString();
+
+  // Agent-built (v2) sites publish through the shared v2 path.
+  if ((await getSiteEngine(db, siteId)) === ENGINE_V2) {
+    try {
+      await publishV2Site(db, {
+        siteId,
+        subdomain: publishedDomain,
+        customDomain,
+        actor: { type: 'staff', label: 'launch-service' },
+      });
+      return { ok: true };
+    } catch (err) {
+      console.error('[launch-service] v2 publish failed:', err);
+      return { ok: false, error: err instanceof Error ? err.message : 'v2 publish failed' };
+    }
+  }
 
   const { data: site } = await db
     .from('sites')

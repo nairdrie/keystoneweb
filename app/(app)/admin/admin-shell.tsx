@@ -357,6 +357,18 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             if (block?.type) blockTypes.add(block.type);
           }
         }
+        // Agent-built (v2) sites have no blocks: map the platform features their
+        // design uses onto the block types the admin tabs and pages look for.
+        try {
+          const engineRes = await fetch(`/api/v2/engine?siteId=${id}`, { credentials: 'include' });
+          if (engineRes.ok) {
+            const engine = await engineRes.json() as { engine?: string; features?: { ecommerce?: boolean; booking?: boolean } };
+            if (engine.engine === 'sections_v2') {
+              if (engine.features?.ecommerce) blockTypes.add('productGrid');
+              if (engine.features?.booking) blockTypes.add('booking');
+            }
+          }
+        } catch { /* classic behaviour */ }
         setSiteBlockTypes(blockTypes);
 
         // Unpublished changes: only meaningful once the site has been published at least once.

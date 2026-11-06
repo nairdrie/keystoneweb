@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import EditorContent from '../editor/editor-content-v2';
+import DesignRouter from './DesignRouter';
 import EditorLoadingScreen from '../../components/EditorLoadingScreen';
 import { Metadata } from 'next';
 
@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 export default function DesignPage() {
   return (
     <Suspense fallback={<EditorLoadingScreen />}>
-      <EditorContent />
+      <DesignRouter />
     </Suspense>
   );
 }

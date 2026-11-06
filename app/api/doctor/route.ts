@@ -9,6 +9,9 @@ import {
     type Severity,
 } from '@/lib/health-checks';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { getSiteEngine, loadDraftBundle } from '@/lib/v2/store';
+import { ENGINE_V2 } from '@/lib/v2/types';
+import { toDiagnosticResults, validateBundle } from '@/lib/v2/validate';
 import { NextRequest, NextResponse } from 'next/server';
 
 const SEVERITY_ORDER: Record<Severity, number> = { error: 0, warning: 1, pass: 2 };
@@ -97,7 +100,16 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Site has no owner' }, { status: 400 });
     }
 
-    const results = runAllChecks(payload.data, context)
+    // Agent-built (v2) sites have no blocks; check them with the v2 validator.
+    const engineDb = createAdminClient();
+    let rawResults: DiagnosticResult[];
+    if ((await getSiteEngine(engineDb, siteId)) === ENGINE_V2) {
+        const bundle = await loadDraftBundle(engineDb, siteId);
+        rawResults = bundle ? toDiagnosticResults(validateBundle(bundle)) : [];
+    } else {
+        rawResults = runAllChecks(payload.data, context);
+    }
+    const results = rawResults
         .sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
     const summary = summarizeResults(results);
 

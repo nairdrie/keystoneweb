@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "npm run test:ai-builder",
+    "prebuild": "npm run test:ai-builder && npm run test:v2",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -15,7 +15,9 @@
     "test:marketing": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-marketing-bidding.mjs && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-marketing-schedule.mjs && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-marketing-geo.mjs && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-marketing-conversions.mjs",
     "test:settings-schema": "node scripts/verify-settings-schemas.mjs",
     "test:shop": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-shop.mjs",
-    "test:visual:card-presets": "node scripts/playwright-card-preset-edit-smoke.mjs"
+    "test:visual:card-presets": "node scripts/playwright-card-preset-edit-smoke.mjs",
+    "test:v2": "tsx scripts/verify-v2-engine.ts && tsx scripts/verify-v2-flow.ts",
+    "test:v2:e2e": "tsx scripts/e2e-v2-editor.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -44,6 +46,7 @@
     "next": "16.1.6",
     "pdf-lib": "^1.17.1",
     "pg": "^8.18.0",
+    "postcss": "^8.5.32",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "resend": "^6.9.3",
@@ -62,6 +65,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "5.9.3",
     "ws": "^8.19.0"
   }

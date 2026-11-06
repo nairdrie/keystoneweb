@@ -26,6 +26,8 @@ async function lookupSiteRedirect(
   request: NextRequest,
   match: { published_domain: string } | { custom_domain: string },
   pathname: string,
+  /** Filled with the site row this lookup already fetches (used for v2 routing). */
+  found?: FoundSite,
 ): Promise<NextResponse | null> {
   // Normalize: strip trailing slash except for root, never blank.
   let from = pathname || '/';
@@ -43,12 +45,19 @@ async function lookupSiteRedirect(
       },
     );
 
-    const sitesQuery = supabase.from('sites').select('id').eq('is_published', true).limit(1);
-    const { data: site } =
-      'published_domain' in match
-        ? await sitesQuery.eq('published_domain', match.published_domain).maybeSingle()
-        : await sitesQuery.eq('custom_domain', match.custom_domain).maybeSingle();
+    // Same single site query as before; it also reads `engine` (agent-built
+    // sites). If that column doesn't exist yet, fall back to the original query.
+    const findSite = (columns: string) => {
+      const sitesQuery = supabase.from('sites').select(columns).eq('is_published', true).limit(1);
+      return 'published_domain' in match
+        ? sitesQuery.eq('published_domain', match.published_domain).maybeSingle()
+        : sitesQuery.eq('custom_domain', match.custom_domain).maybeSingle();
+    };
+    let siteResult = await findSite('id, engine');
+    if (siteResult.error) siteResult = await findSite('id');
+    const site = siteResult.data as { id: string; engine?: string | null } | null;
     if (!site) return null;
+    if (found) found.site = { id: site.id, engine: site.engine ?? null };
 
     const { data: redirect } = await supabase
       .from('site_redirects')
@@ -78,6 +87,44 @@ async function lookupSiteRedirect(
     console.error('[Middleware] Redirect lookup failed:', err);
     return null;
   }
+}
+
+/** The published site a request's host belongs to, as found by lookupSiteRedirect. */
+interface FoundSite {
+  site?: { id: string; engine: string | null };
+}
+
+/** Engine v2 (agent-built) sites are served by /v2r and /v2flow instead of the block renderer. */
+function isV2Site(found: FoundSite): boolean {
+  return found.site?.engine === 'sections_v2';
+}
+
+/** Paths a v2 site leaves to the shared (engine-independent) routes. */
+function isSharedSitePath(pathname: string): boolean {
+  return (
+    pathname === '/sitemap.xml' ||
+    pathname === '/robots.txt' ||
+    pathname === '/llms.txt' ||
+    pathname.startsWith('/.well-known/') ||
+    pathname.startsWith('/shop-doc/')
+  );
+}
+
+/** Keystone-hosted flows on v2 sites (cart, booking, product pages, order confirmation). */
+function isV2FlowPath(pathname: string): boolean {
+  return pathname === '/cart' || pathname === '/book' || pathname === '/order-confirmation' || /^\/product\/[^/]+$/.test(pathname);
+}
+
+function rewriteToV2(request: NextRequest, siteId: string, pathname: string): NextResponse {
+  const url = request.nextUrl.clone();
+  const flow = isV2FlowPath(pathname);
+  url.pathname = flow ? `/v2flow/${siteId}${pathname}` : `/v2r/pub/${siteId}${pathname === '/' ? '' : pathname}`;
+  const response = NextResponse.rewrite(url);
+  response.headers.set(
+    'Cache-Control',
+    flow && !pathname.startsWith('/product/') ? 'private, no-store' : 'public, s-maxage=60, stale-while-revalidate=300',
+  );
+  return response;
 }
 
 export async function middleware(request: NextRequest) {
@@ -190,7 +237,10 @@ export async function middleware(request: NextRequest) {
 
     // Per-site URL redirects (e.g. /contact-us → /contact). Looked up before
     // any rewrite so the user sees the canonical URL in the address bar.
-    const redirect = await lookupSiteRedirect(request, { published_domain: subdomain }, pathname);
+    const foundSite: FoundSite = {};
+    const redirect = await lookupSiteRedirect(request, { published_domain: subdomain }, pathname, foundSite);
+    // Agent-built sites load their runtime from /ks/ (classic sites keep /ks/… as page paths).
+    if (isV2Site(foundSite) && pathname.startsWith('/ks/')) return NextResponse.next();
     if (redirect) return redirect;
 
     // ── /admin and /design shortcuts ──────────────────────────────────────────
@@ -231,6 +281,10 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(destUrl);
     }
 
+    if (isV2Site(foundSite) && !isSharedSitePath(pathname)) {
+      return rewriteToV2(request, foundSite.site!.id, pathname);
+    }
+
     // Rewrite internally to the public route
     const rewriteUrl = request.nextUrl.clone();
     rewriteUrl.pathname = `/public/${subdomain}${pathname}`;
@@ -259,7 +313,10 @@ export async function middleware(request: NextRequest) {
     }
 
     // Per-site URL redirects (e.g. /contact-us → /contact).
-    const redirect = await lookupSiteRedirect(request, { custom_domain: cleanDomain }, pathname);
+    const foundSite: FoundSite = {};
+    const redirect = await lookupSiteRedirect(request, { custom_domain: cleanDomain }, pathname, foundSite);
+    // Agent-built sites load their runtime from /ks/ (classic sites keep /ks/… as page paths).
+    if (isV2Site(foundSite) && pathname.startsWith('/ks/')) return NextResponse.next();
     if (redirect) return redirect;
 
     // ── /admin and /design shortcuts ──────────────────────────────────────────
@@ -298,6 +355,10 @@ export async function middleware(request: NextRequest) {
 
       console.log(`[Middleware] Custom domain admin/design redirect → ${destUrl.toString()}`);
       return NextResponse.redirect(destUrl);
+    }
+
+    if (isV2Site(foundSite) && !isSharedSitePath(pathname)) {
+      return rewriteToV2(request, foundSite.site!.id, pathname);
     }
 
     // Rewrite to the (site)/[domain] route for custom domain resolution

@@ -125,6 +125,15 @@ export async function duplicateSite(
     }
   }
 
+  // ── Agent-built (v2) sites: copy design, layouts and content ─────────────
+  if (sourceSite.engine === 'sections_v2') {
+    const v2Error = await copyV2Design(admin, sourceSiteId, newSiteId, pageIdMap);
+    if (v2Error) {
+      console.error('Error copying v2 design for duplicate:', v2Error);
+      return { ok: false, error: 'Failed to duplicate site', status: 500 };
+    }
+  }
+
   // ── Copy content tables (products, blog posts, menu items) ───────────────
   for (const table of CONTENT_TABLES) {
     const { data: rows, error: readError } = await admin
@@ -176,4 +185,51 @@ async function uniqueSlug(
   let counter = 2;
   while (existingSlugs.has(`${base} ${counter}`)) counter++;
   return `${base} ${counter}`;
+}
+
+/** Copy an agent-built site's theme, section designs, page layouts and content. */
+async function copyV2Design(
+  admin: SupabaseAdmin,
+  sourceSiteId: string,
+  newSiteId: string,
+  pageIdMap: Map<string, string>,
+): Promise<string | null> {
+  const { error: engineError } = await admin.from('sites').update({ engine: 'sections_v2' }).eq('id', newSiteId);
+  if (engineError) return engineError.message;
+
+  const [theme, sections, layouts, content] = await Promise.all([
+    admin.from('v2_themes').select('*').eq('site_id', sourceSiteId).maybeSingle(),
+    admin.from('v2_sections').select('key, name, html, css, js, schema').eq('site_id', sourceSiteId),
+    admin.from('v2_page_layouts').select('page_id, instances').eq('site_id', sourceSiteId),
+    admin.from('v2_content').select('instance_id, field, locale, value, owner_edited').eq('site_id', sourceSiteId),
+  ]);
+
+  if (theme.data) {
+    const { site_id: _s, updated_at: _u, version: _v, ...rest } = theme.data as Record<string, unknown>;
+    void _s; void _u; void _v;
+    const { error } = await admin.from('v2_themes').insert({ ...rest, site_id: newSiteId });
+    if (error) return error.message;
+  }
+  if (sections.data?.length) {
+    const { error } = await admin.from('v2_sections').insert(sections.data.map((row) => ({
+      site_id: newSiteId, key: row.key, name: row.name, html: row.html, css: row.css, js: row.js, schema: row.schema,
+    })));
+    if (error) return error.message;
+  }
+  const layoutRows = (layouts.data || [])
+    .filter((row) => pageIdMap.has(row.page_id))
+    .map((row) => ({ page_id: pageIdMap.get(row.page_id), site_id: newSiteId, instances: row.instances }));
+  if (layoutRows.length) {
+    const { error } = await admin.from('v2_page_layouts').insert(layoutRows);
+    if (error) return error.message;
+  }
+  // Instance ids are unique within a site, so they can be kept as-is.
+  const contentRows = (content.data || []).map((row) => ({
+    site_id: newSiteId, instance_id: row.instance_id, field: row.field, locale: row.locale, value: row.value, owner_edited: row.owner_edited,
+  }));
+  for (let i = 0; i < contentRows.length; i += 500) {
+    const { error } = await admin.from('v2_content').insert(contentRows.slice(i, i + 500));
+    if (error) return error.message;
+  }
+  return null;
 }

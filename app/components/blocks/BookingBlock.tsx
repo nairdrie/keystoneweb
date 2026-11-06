@@ -1082,7 +1082,8 @@ export function SettingsEditor({ siteId, settings, setSettings }: {
 // CUSTOMER: Booking Flow
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<string, string> }) {
+/** Exported for agent-built (v2) sites, which host the flow on a /book page. */
+export function BookingFlow({ siteId, palette, initialServiceId }: { siteId: string; palette: Record<string, string>; initialServiceId?: string }) {
     const [step, setStep] = useState<'service' | 'option' | 'date' | 'time' | 'form' | 'confirmation'>('service');
     const [services, setServices] = useState<Service[]>([]);
     const [selectedService, setSelectedService] = useState<Service | null>(null);
@@ -1144,13 +1145,20 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
             const svcData = await svcRes.json();
             const stData = await stRes.json();
             const avData = await avRes.json();
-            setServices((svcData.services || []).filter((s: Service) => s.is_active && s.status === 'published'));
+            const activeServices = (svcData.services || []).filter((s: Service) => s.is_active && s.status === 'published');
+            setServices(activeServices);
+            // Deep link (/book?service=…): start on the chosen service.
+            const preselected = initialServiceId ? activeServices.find((s: Service) => s.id === initialServiceId) : null;
+            if (preselected) {
+                setSelectedService(preselected);
+                setStep(preselected.options && preselected.options.length > 0 ? 'option' : 'date');
+            }
             setSettings(stData.settings || null);
             setAvailability(avData.availability || []);
             setBlockedDates((avData.blockedDates || []).map((b: any) => b.blocked_date as string));
             setLoading(false);
         })();
-    }, [siteId]);
+    }, [siteId, initialServiceId]);
 
     // Default payment method when settings load
     useEffect(() => {
