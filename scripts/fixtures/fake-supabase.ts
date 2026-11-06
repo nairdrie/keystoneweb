@@ -13,6 +13,9 @@ const PRIMARY_KEYS: Record<string, string[]> = {
   v2_page_layouts: ['page_id'],
   v2_content: ['site_id', 'instance_id', 'field', 'locale'],
   user_subscriptions: ['user_id'],
+  oauth_clients: ['client_id'],
+  oauth_codes: ['code_hash'],
+  oauth_refresh_tokens: ['token_hash'],
 };
 
 const DEFAULTS: Record<string, () => Row> = {
@@ -24,6 +27,8 @@ const DEFAULTS: Record<string, () => Row> = {
   v2_content: () => ({ locale: 'default', owner_edited: false, rev: 1 }),
   products: () => ({ is_archived: false, is_active: true, status: 'draft', sort_order: 0, currency: 'CAD', images: [] }),
   booking_services: () => ({ is_archived: false, is_active: true, status: 'draft', sort_order: 0, currency: 'CAD' }),
+  oauth_codes: () => ({ used_at: null, resource: null }),
+  oauth_refresh_tokens: () => ({ revoked_at: null }),
   api_tokens: () => ({ scopes: ['sites:read', 'sites:write'], revoked_at: null, expires_at: null, last_used_at: null }),
 };
 

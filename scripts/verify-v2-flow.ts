@@ -77,6 +77,8 @@ async function main() {
     const unauth = await handleMcpHttp(db as never, null, { jsonrpc: '2.0', id: 1, method: 'initialize' });
     assert.equal(unauth.status, 401);
     assert.match(unauth.headers['WWW-Authenticate'], /Bearer/);
+    const viaHeader = await handleMcpHttp(db as never, null, { jsonrpc: '2.0', id: 9, method: 'ping' }, tokens['owner-agent']);
+    assert.equal(viaHeader.status, 200, 'X-Keystone-Token works as an alternative to Authorization');
     const init = await rpc(tokens['owner-agent'], 'initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'test', version: '1' } });
     const initBody = init.body as { result: { protocolVersion: string; capabilities: { tools: unknown }; instructions: string } };
     assert.equal(initBody.result.protocolVersion, '2025-06-18');
@@ -96,6 +98,84 @@ async function main() {
   });
 
   let siteId = '';
+  await step('sign in with OAuth: register, consent, PKCE code exchange, refresh rotation, disconnect', async () => {
+    const oauth = await import('../lib/v2/oauth');
+    const { createHash, randomBytes } = await import('node:crypto');
+    const origin = 'https://keystoneweb.ca';
+
+    // 401 points the AI app at the sign-in metadata.
+    const unauth = await handleMcpHttp(db as never, null, { jsonrpc: '2.0', id: 1, method: 'ping' }, null, origin);
+    assert.match(unauth.headers['WWW-Authenticate'], /resource_metadata="https:\/\/keystoneweb\.ca\/\.well-known\/oauth-protected-resource\/api\/mcp"/);
+    assert.equal(oauth.protectedResourceMetadata(origin).resource, `${origin}/api/mcp`);
+    const asMeta = oauth.authorizationServerMetadata(origin);
+    assert.deepEqual(asMeta.code_challenge_methods_supported, ['S256']);
+    assert.equal(asMeta.client_id_metadata_document_supported, true);
+
+    // Automatic registration: https or loopback redirect URIs only.
+    await assert.rejects(oauth.registerClient(db as never, { redirect_uris: ['http://evil.example/cb'] }), /https or loopback/);
+    await assert.rejects(oauth.registerClient(db as never, { redirect_uris: ['javascript:alert(1)'] }));
+    const reg = await oauth.registerClient(db as never, { client_name: 'Claude', redirect_uris: ['https://claude.ai/api/mcp/auth_callback'] });
+    assert.match(reg.client_id, /^ksc_/);
+    // Client ID metadata documents must be public https URLs (no SSRF to internal hosts).
+    await assert.rejects(oauth.getClient(db as never, 'https://127.0.0.1/client.json'), /public https/);
+    await assert.rejects(oauth.getClient(db as never, 'https://localhost/client.json'), /public https/);
+
+    const verifier = randomBytes(32).toString('base64url');
+    const challenge = createHash('sha256').update(verifier).digest('base64url');
+    const params = (extra: Record<string, string> = {}) => new URLSearchParams({
+      client_id: reg.client_id, redirect_uri: 'https://claude.ai/api/mcp/auth_callback', response_type: 'code',
+      code_challenge: challenge, code_challenge_method: 'S256', state: 'st8', resource: `${origin}/api/mcp`, ...extra,
+    });
+    await assert.rejects(oauth.validateAuthorizeRequest(db as never, params({ redirect_uri: 'https://attacker.example/cb' })), /not registered/);
+    await assert.rejects(oauth.validateAuthorizeRequest(db as never, params({ code_challenge_method: 'plain' })), /S256/);
+    await assert.rejects(oauth.validateAuthorizeRequest(db as never, params({ resource: `${origin}/api/other` })), /only issues tokens/);
+    const req = await oauth.validateAuthorizeRequest(db as never, params());
+    assert.deepEqual(req.scopes, ['sites:read', 'sites:write'], 'publishing is not granted unless the owner allows it');
+
+    // Consent tickets bind the approval to the signed-in user and request.
+    const ticket = await oauth.signConsentTicket(OWNER, params().toString());
+    assert.deepEqual(await oauth.verifyConsentTicket(ticket), { userId: OWNER, query: params().toString() });
+    assert.equal(await oauth.verifyConsentTicket(ticket.slice(0, -2) + 'xx'), null);
+
+    // Code exchange: PKCE required, single use.
+    const code = await oauth.createAuthorizationCode(db as never, req, OWNER, ['sites:read', 'sites:write']);
+    const exchange = (extra: Record<string, string>) => oauth.exchangeToken(db as never, new URLSearchParams({ grant_type: 'authorization_code', code, client_id: reg.client_id, redirect_uri: req.redirectUri, ...extra }));
+    await assert.rejects(exchange({ code_verifier: randomBytes(32).toString('base64url') }), /PKCE/);
+    const issued = await exchange({ code_verifier: verifier });
+    assert.match(issued.access_token, /^ks_oat_/);
+    assert.match(issued.refresh_token, /^ks_ort_/);
+    await assert.rejects(exchange({ code_verifier: verifier }), /invalid or expired|already used/);
+
+    // The signed-in app can use the MCP server as the owner, without publish rights.
+    const listed = await rpc(issued.access_token, 'tools/call', { name: 'list_sites', arguments: {} });
+    assert.equal(listed.status, 200);
+    assert.equal((listed.body as { result: { isError?: boolean } }).result.isError, undefined);
+    const pub = await tool(issued.access_token, 'publish', { site_id: '00000000-0000-0000-0000-000000000000' });
+    assert.equal(pub.isError, true);
+
+    // Refresh tokens rotate; the old one stops working.
+    const refreshed = await oauth.exchangeToken(db as never, new URLSearchParams({ grant_type: 'refresh_token', refresh_token: issued.refresh_token, client_id: reg.client_id }));
+    assert.notEqual(refreshed.refresh_token, issued.refresh_token);
+    await assert.rejects(oauth.exchangeToken(db as never, new URLSearchParams({ grant_type: 'refresh_token', refresh_token: issued.refresh_token })), /invalid or expired|already used/);
+
+    // Expired access tokens are refused.
+    const row = db.table('api_tokens').find((r) => r.token_hash === hashToken(issued.access_token))!;
+    const keep = row.expires_at;
+    row.expires_at = new Date(Date.now() - 1000).toISOString();
+    assert.equal((await rpc(issued.access_token, 'ping')).status, 401);
+    row.expires_at = keep;
+
+    // Settings → Connected apps, then Disconnect revokes everything for that app.
+    const apps = await oauth.listConnectedApps(db as never, OWNER);
+    assert.equal(apps.length, 1);
+    assert.equal(apps[0].name, 'Claude');
+    assert.equal((await oauth.listConnectedApps(db as never, OTHER)).length, 0);
+    await oauth.disconnectClient(db as never, OWNER, reg.client_id);
+    assert.equal((await rpc(refreshed.access_token, 'ping')).status, 401);
+    await assert.rejects(oauth.exchangeToken(db as never, new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refreshed.refresh_token })), /invalid or expired/);
+    assert.equal((await oauth.listConnectedApps(db as never, OWNER)).length, 0);
+  });
+
   await step('agent creates a site and builds theme, layout and home page', async () => {
     const created = await ok(tokens['owner-agent'], 'create_site', {
       name: 'Northline Roofing',
