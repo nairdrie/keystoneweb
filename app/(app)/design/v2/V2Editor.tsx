@@ -19,7 +19,7 @@ import { hasPaidAccess } from '@/lib/subscription/access';
 import { editorOp, EditorApiError, loadEditorState, pagePath, type EditorState, type FieldInfo } from './api';
 import { BrandPanel, BusinessPanel, PagesPanel, SectionsPanel, type PanelActions } from './panels';
 import { ChangeRequestModal, HistoryModal, LinkModal, MediaModal } from './modals';
-import ArchiePopover, { type ArchieOpen } from './archie';
+import ArchiePopover, { useArchie, type ArchieOpen } from './archie';
 import ArchieAIIcon from '@/app/components/ArchieAIIcon';
 
 type Obj = Record<string, unknown>;
@@ -52,7 +52,6 @@ export default function V2Editor({ siteId }: { siteId: string }) {
   const [showHistory, setShowHistory] = useState(false);
   const [showRequest, setShowRequest] = useState(false);
   const [archie, setArchie] = useState<ArchieOpen | null>(null);
-  const archieBusy = useRef(false);
   const [publishing, setPublishing] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -81,13 +80,16 @@ export default function V2Editor({ siteId }: { siteId: string }) {
 
   useEffect(() => { void refresh(); }, [refresh]);
 
+  // Archie's saved work for this site; runs keep going if the popover closes or the page reloads.
+  const archieApi = useArchie(siteId, { onChanged: () => { void refresh(); }, toast });
+
   const page = useMemo(() => state?.pages.find((p) => p.id === pageId) || state?.pages[0] || null, [state, pageId]);
 
   const closeArchie = useCallback(() => {
     setArchie(null);
     iframeRef.current?.contentWindow?.postMessage({ type: 'ks:ask-clear' }, '*');
   }, []);
-  useEffect(() => { if (!archieBusy.current) setArchie(null); }, [pageId, mode]);
+  useEffect(() => { setArchie(null); }, [pageId, mode]);
 
   // Edits run one at a time: each is a read-modify-write on the server, so
   // overlapping clicks (hide, then move) must not race each other.
@@ -188,14 +190,28 @@ export default function V2Editor({ siteId }: { siteId: string }) {
           const delta = y - scrollY.current;
           scrollY.current = y;
           // Keep Archie next to the spot it's pointing at while the page scrolls.
-          if (delta) setArchie((a) => (a?.anchor ? { ...a, anchor: { x: a.anchor.x, y: a.anchor.y - delta } } : a));
+          if (delta) {
+            setArchie((a) => (a?.rect ? {
+              ...a,
+              rect: { ...a.rect, top: a.rect.top - delta, bottom: a.rect.bottom - delta },
+              point: a.point ? { x: a.point.x, y: a.point.y - delta } : null,
+            } : a));
+          }
           break;
         }
         case 'ask': {
-          if (archieBusy.current) break;
-          const rect = iframeRef.current.getBoundingClientRect();
+          // Canvas coordinates → this window. Archie sits beside the clicked element.
+          const frame = iframeRef.current.getBoundingClientRect();
           scrollY.current = Number(d.scrollY) || scrollY.current;
-          setArchie({ anchor: { x: rect.left + (Number(d.x) || 0), y: rect.top + (Number(d.y) || 0) }, target: d.target || null, key: Date.now() });
+          const r = d.rect as { top: number; left: number; right: number; bottom: number } | null;
+          setArchie({
+            rect: r
+              ? { top: frame.top + r.top, left: frame.left + r.left, right: frame.left + r.right, bottom: frame.top + r.bottom }
+              : { top: frame.top + Number(d.y), left: frame.left + Number(d.x), right: frame.left + Number(d.x), bottom: frame.top + Number(d.y) },
+            point: { x: frame.left + (Number(d.x) || 0), y: frame.top + (Number(d.y) || 0) },
+            target: d.target || null,
+            key: Date.now(),
+          });
           break;
         }
         case 'select':
@@ -345,10 +361,12 @@ export default function V2Editor({ siteId }: { siteId: string }) {
         <button onClick={() => setShowHistory(true)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100" title="History" aria-label="History"><History className="h-4 w-4" /></button>
         <button
           data-archie-trigger
-          onClick={() => { iframeRef.current?.contentWindow?.postMessage({ type: 'ks:ask-clear' }, '*'); setArchie((a) => (a && !a.anchor ? null : { anchor: null, target: null, key: Date.now() })); }}
-          className={`hidden items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium md:flex ${archie && !archie.anchor ? 'bg-violet-50 text-violet-700' : 'text-slate-600 hover:bg-violet-50 hover:text-violet-700'}`}
+          onClick={() => { iframeRef.current?.contentWindow?.postMessage({ type: 'ks:ask-clear' }, '*'); setArchie((a) => (a && !a.rect ? null : { rect: null, point: null, target: null, key: Date.now() })); }}
+          className={`hidden items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium md:flex ${archie && !archie.rect ? 'bg-violet-50 text-violet-700' : 'text-slate-600 hover:bg-violet-50 hover:text-violet-700'}`}
+          title={archieApi.busy ? 'Archie is working on a change' : undefined}
         >
-          <ArchieAIIcon className="h-4 w-4" /> Ask for a change
+          {archieApi.busy ? <Loader2 className="h-4 w-4 animate-spin text-violet-500" /> : <ArchieAIIcon className="h-4 w-4" />}
+          {archieApi.busy ? 'Archie is working…' : 'Ask for a change'}
         </button>
         <button onClick={() => void publish()} disabled={publishing} className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50">
           {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />} Publish
@@ -459,15 +477,12 @@ export default function V2Editor({ siteId }: { siteId: string }) {
       {showHistory && <HistoryModal siteId={siteId} onClose={() => setShowHistory(false)} onRestored={() => { setShowHistory(false); void refresh(); toast('Version restored'); }} />}
       {archie && (
         <ArchiePopover
-          key="archie"
-          siteId={siteId}
+          key={archie.key}
+          api={archieApi}
           pageSlug={page.slug}
           open={archie}
           sectionName={archie.target?.section ? state.sections.find((s) => s.key === archie.target?.section)?.name : undefined}
-          onBusyChange={(b) => { archieBusy.current = b; }}
           onClose={closeArchie}
-          onChanged={() => { void refresh(); }}
-          onUndo={(versionId) => run(() => editorOp(siteId, 'restore', { versionId }), { success: "Undid Archie's change" })}
           onAskTeam={() => { closeArchie(); setShowRequest(true); }}
         />
       )}

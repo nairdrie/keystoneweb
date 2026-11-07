@@ -192,10 +192,13 @@
     clearAsk();
     if (el) { askEl = el; el.setAttribute('data-ks-ask', ''); }
     var text = el ? (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 200) : '';
+    var r = el ? el.getBoundingClientRect() : null;
     post({
       type: 'ask',
       x: e.clientX,
       y: e.clientY,
+      // The editor places Archie beside this box (iframe viewport coordinates).
+      rect: r ? { top: r.top, left: r.left, right: r.right, bottom: r.bottom } : null,
       scrollY: Math.round(window.scrollY),
       target: {
         instance: wrapper ? wrapper.getAttribute('data-ks-instance') : null,
