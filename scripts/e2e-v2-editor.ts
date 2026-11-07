@@ -569,6 +569,22 @@ async function main() {
     }
 
     assert.deepEqual(pageErrors.filter((e) => !/ResizeObserver/.test(e)), [], 'no uncaught errors in the editor');
+
+    await step('Design/Admin toggle and logo go to /admin for this site, after the last edit saves', async () => {
+      await page.goto(`${BASE}/design?siteId=${siteId}`, { waitUntil: 'domcontentloaded' });
+      const frame = page.frameLocator('iframe[title="Your site"]');
+      await frame.locator('h1').waitFor({ timeout: 60_000 });
+      const adminHref = `/admin?siteId=${siteId}`;
+      assert.equal(await page.getByRole('link', { name: 'Back to admin' }).getAttribute('href'), adminHref);
+      // Type into a field and leave without pressing Enter: the edit still saves.
+      await frame.locator('[data-ks-f="eyebrow"]').click();
+      await page.keyboard.press('ControlOrMeta+A');
+      await page.keyboard.type('Saved on the way out');
+      await page.getByRole('link', { name: 'Admin', exact: true }).click();
+      await page.waitForURL((u) => u.pathname === '/admin' && u.searchParams.get('siteId') === siteId, { timeout: 60_000 });
+      const row = db.table('v2_content').find((r) => r.instance_id === 'home-hero' && r.field === 'eyebrow');
+      assert.equal((row?.value as { html: string }).html, 'Saved on the way out');
+    });
     console.log(`\n${passed} passed`);
   } catch (e) {
     console.error(e);
