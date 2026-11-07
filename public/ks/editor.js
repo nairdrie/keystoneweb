@@ -5,8 +5,9 @@
  * editor window only through postMessage. It never saves anything itself.
  *
  *   iframe → parent: ready, select, field (text edits), pick (image/link/bg/toggle),
- *                    global, list (item ops), scroll, navigate
- *   parent → iframe: ks:scrollTo, ks:highlight, ks:preview-field
+ *                    global, list (item ops), scroll, navigate,
+ *                    ask (a click on something the owner can't edit → Archie)
+ *   parent → iframe: ks:scrollTo, ks:highlight, ks:preview-field, ks:ask-clear
  */
 (function () {
   'use strict';
@@ -37,6 +38,7 @@
     '#ks-item-bar button{all:unset;color:#fff;padding:6px 8px;border-radius:5px;cursor:pointer}',
     '#ks-item-bar button:hover{background:#334155}',
     '#ks-item-bar span{color:#94a3b8;padding:6px 6px 6px 8px}',
+    '[data-ks-ask]{outline:2px dashed #8b5cf6!important;outline-offset:2px}',
   ].join('\n');
   document.head.appendChild(style);
 
@@ -122,6 +124,91 @@
     if (editing && e.target === editing) setTimeout(function () { if (editing && document.activeElement !== editing) finishEditing(true); }, 0);
   }, true);
 
+  // ── Ask Archie: describe exactly what was clicked ────────────────────────
+  // Clicks that only end a text edit (mousedown blurred the field) don't ask.
+  var downWhileEditing = false;
+  document.addEventListener('mousedown', function () { downWhileEditing = !!editing; }, true);
+
+  var askEl = null;
+  function clearAsk() {
+    if (askEl) askEl.removeAttribute('data-ks-ask');
+    askEl = null;
+  }
+
+  function cssPath(el, stop) {
+    var parts = [];
+    while (el && el !== stop && el.nodeType === 1 && el !== document.body && el !== html) {
+      var part = el.tagName.toLowerCase();
+      if (el.id) { parts.unshift(part + '#' + CSS.escape(el.id)); break; }
+      var cls = Array.prototype.filter.call(el.classList, function (c) { return c.indexOf('ks-') !== 0; }).slice(0, 3);
+      if (cls.length) part += '.' + cls.map(function (c) { return CSS.escape(c); }).join('.');
+      var parent = el.parentElement;
+      if (parent) {
+        var same = Array.prototype.filter.call(parent.children, function (c) { return c.tagName === el.tagName; });
+        if (same.length > 1) part += ':nth-of-type(' + (same.indexOf(el) + 1) + ')';
+      }
+      parts.unshift(part);
+      el = parent;
+    }
+    return parts.join(' > ');
+  }
+
+  function cleanHtml(el) {
+    var copy = el.cloneNode(true);
+    var all = [copy].concat(Array.prototype.slice.call(copy.querySelectorAll ? copy.querySelectorAll('*') : []));
+    all.forEach(function (n) {
+      if (!n.removeAttribute) return;
+      ['data-ks-f', 'data-ks-t', 'data-ks-ask', 'data-ks-editing', 'contenteditable', 'spellcheck'].forEach(function (a) { n.removeAttribute(a); });
+      if (n.classList) { n.classList.remove('ks-sel'); if (!n.classList.length) n.removeAttribute('class'); }
+    });
+    var out = copy.outerHTML || '';
+    return out.length > 2500 ? out.slice(0, 2500) + '…' : out;
+  }
+
+  function hintsFor(el) {
+    var hints = [];
+    try {
+      var cs = getComputedStyle(el);
+      if (cs.backgroundImage && cs.backgroundImage !== 'none') hints.push('has a CSS background image/gradient: ' + cs.backgroundImage.slice(0, 100));
+      ['::before', '::after'].forEach(function (p) {
+        var c = getComputedStyle(el, p).content;
+        if (c && c !== 'none' && c !== 'normal') hints.push('draws a ' + p + ' pseudo-element (content: ' + c.slice(0, 40) + ')');
+      });
+      if (cs.position === 'absolute' || cs.position === 'fixed') hints.push('positioned ' + cs.position);
+      var r = el.getBoundingClientRect();
+      hints.push('about ' + Math.round(r.width) + '×' + Math.round(r.height) + 'px at a ' + window.innerWidth + 'px wide viewport');
+    } catch (err) { /* ignore */ }
+    if (el.closest('[data-ks-static]')) hints.push('marked decorative (data-ks-static)');
+    if (el.closest('[data-ks-l] > [data-ks-i]')) hints.push('inside list item ' + el.closest('[data-ks-l] > [data-ks-i]').getAttribute('data-ks-i') + ' of list "' + el.closest('[data-ks-l]').getAttribute('data-ks-l') + '"');
+    return hints;
+  }
+
+  function ask(e) {
+    var el = e.target;
+    if (!el || el.nodeType !== 1 || el === document.body || el === html) el = null;
+    var svg = el && el.closest ? el.closest('svg') : null;
+    if (svg) el = svg; // report the whole graphic, not one path inside it
+    var wrapper = el ? el.closest('[data-ks-instance]') : null;
+    clearAsk();
+    if (el) { askEl = el; el.setAttribute('data-ks-ask', ''); }
+    var text = el ? (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 200) : '';
+    post({
+      type: 'ask',
+      x: e.clientX,
+      y: e.clientY,
+      scrollY: Math.round(window.scrollY),
+      target: {
+        instance: wrapper ? wrapper.getAttribute('data-ks-instance') : null,
+        section: wrapper ? wrapper.getAttribute('data-ks-section') : null,
+        tag: el ? el.tagName.toLowerCase() : 'body',
+        selector: el ? cssPath(el, wrapper) : null,
+        text: text,
+        html: el ? cleanHtml(el) : null,
+        hints: el ? hintsFor(el) : [],
+      },
+    });
+  }
+
   // ── Clicks ───────────────────────────────────────────────────────────────
   document.addEventListener('click', function (e) {
     if (e.target.closest && e.target.closest('#ks-item-bar')) return;
@@ -165,8 +252,12 @@
     if (link) {
       var href = link.getAttribute('href') || '';
       var m = href.match(/\/v2r\/draft\/[^/]+(\/[^?#]*)?/);
-      if (m) post({ type: 'navigate', path: m[1] || '/' });
+      if (m) { post({ type: 'navigate', path: m[1] || '/' }); return; }
     }
+    // Nothing the owner can edit here: offer Archie.
+    if (downWhileEditing) { downWhileEditing = false; return; }
+    e.preventDefault();
+    ask(e);
   }, true);
 
   // ── List item toolbar ────────────────────────────────────────────────────
@@ -222,6 +313,7 @@
     var d = e.data || {};
     if (d.type === 'ks:scrollTo') window.scrollTo(0, Number(d.y) || 0);
     if (d.type === 'ks:highlight') select(d.instance, true);
+    if (d.type === 'ks:ask-clear') clearAsk();
   });
 
   var lastY = -1;
