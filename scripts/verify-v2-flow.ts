@@ -453,6 +453,118 @@ async function main() {
     assert.match(html, /Owner wrote <strong>this<\/strong>/);
   });
 
+  await step('blog: owner and agent posts flow into the agent\'s own list and article designs', async () => {
+    const { renderSitePath } = await import('../lib/v2/articles');
+    const { featuresIn } = await import('../lib/v2/collections');
+    // A post the owner wrote in Admin → Blog (same table and columns the admin API writes).
+    db.table('blog_posts').push({
+      id: 'owner-post', site_id: siteId, title: 'Spring roof checklist', slug: 'spring-roof-checklist', excerpt: 'Five things to check after winter.',
+      content: '<h2>Gutters first</h2><p>Clear them <strong>early</strong>.</p><script>alert(1)</script><p onclick="x()">Then shingles.</p>',
+      cover_image: 'https://cdn.example.com/spring.jpg', author: 'Dana', tags: ['Tips'], is_published: true, is_featured: false, is_archived: false,
+      published_at: '2026-04-02T15:00:00Z', created_at: '2026-04-02T15:00:00Z', sort_order: 0,
+    });
+
+    // The agent imports two articles from the old site (one kept as a draft) and a duplicate title.
+    const imported = await ok(tokens['owner-agent'], 'upsert_posts', { site_id: siteId, posts: [
+      { title: 'We joined the Better Business Bureau', content: '<p>Proud members since 2024.</p><iframe src="https://evil.example"></iframe>', published_at: '2024-01-15', tags: ['Press', 'News'], author: 'Northline' },
+      { title: 'Draft: winter prep', content: '<p>Not ready.</p>', publish: false },
+      { title: 'We joined the Better Business Bureau', content: '<p>Copy.</p>', published_at: '2023-06-01' },
+    ] });
+    assert.deepEqual(imported.posts.map((p: { slug: string }) => p.slug), ['we-joined-the-better-business-bureau', 'draft-winter-prep', 'we-joined-the-better-business-bureau-2']);
+    const stored = db.table('blog_posts').find((r) => r.slug === 'we-joined-the-better-business-bureau')!;
+    assert.equal(stored.published_at, '2024-01-15T12:00:00.000Z', 'imported date kept');
+    assert.doesNotMatch(String(stored.content), /iframe/, 'agent HTML is sanitized on the way in');
+    assert.equal(stored.is_published, true);
+    assert.equal(db.table('blog_posts').find((r) => r.slug === 'draft-winter-prep')!.is_published, false);
+    const other = await tool(tokens.other, 'upsert_posts', { site_id: siteId, posts: [{ title: 'Spam' }] });
+    assert.equal(other.isError, true, 'other users cannot post to this site');
+
+    let data = await ok(tokens['owner-agent'], 'get_business_data', { site_id: siteId });
+    assert.equal(data.posts.length, 4);
+    assert.equal(data.blog.articleLayoutPage, null);
+    assert.match(data.blog.note, /plain article page/);
+    assert.ok('content' in data.bindableFields.post);
+
+    // The agent designs a news page and an article layout — its own markup and styling.
+    await ok(tokens['owner-agent'], 'put_section', { site_id: siteId, key: 'news-grid', name: 'News grid', html: `<section class="news"><h2 data-ks="heading">From the blog</h2>
+      <div class="cards" data-ks-collection="posts"><a class="card" data-ks-item data-ks-bind="url" href="/blog/x"><time data-ks-bind="date">Jan 1</time><h3 data-ks-bind="title">Sample</h3><p data-ks-bind="excerpt">Sample</p></a>
+      <p data-ks-empty data-ks="empty">Articles coming soon.</p></div></section>` });
+    await ok(tokens['owner-agent'], 'put_section', { site_id: siteId, key: 'article', name: 'Article', html: `<article class="post" data-ks-collection="post"><div data-ks-item>
+      <p class="kicker"><span data-ks-bind="tag">Tips</span> · <time data-ks-bind="date">Jan 1</time></p><h1 data-ks-bind="title">Sample title</h1>
+      <div class="prose" data-ks-bind="content"><p>Sample paragraph.</p></div></div></article>
+      <aside class="more"><h2 data-ks="moreHeading">More stories</h2><ul data-ks-collection="posts" data-ks-filter="!current" data-ks-limit="3"><li data-ks-item><a data-ks-bind="url" href="/blog/x"><span data-ks-bind="title">Sample</span></a></li></ul></aside>` });
+    await ok(tokens['owner-agent'], 'put_page', { site_id: siteId, slug: 'news', title: 'News', seo: { description: 'News from Northline' }, sections: [{ section: 'news-grid', id: 'news-grid' }] });
+    const before = await ok(tokens['owner-agent'], 'validate', { site_id: siteId });
+    assert.ok(before.warnings.some((w: { rule: string }) => w.rule === 'article-layout'), 'nudged to design an article layout');
+    const layout = await ok(tokens['owner-agent'], 'put_page', { site_id: siteId, slug: 'article', title: 'Article', template: 'post', sections: [{ section: 'article', id: 'article-main' }] });
+    assert.equal(layout.page.template, 'post');
+    assert.equal((await tool(tokens['owner-agent'], 'put_page', { site_id: siteId, slug: 'story', template: 'post' })).isError, true, 'one article layout per site');
+    assert.equal((await tool(tokens['owner-agent'], 'put_page', { site_id: siteId, slug: 'home', template: 'post' })).isError, true);
+    const after = await ok(tokens['owner-agent'], 'validate', { site_id: siteId });
+    assert.deepEqual(after.errors, []);
+    assert.ok(!after.warnings.some((w: { rule: string; page?: string }) => w.rule === 'article-layout' || (w.page === 'article' && ['seo-description', 'h1'].includes(w.rule))), JSON.stringify(after.warnings));
+    data = await ok(tokens['owner-agent'], 'get_business_data', { site_id: siteId });
+    assert.equal(data.blog.articleLayoutPage, 'article');
+    assert.equal(data.blog.postsListPage, 'news');
+
+    // Admin shows the Blog tab for this site.
+    const { data: sections } = await db.from('v2_sections').select('html').eq('site_id', siteId);
+    assert.equal(featuresIn(((sections || []) as Array<{ html: string }>).map((x) => x.html)).blog, true);
+
+    const pub = await ok(tokens['owner-agent'], 'publish', { site_id: siteId, subdomain: 'northline' });
+    const live = (await loadRelease(db as never, pub.releaseId))!;
+    const siteUrl = 'https://northline.kswd.ca';
+    const render = (path: string, b = live, mode: 'published' | 'preview' = 'published') => renderSitePath(db as never, b, siteId, path, { mode, siteUrl: mode === 'published' ? siteUrl : undefined });
+
+    const news = await render('/news');
+    assert.equal(news.status, 200);
+    const order = ['Spring roof checklist', 'We joined the Better Business Bureau', 'We joined'].map((t) => news.html.indexOf(t));
+    assert.ok(order[0] > 0 && order[0] < order[1], 'newest first');
+    assert.doesNotMatch(news.html, /Not ready|Draft: winter prep/, 'drafts are not listed');
+    assert.match(news.html, /href="\/blog\/spring-roof-checklist"/);
+    assert.match(news.html, /<time datetime="2026-04-02">April 2, 2026<\/time>/);
+    assert.doesNotMatch(news.html, /href="\/article"/, 'the article layout is not in the menu');
+
+    const article = await render('/blog/spring-roof-checklist');
+    assert.equal(article.status, 200);
+    assert.match(article.html, /<title>Spring roof checklist \| [^<]+<\/title>/);
+    assert.match(article.html, /<meta name="description" content="Five things to check after winter.">/);
+    assert.match(article.html, /<link rel="canonical" href="https:\/\/northline.kswd.ca\/blog\/spring-roof-checklist">/);
+    assert.match(article.html, /<meta property="og:type" content="article">/);
+    assert.match(article.html, /<meta property="og:image" content="https:\/\/cdn.example.com\/spring.jpg">/);
+    assert.match(article.html, /"@type":"BlogPosting"/);
+    assert.match(article.html, /<h1>Spring roof checklist<\/h1>/);
+    assert.match(article.html, /<div class="prose"><h2>Gutters first<\/h2><p>Clear them <strong>early<\/strong>.<\/p><p>Then shingles.<\/p><\/div>/, 'owner HTML is sanitized on the way out');
+    assert.match(article.html, /<span>Tips<\/span>/);
+    const more = article.html.slice(article.html.indexOf('class="more"'));
+    assert.doesNotMatch(more, /Spring roof checklist/, '!current leaves out the article being read');
+    assert.match(more, /We joined the Better Business Bureau/);
+
+    assert.equal((await render('/blog/draft-winter-prep')).status, 404, 'drafts are not public');
+    assert.equal((await render('/blog/no-such-post')).status, 404);
+    assert.equal((await render('/article')).status, 404, 'the layout is not a page of its own on the live site');
+    const draftBundle = (await loadDraftBundle(db as never, siteId))!;
+    const layoutPreview = await render('/article', draftBundle, 'preview');
+    assert.equal(layoutPreview.status, 200, 'but the editor can open it');
+    assert.match(layoutPreview.html, /<h1>Spring roof checklist<\/h1>/, 'showing the newest post');
+
+    // New posts show up on the live site without republishing; updates keep the URL.
+    await ok(tokens['owner-agent'], 'upsert_posts', { site_id: siteId, posts: [{ id: 'owner-post', featured: true }, { id: imported.posts[0].id, title: 'Renamed title', featured: true }] });
+    assert.equal(db.table('blog_posts').filter((r) => r.site_id === siteId && r.is_featured).length, 1, 'one featured post');
+    assert.equal(db.table('blog_posts').find((r) => r.id === imported.posts[0].id)!.slug, 'we-joined-the-better-business-bureau', 'URL unchanged');
+    assert.match((await render('/news')).html, /Renamed title/);
+
+    // Without an article layout, posts still open in Keystone's plain article page inside the site's header/footer.
+    await ok(tokens['owner-agent'], 'put_page', { site_id: siteId, slug: 'article', template: 'none' });
+    const plain = await render('/blog/spring-roof-checklist', (await loadDraftBundle(db as never, siteId))!, 'preview');
+    assert.equal(plain.status, 200);
+    assert.match(plain.html, /class="ks-article"/);
+    assert.match(plain.html, /<h1>Spring roof checklist<\/h1>/);
+    assert.match(plain.html, /href="\/news">← News</);
+    assert.match(plain.html, /<header/);
+    await ok(tokens['owner-agent'], 'put_page', { site_id: siteId, slug: 'article', template: 'post' });
+  });
+
   await step('classic sites are exported read-only for redesigns', async () => {
     db.table('sites').push({ id: '44444444-4444-4444-4444-444444444444', user_id: OWNER, site_slug: 'Old Site', engine: 'blocks_v1', is_published: false, design_data: { siteTitle: 'Old Site' } });
     db.table('pages').push({ id: 'old-home', site_id: '44444444-4444-4444-4444-444444444444', slug: 'home', title: 'Home', display_name: 'Home', nav_order: 0, design_data: { blocks: [{ id: 'b1', type: 'hero', data: { title: 'Welcome to Old Site', subtitle: '<p>We fix things.</p>', bgImage: 'https://img.example.com/a.jpg', backgroundColor: '#fff' } }] } });

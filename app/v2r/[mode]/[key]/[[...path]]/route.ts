@@ -12,11 +12,11 @@
 import { NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { APP_URL, parseHost } from '@/lib/env/domain';
-import { findPageByPath, renderPage, ALLOWED_SCRIPT_HOSTS_FOR_CSP } from '@/lib/v2/render';
+import { ALLOWED_SCRIPT_HOSTS_FOR_CSP } from '@/lib/v2/render';
 import { loadDraftBundle, loadRelease, loadSiteRow } from '@/lib/v2/store';
 import { ENGINE_V2 } from '@/lib/v2/types';
 import { verifyDraftToken } from '@/lib/v2/preview-token';
-import { collectionsIn, fetchCollections, pageSectionHtmls } from '@/lib/v2/collections';
+import { renderSitePath } from '@/lib/v2/articles';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,10 +47,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const host = (request.headers.get('host') || '').split(':')[0];
     const hostKind = parseHost(host).kind;
     const siteUrl = site.custom_domain ? `https://${site.custom_domain}` : bundle.site.domain ? `https://${bundle.site.domain}` : `https://${host}`;
-    const page = findPageByPath(bundle, pathname);
-    const kinds = collectionsIn(pageSectionHtmls(bundle, page || null));
-    const collections = kinds.size ? await fetchCollections(db, site.id, kinds) : undefined;
-    const rendered = renderPage(bundle, page || null, { mode: 'published', siteUrl, version: site.v2_release_id, collections });
+    const rendered = await renderSitePath(db, bundle, site.id, pathname, { mode: 'published', siteUrl, version: site.v2_release_id });
 
     const csp = [
       `script-src 'self' blob: ${ALLOWED_SCRIPT_HOSTS_FOR_CSP} https://www.googletagmanager.com`,
@@ -73,17 +70,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (!claims) return notFound('This preview link has expired.');
     const bundle = await loadDraftBundle(db, claims.siteId);
     if (!bundle) return notFound();
-    const page = findPageByPath(bundle, pathname);
-    const draftKinds = collectionsIn(pageSectionHtmls(bundle, page || null));
-    const collections = draftKinds.size ? await fetchCollections(db, claims.siteId, draftKinds) : undefined;
     const appOrigin = new URL(APP_URL).origin;
     const requestOrigin = request.nextUrl.origin;
-    const rendered = renderPage(bundle, page || null, {
+    const rendered = await renderSitePath(db, bundle, claims.siteId, pathname, {
       mode: claims.mode,
       linkBase: `/v2r/draft/${key}`,
       editorOrigin: claims.mode === 'edit' ? requestOrigin || appOrigin : undefined,
       version: 'draft',
-      collections,
     });
     return htmlResponse(rendered.html, rendered.status, {
       'Cache-Control': 'private, no-store',

@@ -28,7 +28,7 @@ import {
   opValidate,
   type OpsContext,
 } from './ops';
-import { loadSiteRow, type Db } from './store';
+import { loadDraftBundle, loadSiteRow, type Db } from './store';
 import { draftUrl } from './preview-token';
 import { checkPublishEligibility, publishV2Site, resolveSubdomain } from './publish';
 import { importImageFromUrl, searchStockPhotos } from './media';
@@ -36,6 +36,8 @@ import { exportLegacySite } from './legacy';
 import { escapeHtml, safeSrc, toPlainText } from './sanitize';
 import { captureScreenshots, type ViewportName } from './screenshot';
 import { COLLECTION_FIELDS } from './collections';
+import { listPosts, opUpsertPosts, type PostInput } from './posts';
+import { articleTemplate, postIndexPage } from './articles';
 
 type Json = Record<string, unknown>;
 
@@ -337,6 +339,11 @@ export const TOOLS: ToolDef[] = [
         show_in_nav: { type: 'boolean' },
         nav_order: { type: 'number' },
         seo: { type: 'object', properties: { title: { type: 'string' }, description: { type: 'string' }, ogImage: { type: 'string' } } },
+        template: {
+          type: 'string',
+          enum: ['post', 'none'],
+          description: '"post" makes this page the article layout used for every blog post at /blog/<slug> (see get_guide topic "business"). "none" turns that off.',
+        },
         sections: {
           type: 'array',
           items: {
@@ -358,7 +365,8 @@ export const TOOLS: ToolDef[] = [
     run: async (args, ctx) => {
       const { ops } = await siteContext(args, ctx);
       const slug = String(args.slug);
-      return withPreview(ops.siteId, await opPutPage(ops, args as never, { force: !!args.force }), slug === 'home' ? '/' : `/${slug}`);
+      const input = { ...args, ...(args.template !== undefined ? { template: args.template === 'post' ? 'post' : null } : {}) };
+      return withPreview(ops.siteId, await opPutPage(ops, input as never, { force: !!args.force }), slug === 'home' ? '/' : `/${slug}`);
     },
   },
   {
@@ -532,22 +540,33 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'get_business_data',
-    title: 'Get products & services',
-    description: 'The site\'s live products and bookable services (what data-ks-collection sections will show), with the fields you can bind. Products/services are managed in Keystone Admin; use upsert_products / upsert_services to add them for a new business.',
+    title: 'Get products, services & blog posts',
+    description: 'The site\'s live products, bookable services and blog posts (what data-ks-collection sections will show), with the fields you can bind, plus which page is the article layout. Owners manage these in Keystone Admin; use upsert_products / upsert_services / upsert_posts to add them for a new business or import them from an old site.',
     scope: 'sites:read',
     readOnly: true,
     inputSchema: { type: 'object', properties: siteIdProp, required: ['site_id'] },
     run: async (args, ctx) => {
       const { ops } = await siteContext(args, ctx);
-      const [products, services, settings] = await Promise.all([
+      const [products, services, settings, posts, bundle] = await Promise.all([
         ctx.db.from('products').select('id, name, price_cents, currency, category, status, is_active, is_featured, images').eq('site_id', ops.siteId).eq('is_archived', false).order('sort_order').limit(200),
         ctx.db.from('booking_services').select('id, name, price_cents, duration_minutes, status, is_active, is_featured').eq('site_id', ops.siteId).eq('is_archived', false).order('sort_order').limit(200),
         ctx.db.from('booking_settings').select('site_id').eq('site_id', ops.siteId).maybeSingle(),
+        listPosts(ops),
+        loadDraftBundle(ctx.db, ops.siteId),
       ]);
+      const layout = bundle ? articleTemplate(bundle) : null;
+      const index = bundle ? postIndexPage(bundle) : null;
       return {
         products: products.data || [],
         services: services.data || [],
         bookingConfigured: !!settings.data,
+        posts,
+        blog: {
+          articleUrls: '/blog/<slug>',
+          articleLayoutPage: layout?.slug || null,
+          postsListPage: index?.slug || null,
+          note: layout ? undefined : 'No article layout yet: /blog/<slug> uses Keystone\'s plain article page. Design one with put_page { template: "post" }.',
+        },
         bindableFields: COLLECTION_FIELDS,
       };
     },
@@ -677,6 +696,42 @@ export const TOOLS: ToolDef[] = [
         }
       }
       return { products: results };
+    },
+  },
+  {
+    name: 'upsert_posts',
+    title: 'Add or update blog posts',
+    description: 'Create or update blog posts: the same posts the owner writes in Admin → Blog. Use it to seed a new blog or import articles from the business\'s old site (keep their original dates with published_at). Pass id to update; only update posts the owner asked you to change — they are the owner\'s writing. Posts appear at /blog/<slug> and in every data-ks-collection="posts" list without republishing. Import images with import_media first.',
+    scope: 'sites:write',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        ...siteIdProp,
+        posts: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: str('Existing post id to update (omit to create).'),
+              title: { type: 'string' },
+              slug: str('URL slug (default: from the title). Changing it changes the post\'s URL.'),
+              excerpt: str('One or two sentence summary for lists and search results.'),
+              content: str('The article as HTML: p, h2–h4, ul/ol, blockquote, a, strong/em, img, figure, pre/code, table. Scripts and styles are removed.'),
+              cover_image: str('Image URL (from import_media).'),
+              author: { type: 'string' },
+              tags: { type: 'array', items: { type: 'string' } },
+              published_at: str('Publish date, YYYY-MM-DD or ISO. Use the original date for imported articles.'),
+              publish: { type: 'boolean', description: 'Default true for new posts. false keeps it as a draft in Admin → Blog.' },
+              featured: { type: 'boolean', description: 'One featured post per site (data-ks-filter="featured").' },
+            },
+          },
+        },
+      },
+      required: ['site_id', 'posts'],
+    },
+    run: async (args, ctx) => {
+      const { ops, site } = await siteContext(args, ctx);
+      return opUpsertPosts(ops, site.user_id || ctx.auth.userId, (Array.isArray(args.posts) ? args.posts : []) as PostInput[]);
     },
   },
   {

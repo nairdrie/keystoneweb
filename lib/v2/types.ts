@@ -105,7 +105,11 @@ export interface PageRecord {
   instances: SectionInstance[];
   /** Layout row version (0 = none yet); used to reject stale writes. */
   layoutVersion?: number;
+  /** "post": the agent's article layout, used for every /blog/<slug> (not a page of its own). */
+  template?: PageTemplate;
 }
+
+export type PageTemplate = 'post';
 
 export interface SiteMeta {
   id: string;

@@ -192,10 +192,14 @@ export default function V2Editor({ siteId }: { siteId: string }) {
           break;
         }
         case 'collection': {
-          const where = d.kind === 'services' ? 'Admin → Booking' : 'Admin → Store';
+          const kind = d.kind === 'post' ? 'posts' : String(d.kind);
+          const where = kind === 'services' ? 'Admin → Booking' : kind === 'posts' ? 'Admin → Blog' : 'Admin → Store';
+          const label = kind === 'posts' ? 'blog posts' : kind;
           toast(d.sample
-            ? `These are sample ${d.kind}. Add your real ${d.kind} in ${where} and they'll appear here in this design.`
-            : `These ${d.kind} come from ${where}. Edit them there and the site updates automatically.`);
+            ? `These are sample ${label}. Add your real ${label} in ${where} and they'll appear here in this design.`
+            : d.kind === 'post'
+            ? `This article comes from ${where}. Edit it there and the site updates automatically.`
+            : `These ${label} come from ${where}. Edit them there and the site updates automatically.`);
           break;
         }
         case 'notice':
@@ -274,7 +278,7 @@ export default function V2Editor({ siteId }: { siteId: string }) {
         </div>
 
         <select value={page.id} onChange={(e) => { setPageId(e.target.value); scrollY.current = 0; setSelected(null); }} className="ml-4 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm" aria-label="Page">
-          {state.pages.map((p) => <option key={p.id} value={p.id}>{p.navLabel || p.title}</option>)}
+          {state.pages.map((p) => <option key={p.id} value={p.id}>{p.template === 'post' ? `Blog article layout (${p.navLabel || p.title})` : p.navLabel || p.title}</option>)}
         </select>
 
         <div className="mx-auto flex items-center gap-1 rounded-lg bg-slate-100 p-1">

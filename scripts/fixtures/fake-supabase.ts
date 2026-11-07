@@ -29,6 +29,7 @@ const DEFAULTS: Record<string, () => Row> = {
   booking_services: () => ({ is_archived: false, is_active: true, status: 'draft', sort_order: 0, currency: 'CAD' }),
   oauth_codes: () => ({ used_at: null, resource: null }),
   oauth_refresh_tokens: () => ({ revoked_at: null }),
+  blog_posts: () => ({ is_published: false, is_featured: false, is_archived: false, tags: [], published_at: null, excerpt: null, content: null, cover_image: null, author: null, sort_order: 0 }),
   api_tokens: () => ({ scopes: ['sites:read', 'sites:write'], revoked_at: null, expires_at: null, last_used_at: null }),
 };
 

@@ -43,7 +43,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ dom
     businessName,
     description,
     businessProfile,
-    pages: (pages || []).map(p => ({
+    pages: (pages || []).filter(p => !(p.design_data as { v2Template?: string } | null)?.v2Template).map(p => ({
       slug: p.slug,
       title: p.title,
       displayName: p.display_name,

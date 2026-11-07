@@ -31,7 +31,7 @@ export async function GET(
   const [{ data: pages }, { data: posts }] = await Promise.all([
     supabase
       .from('pages')
-      .select('slug, updated_at')
+      .select('slug, updated_at, design_data')
       .eq('site_id', site.id),
     supabase
       .from('blog_posts')
@@ -45,6 +45,8 @@ export async function GET(
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`;
 
   for (const page of pages || []) {
+    // An agent-built site's article layout isn't a page of its own (its posts are listed below).
+    if ((page.design_data as { v2Template?: string } | null)?.v2Template) continue;
     const pageUrl = page.slug === 'home' ? siteBase : `${siteBase}/${page.slug}`;
     const lastMod = page.updated_at
       ? new Date(page.updated_at).toISOString().split('T')[0]

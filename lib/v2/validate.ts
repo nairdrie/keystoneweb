@@ -80,6 +80,7 @@ export function validateBundle(bundle: SiteBundle): ValidationReport {
 
   // ── Pages ──
   const slugs = new Set(bundle.pages.map((p) => p.slug));
+  const articleLayoutSlug = bundle.pages.find((p) => p.template === 'post')?.slug;
   if (!slugs.has('home')) issues.push({ level: 'error', rule: 'no-home', message: 'The site needs a page with slug "home".' });
 
   for (const page of bundle.pages) {
@@ -89,9 +90,15 @@ export function validateBundle(bundle: SiteBundle): ValidationReport {
       }
     }
     if (!page.instances.length) issues.push({ level: 'warning', rule: 'empty-page', message: 'Page has no sections.', page: page.slug });
-    if (!page.seo.description) issues.push({ level: 'warning', rule: 'seo-description', message: 'Page has no SEO description.', page: page.slug });
+    const isArticleLayout = page.template === 'post';
+    // Each article supplies its own title and description.
+    if (!page.seo.description && !isArticleLayout) issues.push({ level: 'warning', rule: 'seo-description', message: 'Page has no SEO description.', page: page.slug });
+    if (isArticleLayout && !page.instances.some((i) => /data-ks-collection\s*=\s*["']post["']/.test(bundle.sections[i.section]?.html || ''))) {
+      issues.push({ level: 'warning', rule: 'article-layout', message: 'This page is the article layout but has no data-ks-collection="post" section, so articles would show no title or text.', page: page.slug });
+    }
 
-    const rendered = renderPage(bundle, page, { mode: 'published' });
+    // The article layout is checked with its sample article (live posts fill it at request time).
+    const rendered = renderPage(bundle, page, { mode: isArticleLayout ? 'preview' : 'published' });
     if (rendered.stats.cssBytes > BUDGETS.pageCssBytes) {
       issues.push({ level: 'warning', rule: 'budget', message: `Page CSS is ${Math.round(rendered.stats.cssBytes / 1000)}KB (budget ${BUDGETS.pageCssBytes / 1000}KB).`, page: page.slug });
     }
@@ -113,11 +120,23 @@ export function validateBundle(bundle: SiteBundle): ValidationReport {
       if (!slugs.has(slug)) {
         issues.push({ level: 'error', rule: 'broken-link', message: `Link to ${href} — there is no page "${slug}".`, page: page.slug });
       }
+      else if (articleLayoutSlug === slug) {
+        issues.push({ level: 'error', rule: 'broken-link', message: `Link to ${href} — that page is the article layout, which isn't reachable on the live site. Link to a post (/blog/<slug>) or the page listing posts.`, page: page.slug });
+      }
     });
 
     $('img').each((_, el) => {
       const alt = $(el).attr('alt');
       if (alt === undefined) issues.push({ level: 'warning', rule: 'missing-alt', message: `Image ${$(el).attr('src') || ''} has no alt text.`, page: page.slug });
+    });
+  }
+
+  const listsPosts = bundle.pages.some((p) => p.instances.some((i) => /data-ks-collection\s*=\s*["']posts["']/.test(bundle.sections[i.section]?.html || '')));
+  if (listsPosts && !bundle.pages.some((p) => p.template === 'post')) {
+    issues.push({
+      level: 'warning',
+      rule: 'article-layout',
+      message: 'The site lists blog posts but has no article layout, so /blog/<slug> uses Keystone\'s plain article page. Design one with put_page { template: "post" } (get_guide topic "business").',
     });
   }
 

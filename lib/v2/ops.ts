@@ -239,6 +239,7 @@ export async function opGetSite(ctx: OpsContext, opts: { includeCode?: boolean }
       showInNav: p.is_visible_in_nav,
       navOrder: p.nav_order,
       seo: p.seo,
+      ...(p.template ? { template: p.template } : {}),
       sections: p.instances,
       layoutVersion: p.layoutVersion ?? 0,
     })),
@@ -461,6 +462,8 @@ export interface PageInput {
   show_in_nav?: boolean;
   nav_order?: number;
   seo?: { title?: string; description?: string; ogImage?: string };
+  /** "post" makes this page the article layout for /blog/<slug>; null turns that off. */
+  template?: 'post' | null;
   sections?: Array<{ id?: string; section: string; hidden?: boolean; content?: Record<string, unknown> }>;
   /** reject replacing the section list if the page layout changed since this version was read */
   expected_version?: number;
@@ -473,6 +476,16 @@ export async function opPutPage(ctx: OpsContext, input: PageInput, opts: { force
   let page = bundle.pages.find((p) => p.slug === slug) || null;
 
   await maybeSnapshot(ctx.db, ctx.siteId, ctx.actor, `page ${slug}`);
+
+  if (input.template !== undefined && input.template !== null && input.template !== 'post') {
+    throw new OpError('template must be "post" (the article layout) or null');
+  }
+  if (input.template === 'post') {
+    if (slug === 'home') throw new OpError('The home page can\'t be the article layout. Use another slug, e.g. "article".');
+    const other = bundle.pages.find((p) => p.template === 'post' && p.slug !== slug);
+    if (other) throw new OpError(`Page "${other.slug}" is already the article layout. Set template: null on it first, or update that page.`);
+  }
+  const templateChange = input.template !== undefined ? { v2Template: input.template === 'post' ? 'post' : null } : null;
 
   const title = input.title !== undefined ? toPlainText(input.title).slice(0, 120) : page?.title || titleFromSlug(slug);
   const seo = input.seo ? {
@@ -488,19 +501,21 @@ export async function opPutPage(ctx: OpsContext, input: PageInput, opts: { force
       slug,
       title,
       display_name: input.nav_label ? toPlainText(input.nav_label).slice(0, 60) : title,
-      is_visible_in_nav: input.show_in_nav ?? true,
+      // The article layout isn't a page of its own, so it stays out of the menu unless asked.
+      is_visible_in_nav: input.show_in_nav ?? input.template !== 'post',
       nav_order: navOrder,
-      design_data: seo || {},
+      design_data: { ...(seo || {}), ...(templateChange || {}) },
     }).select('id').single();
     if (error) throw new OpError(`Failed to create page: ${error.message}`, 500);
-    page = { id: data.id, slug, title, display_name: title, is_visible_in_nav: true, nav_order: navOrder, seo: {}, instances: [] };
+    page = { id: data.id, slug, title, display_name: title, is_visible_in_nav: input.show_in_nav ?? input.template !== 'post', nav_order: navOrder, seo: {}, instances: [], ...(input.template === 'post' ? { template: 'post' as const } : {}) };
   } else {
     const { data: row } = await ctx.db.from('pages').select('design_data').eq('id', page.id).single();
     const update: Record<string, unknown> = { title, updated_at: new Date().toISOString() };
     if (input.nav_label !== undefined) update.display_name = toPlainText(input.nav_label).slice(0, 60) || title;
     if (input.show_in_nav !== undefined) update.is_visible_in_nav = !!input.show_in_nav;
     if (input.nav_order !== undefined) update.nav_order = Number(input.nav_order) || 0;
-    if (seo) update.design_data = { ...(row?.design_data || {}), ...seo };
+    if (seo || templateChange) update.design_data = { ...(row?.design_data || {}), ...(seo || {}), ...(templateChange || {}) };
+    if (input.template === 'post' && input.show_in_nav === undefined && page.template !== 'post') update.is_visible_in_nav = false;
     const { error } = await ctx.db.from('pages').update(update).eq('id', page.id);
     if (error) throw new OpError(`Failed to update page: ${error.message}`, 500);
   }
@@ -535,8 +550,9 @@ export async function opPutPage(ctx: OpsContext, input: PageInput, opts: { force
   }
 
   await logActivity(ctx.db, ctx.siteId, ctx.actor, 'put_page', { slug });
+  const isTemplate = input.template !== undefined ? input.template === 'post' : page.template === 'post';
   return {
-    page: { id: page.id, slug, title },
+    page: { id: page.id, slug, title, ...(isTemplate ? { template: 'post', note: 'Used for every /blog/<slug> article. Not reachable at its own URL on the live site.' } : {}) },
     sections: page.instances,
     content: contentResults,
   };

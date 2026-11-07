@@ -313,12 +313,16 @@ export const SCHEMA_HINTS: Record<string, string[]> = {
 };
 
 /**
- * <div data-ks-collection="products|services" data-ks-limit data-ks-filter …>
+ * <div data-ks-collection="products|services|posts|post" data-ks-limit data-ks-filter …>
  *   <article data-ks-item> … data-ks-bind="name" … data-ks-action="add-to-cart" … </article>
  *   <p data-ks-empty data-ks="emptyText">No products yet.</p>
  * </div>
  * Item templates are filled with live data, so their sample text needn't be bound.
  */
+const ARTICLE_CONTAINERS = new Set(['div', 'article', 'section', 'main', 'aside']);
+/** Sample article markup that may sit inside the element bound to "content". */
+const ARTICLE_SAMPLE_TAGS = new Set(['p', 'h2', 'h3', 'h4', 'ul', 'ol', 'blockquote', 'figure', 'img', 'pre', 'hr', 'table']);
+
 function compileCollection(el: Element, attrs: Record<string, string>, scope: Scope, ctx: Ctx) {
   const kind = attrs['data-ks-collection'].trim() as CollectionKind;
   if (!(COLLECTION_KINDS as readonly string[]).includes(kind)) {
@@ -354,6 +358,25 @@ function compileCollection(el: Element, attrs: Record<string, string>, scope: Sc
           });
         }
       }
+      // The article body is block-level HTML: it needs a block container.
+      if (a['data-ks-bind'] === 'content') {
+        const t = (node as Element).tagName.toLowerCase();
+        if (!ARTICLE_CONTAINERS.has(t)) {
+          ctx.issues.push({
+            level: 'error',
+            rule: 'collection-field',
+            message: `Bind "content" on a block element (div, article, section, main), not <${t}> — the article has its own paragraphs and headings.`,
+            snippet: snippetOf(ctx.$, node as Element),
+          });
+        } else if ((node as Element).children.some((c) => c.type === 'tag' && !ARTICLE_SAMPLE_TAGS.has((c as Element).tagName.toLowerCase()))) {
+          ctx.issues.push({
+            level: 'warning',
+            rule: 'collection-field',
+            message: 'Everything inside the element bound to "content" is replaced by the article. Put sample paragraphs there, but no other design.',
+            snippet: snippetOf(ctx.$, node as Element),
+          });
+        }
+      }
     });
     ctx.$(item).find('[data-ks]').each((_, node) => {
       ctx.issues.push({
@@ -367,6 +390,12 @@ function compileCollection(el: Element, attrs: Record<string, string>, scope: Sc
   }
   if (attrs['data-ks-limit'] && !(Number(attrs['data-ks-limit']) > 0)) {
     ctx.issues.push({ level: 'error', rule: 'collection', message: 'data-ks-limit must be a positive number.', snippet: snippetOf(ctx.$, el) });
+  }
+  if (attrs['data-ks-offset'] && !(Number(attrs['data-ks-offset']) >= 0)) {
+    ctx.issues.push({ level: 'error', rule: 'collection', message: 'data-ks-offset must be a number (how many items to skip).', snippet: snippetOf(ctx.$, el) });
+  }
+  if (kind === 'post' && attrs['data-ks-limit']) {
+    ctx.issues.push({ level: 'warning', rule: 'collection', message: 'data-ks-collection="post" is always a single article; data-ks-limit has no effect.', snippet: snippetOf(ctx.$, el) });
   }
   // Everything else in the container (headings, the empty message) is owner content.
   for (const child of el.children) {

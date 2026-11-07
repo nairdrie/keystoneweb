@@ -89,6 +89,7 @@ export function pageFromRow(row: PageRow, instances: SectionInstance[]): PageRec
     nav_order: row.nav_order ?? 0,
     seo: { title: s(dd.seoTitle), description: s(dd.seoDescription), ogImage: s(dd.ogImage) },
     instances,
+    ...(dd.v2Template === 'post' ? { template: 'post' as const } : {}),
   };
 }
 
@@ -374,7 +375,7 @@ export async function restoreBundle(db: Db, siteId: string, bundle: SiteBundle, 
   const { data: existing } = await db.from('pages').select('id, design_data').eq('site_id', siteId);
   const existingIds = new Map((existing || []).map((p) => [p.id, p.design_data || {}]));
   for (const page of bundle.pages) {
-    const seo = { seoTitle: page.seo.title || null, seoDescription: page.seo.description || null, ogImage: page.seo.ogImage || null };
+    const seo = { seoTitle: page.seo.title || null, seoDescription: page.seo.description || null, ogImage: page.seo.ogImage || null, v2Template: page.template || null };
     const row = {
       id: page.id,
       site_id: siteId,

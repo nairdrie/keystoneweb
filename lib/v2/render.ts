@@ -9,7 +9,7 @@
 import { load, type Cheerio, type CheerioAPI } from 'cheerio';
 import type { AnyNode, Element } from 'domhandler';
 import type { BusinessProfile } from '@/lib/types/sites';
-import { buildJsonLd } from '@/lib/seo/jsonld';
+import { buildBlogJsonLd, buildJsonLd } from '@/lib/seo/jsonld';
 import type {
   FieldSchema,
   PageRecord,
@@ -24,7 +24,7 @@ import { compileSection } from './compile';
 import { scopeCss, sectionScopeSelector } from './css-scope';
 import { escapeHtml, safeHref, safeSrc, safeTokenValue, sanitizeInline, sanitizeRich, toPlainText } from './sanitize';
 import { SCRIPT_HOST_ALLOWLIST } from './policy';
-import type { CollectionData, CollectionItem, CollectionKind } from './collections';
+import { postPath, type ArticleMeta, type CollectionData, type CollectionItem, type CollectionKind } from './collections';
 
 const STATIC_TAGS = new Set(['svg', 'select', 'option', 'textarea', 'noscript', 'template', 'canvas', 'video', 'audio', 'iframe', 'math']);
 
@@ -42,6 +42,10 @@ export interface RenderOptions {
   version?: string;
   /** Live business data for data-ks-collection elements */
   collections?: CollectionData;
+  /** Rendering /blog/<slug>: the page title, meta tags and structured data come from the article. */
+  article?: ArticleMeta;
+  /** Trusted body HTML used instead of a page's sections (Keystone's default article layout). */
+  bodyOverride?: string;
 }
 
 interface GlobalValues {
@@ -305,8 +309,12 @@ function renderCollection($box: Cheerio<Element>, kind: CollectionKind, ctx: Fil
   if (filter) rows = rows.filter((r) => !!r[filter.replace(/^!/, '')] !== filter.startsWith('!'));
   const category = ($box.attr('data-ks-category') || '').trim().toLowerCase();
   if (category) rows = rows.filter((r) => (r.category || '').toLowerCase() === category);
+  const tag = ($box.attr('data-ks-tag') || '').trim().toLowerCase();
+  if (tag) rows = rows.filter((r) => (r.tags || '').toLowerCase().split(/\s*,\s*/).includes(tag));
   const ids = ($box.attr('data-ks-ids') || '').split(',').map((x) => x.trim()).filter(Boolean);
   if (ids.length) rows = ids.map((id) => rows.find((r) => r.id === id)).filter((r): r is CollectionItem => !!r);
+  const offset = Number($box.attr('data-ks-offset'));
+  if (offset > 0) rows = rows.slice(offset);
   const limit = Number($box.attr('data-ks-limit'));
   if (limit > 0) rows = rows.slice(0, limit);
 
@@ -338,11 +346,13 @@ function renderCollection($box: Cheerio<Element>, kind: CollectionKind, ctx: Fil
       const field = String($n.attr('data-ks-bind'));
       const value = row[field] ?? '';
       const t = (node as Element).tagName.toLowerCase();
-      if (t === 'img') {
+      if (field === 'content' && kind === 'post') {
+        $n.html(value); // sanitized article HTML (sanitizeArticle)
+      } else if (t === 'img') {
         const src = safeSrc(value);
         if (src) {
           $n.attr('src', src).removeAttr('srcset').removeAttr('sizes');
-          if (!$n.attr('alt')) $n.attr('alt', row.name || '');
+          if (!$n.attr('alt')) $n.attr('alt', row.name || row.title || '');
         } else {
           $n.remove();
         }
@@ -350,6 +360,7 @@ function renderCollection($box: Cheerio<Element>, kind: CollectionKind, ctx: Fil
         $n.attr('href', safeHref(value));
       } else {
         $n.text(value);
+        if (t === 'time' && row.date_iso) $n.attr('datetime', row.date_iso);
       }
       $n.removeAttr('data-ks-bind');
     });
@@ -384,7 +395,7 @@ function renderCollection($box: Cheerio<Element>, kind: CollectionKind, ctx: Fil
 function renderNav($nav: Cheerio<Element>, ctx: FillCtx) {
   const $ = ctx.$;
   const navPages = ctx.bundle.pages
-    .filter((p) => p.is_visible_in_nav)
+    .filter((p) => p.is_visible_in_nav && p.template !== 'post')
     .sort((a, b) => a.nav_order - b.nav_order);
 
   // The template is the direct child of the nav container that holds the first link.
@@ -499,7 +510,9 @@ export function renderPage(bundle: SiteBundle, page: PageRecord | null, options:
 
   const header = theme.header_section ? renderOne({ id: GLOBAL_INSTANCE_HEADER, section: theme.header_section }) : '';
   const footer = theme.footer_section ? renderOne({ id: GLOBAL_INSTANCE_FOOTER, section: theme.footer_section }) : '';
-  const body = page
+  const body = options.bodyOverride !== undefined
+    ? options.bodyOverride
+    : page
     ? page.instances.map(renderOne).join('\n')
     : `<section style="min-height:50vh;display:grid;place-items:center;text-align:center;padding:4rem 1rem"><div><h1>Page not found</h1><p><a href="/">Go to the home page</a></p></div></section>`;
 
@@ -525,18 +538,42 @@ export function renderPage(bundle: SiteBundle, page: PageRecord | null, options:
 
   // ── Head ──
   const siteTitle = bundle.site.title || 'Website';
-  const isHome = page?.slug === 'home';
-  const title = page
+  const article = options.article;
+  const isHome = !article && page?.slug === 'home';
+  const found = !!page || !!article;
+  const title = article
+    ? `${article.title} | ${siteTitle}`
+    : page
     ? page.seo.title || (isHome ? siteTitle : `${page.title} | ${siteTitle}`)
     : `Page not found | ${siteTitle}`;
-  const description = page?.seo.description || '';
-  const canonical = options.siteUrl && page ? `${options.siteUrl}${pagePath(page)}` : '';
-  const ogImage = page?.seo.ogImage || bundle.site.logo || '';
+  const description = article
+    ? article.excerpt || toPlainText(article.content).slice(0, 160)
+    : page?.seo.description || '';
+  const canonical = options.siteUrl && article
+    ? `${options.siteUrl}${postPath(article.slug)}`
+    : options.siteUrl && page ? `${options.siteUrl}${pagePath(page)}` : '';
+  const ogImage = (article?.image) || page?.seo.ogImage || bundle.site.logo || '';
   const fontsHref = googleFontsHref(theme, tokens);
   const favicon = bundle.site.favicon || bundle.site.logo;
 
   let jsonLd = '';
-  if (mode === 'published' && page && options.siteUrl) {
+  if (mode === 'published' && article && options.siteUrl) {
+    jsonLd = buildBlogJsonLd({
+      siteUrl: options.siteUrl,
+      pageUrl: canonical,
+      title: article.title,
+      excerpt: description,
+      content: article.content,
+      coverImage: article.image || null,
+      author: article.author || null,
+      datePublished: article.datePublished,
+      dateModified: article.dateModified,
+      tags: article.tags,
+      businessProfile: bundle.site.businessProfile as unknown as BusinessProfile | null,
+    })
+      .map((e) => `<script type="application/ld+json">${JSON.stringify(e.data).replace(/</g, '\\u003c')}</script>`)
+      .join('');
+  } else if (mode === 'published' && page && options.siteUrl) {
     try {
       const hints = structuredDataHints(bundle, renderedInstances, options.collections);
       const entries = buildJsonLd({
@@ -576,7 +613,8 @@ export function renderPage(bundle: SiteBundle, page: PageRecord | null, options:
     description ? `<meta property="og:description" content="${escapeHtml(description)}">` : '',
     ogImage ? `<meta property="og:image" content="${escapeHtml(ogImage)}">` : '',
     canonical ? `<meta property="og:url" content="${escapeHtml(canonical)}">` : '',
-    '<meta property="og:type" content="website">',
+    `<meta property="og:type" content="${article ? 'article' : 'website'}">`,
+    article?.datePublished ? `<meta property="article:published_time" content="${escapeHtml(article.datePublished)}">` : '',
     favicon ? `<link rel="icon" href="${escapeHtml(safeSrc(favicon) || favicon)}">` : '',
     mode !== 'published' ? '<meta name="robots" content="noindex, nofollow">' : '',
     fontsHref ? `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="${escapeHtml(fontsHref)}">` : '',
@@ -605,7 +643,7 @@ ${mode === 'edit' ? `<script src="${assetBase}/ks/editor.js?v=3" defer></script>
 
   return {
     html,
-    status: page ? 200 : 404,
+    status: found ? 200 : 404,
     stats: { cssBytes: Buffer.byteLength(css, 'utf8'), jsBytes },
   };
 }

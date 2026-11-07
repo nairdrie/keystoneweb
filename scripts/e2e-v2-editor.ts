@@ -489,6 +489,58 @@ async function main() {
       await visitor.close();
     });
 
+    await step('blog: agent designs the list + article layout; owner posts in Admin → Blog; visitors see it live', async () => {
+      await tool('put_section', { site_id: siteId, key: 'news', name: 'News grid', html: `<section class="news wrap"><h2 data-ks="heading">Roofing news</h2>
+        <div class="cards" data-ks-collection="posts"><a class="card" data-ks-item data-ks-bind="url" href="/blog/x"><time data-ks-bind="date">Jan 1</time><h3 data-ks-bind="title">Sample story</h3><p data-ks-bind="excerpt">Sample</p></a>
+        <p data-ks-empty data-ks="empty">Articles coming soon.</p></div></section>`,
+        css: '.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:1rem;padding:2rem 0}.card{display:block;padding:1.25rem;border-radius:16px;background:#fff;text-decoration:none}' });
+      await tool('put_section', { site_id: siteId, key: 'article', name: 'Article', html: `<article class="post wrap" data-ks-collection="post"><div data-ks-item>
+        <p class="kicker"><time data-ks-bind="date">Jan 1</time> · <span data-ks-bind="reading_time">1 min read</span></p><h1 data-ks-bind="title">Sample title</h1>
+        <div class="prose" data-ks-bind="content"><p>Sample paragraph.</p></div></div></article>` });
+      await tool('put_page', { site_id: siteId, slug: 'news', title: 'News', seo: { description: 'Roofing news' }, sections: [{ section: 'news', id: 'news-grid' }] });
+      await tool('put_page', { site_id: siteId, slug: 'article', title: 'Article', template: 'post', sections: [{ section: 'article', id: 'article-main' }] });
+      await tool('upsert_posts', { site_id: siteId, posts: [{ title: 'Northline turns ten', content: '<p>Ten years of roofs in Oakville.</p>', published_at: '2025-05-01' }] });
+      await tool('publish', { site_id: siteId, subdomain: 'northline' });
+
+      // Admin shows the Blog tab for this agent-built site, with the posts manager.
+      await page.goto(`${BASE}/admin/blog?siteId=${siteId}`, { waitUntil: 'domcontentloaded', timeout: 180_000 });
+      await page.getByText('Northline turns ten').first().waitFor({ timeout: 60_000 });
+      assert.equal(await page.getByText('No Blog block on this site').count(), 0);
+      assert.ok(await page.locator('button[title="Blog"]').or(page.locator('button', { hasText: /^Blog$/ })).count() > 0, 'Blog tab in the sidebar');
+      // The owner publishes a post through the same API the Blog manager uses.
+      const created = await page.evaluate(async (sid) => {
+        const res = await fetch('/api/blog/posts', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ siteId: sid, title: 'How to spot hail damage', excerpt: 'Three signs to look for.', content: '<h2>Look up</h2><p>Dents in the <strong>vents</strong>.</p>', is_published: true }) });
+        return { status: res.status, body: await res.json() };
+      }, siteId);
+      assert.equal(created.status, 200, JSON.stringify(created.body));
+
+      const visitor = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+      const v = await visitor.newPage();
+      const errors: string[] = [];
+      v.on('pageerror', (e) => errors.push(e.message));
+      await v.goto('http://northline.kswd.ca/news', { waitUntil: 'networkidle' });
+      await v.getByText('How to spot hail damage').waitFor();
+      await v.getByText('Northline turns ten').waitFor();
+      if (SHOTS) await v.screenshot({ path: path.join(SHOTS, '11-blog-list.png'), fullPage: true });
+      await v.getByText('How to spot hail damage').click();
+      await v.waitForURL('**/blog/how-to-spot-hail-damage');
+      await v.locator('h1', { hasText: 'How to spot hail damage' }).waitFor();
+      await v.locator('.prose h2', { hasText: 'Look up' }).waitFor();
+      assert.equal(await v.title(), 'How to spot hail damage | Northline Roofing');
+      if (SHOTS) await v.screenshot({ path: path.join(SHOTS, '12-blog-article.png'), fullPage: true });
+      assert.equal((await v.goto('http://northline.kswd.ca/article'))?.status(), 404, 'the layout is not a page of its own');
+      assert.deepEqual(errors, []);
+      await visitor.close();
+
+      // In the editor, posts point the owner to Admin → Blog.
+      await page.goto(`${BASE}/design?siteId=${siteId}`, { waitUntil: 'domcontentloaded' });
+      await page.locator('select[aria-label="Page"] option', { hasText: 'Blog article layout' }).waitFor({ state: 'attached', timeout: 60_000 });
+      await page.selectOption('select[aria-label="Page"]', { label: 'News' });
+      const frame = page.frameLocator('iframe[title="Your site"]');
+      await frame.locator('.card', { hasText: 'How to spot hail damage' }).click();
+      await page.getByText(/come from Admin → Blog/).first().waitFor();
+    });
+
     await step('editor: an edit based on an out-of-date copy is rejected and reloaded, not silently lost', async () => {
       await page.goto(`${BASE}/design?siteId=${siteId}`, { waitUntil: 'domcontentloaded' });
       const frame = page.frameLocator('iframe[title="Your site"]');
