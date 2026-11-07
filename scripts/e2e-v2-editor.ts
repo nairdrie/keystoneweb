@@ -15,8 +15,9 @@ import { chromium, type Page, type FrameLocator } from 'playwright';
 import { startFakeSupabase } from './fixtures/fake-supabase-server';
 import { hashToken } from '../lib/v2/api-tokens';
 
-const NEXT_PORT = 3100;
-const SUPA_PORT = 54321;
+// Override when a dev harness already holds the defaults.
+const NEXT_PORT = Number(process.env.E2E_NEXT_PORT) || 3100;
+const SUPA_PORT = Number(process.env.E2E_SUPABASE_PORT) || 54321;
 const BASE = `http://localhost:${NEXT_PORT}`;
 const SHOTS = process.env.E2E_SCREENSHOTS || '';
 const OWNER = '11111111-1111-1111-1111-111111111111';
@@ -164,7 +165,10 @@ async function main() {
 
   // Start from a fresh dev cache: a stale Turbopack cache can stall route compiles.
   fs.rmSync(path.resolve(__dirname, '../.next/dev'), { recursive: true, force: true });
-  const next: ChildProcess = spawn('npx', ['next', 'dev', '-p', String(NEXT_PORT)], {
+  // Run next's own bin with this node (works on Windows too, where `npx` can't be spawned directly).
+  // E2E_WEBPACK=1 for checkouts Turbopack can't root (e.g. a git worktree without its own node_modules).
+  const nextArgs = [require.resolve('next/dist/bin/next'), 'dev', '-p', String(NEXT_PORT), ...(process.env.E2E_WEBPACK ? ['--webpack'] : [])];
+  const next: ChildProcess = spawn(process.execPath, nextArgs, {
     cwd: path.resolve(__dirname, '..'),
     env: {
       ...process.env,
@@ -229,7 +233,9 @@ async function main() {
       assert.equal(await page.locator('iframe[title="Your site"]').getAttribute('sandbox'), 'allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox');
       const cookieAccess = await page.frames()[1].evaluate(() => { try { return typeof document.cookie; } catch { return 'blocked'; } });
       assert.equal(cookieAccess, 'blocked', 'canvas runs in an opaque origin');
-      await page.getByText('Hero — headline and photo').waitFor();
+      // No Sections tab any more: Brand is the first tab.
+      assert.equal(await page.getByRole('button', { name: 'Sections' }).count(), 0);
+      await page.getByRole('button', { name: 'Apply brand changes' }).or(page.getByText('Replace logo')).first().waitFor();
       await page.waitForTimeout(1500);
       await canvas.locator('h1').waitFor();
       await shot(page, '1-editor');
@@ -279,25 +285,68 @@ async function main() {
       assert.equal((content('home-hero', 'photo')?.value as { alt?: string }).alt, 'Our crew finishing a roof');
     });
 
-    await step('sections panel hides and reorders sections', async () => {
-      const row = page.locator('li', { hasText: 'Services grid' }).first();
-      await row.getByRole('button', { name: 'Hide' }).click();
-      const layout = () => db.table('v2_page_layouts').find((l) => (l.instances as Array<{ id: string }>).some((i) => i.id === 'home-services'));
+    const layout = () => db.table('v2_page_layouts').find((l) => (l.instances as Array<{ id: string }>).some((i) => i.id === 'home-hero'));
+    const homeIds = () => (layout()?.instances as Array<{ id: string }>).map((i) => i.id);
+    const sectionButton = async (instance: string, op: string) => {
+      await canvas.locator(`[data-ks-instance="${instance}"] h2, [data-ks-instance="${instance}"] h1`).first().hover();
+      const b = canvas.locator(`#ks-section-bar button[data-sop="${op}"]`);
+      await b.waitFor();
+      return b;
+    };
+
+    await step('section toolbar on the page hides, shows and reorders sections', async () => {
+      await canvas.locator('[data-ks-instance="home-services"] h2').hover();
+      await canvas.locator('#ks-section-bar .ks-name', { hasText: 'Services grid' }).waitFor();
+      assert.equal(await canvas.locator('#ks-section-bar button[data-sop="up"]').isDisabled(), false);
+      await (await sectionButton('home-services', 'hide')).click();
       await eventually(() => (layout()?.instances as Array<{ id: string; hidden?: boolean }>).find((i) => i.id === 'home-services')?.hidden === true, 'hidden');
-      await row.getByRole('button', { name: 'Show' }).click();
-      await row.getByRole('button', { name: 'Move down' }).click();
-      await eventually(() => (layout()?.instances as Array<{ id: string }>)[2]?.id === 'home-services', 'moved');
+      await canvas.locator('[data-ks-instance="home-services"][data-ks-hidden]').waitFor();
+      await (await sectionButton('home-services', 'show')).click();
+      await eventually(() => !(layout()?.instances as Array<{ id: string; hidden?: boolean }>).find((i) => i.id === 'home-services')?.hidden, 'shown');
+      await canvas.locator('[data-ks-instance="home-services"]:not([data-ks-hidden])').waitFor();
+      await (await sectionButton('home-services', 'down')).click();
+      await eventually(() => homeIds()[2] === 'home-services', 'moved');
+      await shot(page, '1b-section-toolbar');
     });
 
-    await step('form view edits a list item field', async () => {
-      await page.locator('li', { hasText: 'Services grid' }).first().locator('button').first().click();
-      await page.getByRole('button', { name: 'Repairs', exact: true }).click();
-      const item = page.locator('div.rounded-lg.border', { has: page.getByRole('button', { name: 'Repairs', exact: true }) }).first();
+    await step('add-section buttons insert a design between sections, and delete removes it', async () => {
+      await canvas.locator('[data-ks-instance="home-hero"] h1').hover();
+      await canvas.locator('#ks-add-bottom button').click();
+      const dialog = page.getByRole('dialog', { name: 'Add a section' });
+      await dialog.getByRole('button', { name: /Services grid/ }).click();
+      await eventually(() => homeIds().length === 4 && homeIds()[0] === 'home-hero' && homeIds()[1] !== 'home-contact', 'inserted after the hero');
+      const added = homeIds()[1];
+      page.once('dialog', (d) => void d.accept());
+      await (await sectionButton(added, 'remove')).click();
+      await eventually(() => homeIds().length === 3 && !homeIds().includes(added), 'deleted');
+    });
+
+    await step('optional parts hide from their chip and come back with a click', async () => {
+      await canvas.locator('a[data-ks-f="cta2"]').hover();
+      await canvas.locator('#ks-opt-chip button', { hasText: 'Hide' }).click();
+      await eventually(() => (content('home-hero', 'cta2')?.value as { hidden?: boolean })?.hidden === true, 'cta2 hidden');
+      await canvas.locator('a[data-ks-f="cta2"][data-ks-hidden]').click();
+      await eventually(() => (content('home-hero', 'cta2')?.value as { hidden?: boolean })?.hidden === false, 'cta2 shown');
+    });
+
+    await step('Archie opens from a section toolbar, aimed at that section', async () => {
+      await (await sectionButton('home-services', 'ask')).click();
+      await page.getByText('the “Services grid” section').waitFor();
+      await page.keyboard.press('Escape');
+    });
+
+    await step('"Edit all content" edits a list item field', async () => {
+      await (await sectionButton('home-services', 'content')).click();
+      const modal = page.getByRole('dialog', { name: 'Services grid' });
+      await modal.getByRole('button', { name: 'Repairs', exact: true }).click();
+      const item = modal.locator('div.rounded-lg.border', { has: page.getByRole('button', { name: 'Repairs', exact: true }) }).first();
       const textarea = item.locator('textarea').nth(1);
       await textarea.waitFor();
       await textarea.fill('Leaks found and fixed the same week.');
       await item.getByRole('button', { name: 'Save' }).click();
       await eventually(() => /same week/.test(JSON.stringify(content('home-services', 'items')?.value)), 'item saved');
+      await page.keyboard.press('Escape');
+      await modal.waitFor({ state: 'detached' });
     });
 
     await step('brand panel changes an editable colour', async () => {
@@ -345,7 +394,9 @@ async function main() {
       await dialog.getByRole('button', { name: 'Restore' }).first().waitFor();
       await shot(page, '2-history');
       await page.keyboard.press('Escape');
+      // "Ask for a change" opens Archie; a person is one click further.
       await page.getByRole('button', { name: 'Ask for a change' }).click();
+      await page.getByRole('button', { name: 'Ask a human' }).click();
       await page.getByRole('dialog', { name: 'Ask the Keystone team' }).locator('textarea').fill('Please add a section with our three roofing packages.');
       await page.getByRole('button', { name: 'Send request' }).click();
       await eventually(() => db.table('support_requests').some((r) => /three roofing packages/.test(String(r.body_text))), 'request stored');
@@ -593,7 +644,8 @@ async function main() {
   } finally {
     await browser.close();
     try {
-      if (next.pid) process.kill(-next.pid, 'SIGTERM');
+      if (next.pid && process.platform === 'win32') spawn('taskkill', ['/pid', String(next.pid), '/T', '/F'], { stdio: 'ignore' });
+      else if (next.pid) process.kill(-next.pid, 'SIGTERM');
     } catch {
       next.kill('SIGTERM');
     }

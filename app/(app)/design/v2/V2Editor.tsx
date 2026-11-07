@@ -12,19 +12,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  Building2, Eye, FileText, History, Layers, LayoutDashboard, Loader2, Monitor, Paintbrush, Palette, PenLine, Rocket, Smartphone, Tablet,
+  Building2, Eye, FileText, History, LayoutDashboard, Loader2, Monitor, Paintbrush, Palette, PenLine, Rocket, Smartphone, Tablet,
 } from 'lucide-react';
 import KeystoneLogo from '@/app/components/KeystoneLogo';
 import { hasPaidAccess } from '@/lib/subscription/access';
 import { editorOp, EditorApiError, loadEditorState, pagePath, type EditorState, type FieldInfo } from './api';
-import { BrandPanel, BusinessPanel, PagesPanel, SectionsPanel, type PanelActions } from './panels';
-import { ChangeRequestModal, HistoryModal, LinkModal, MediaModal } from './modals';
+import { BrandPanel, BusinessPanel, PagesPanel, type PanelActions } from './panels';
+import { AddSectionModal, ChangeRequestModal, HistoryModal, LinkModal, MediaModal, SectionContentModal } from './modals';
 import ArchiePopover, { type ArchieOpen } from './archie';
 import ArchieAIIcon from '@/app/components/ArchieAIIcon';
 
 type Obj = Record<string, unknown>;
 type Device = 'desktop' | 'tablet' | 'mobile';
-type Tab = 'sections' | 'pages' | 'brand' | 'business';
+type Tab = 'brand' | 'pages' | 'business';
+type SectionAction = 'add' | 'move' | 'duplicate' | 'remove' | 'hide' | 'show';
 
 interface Toast { id: number; text: string; tone: 'ok' | 'warn' | 'error' }
 
@@ -43,7 +44,7 @@ export default function V2Editor({ siteId }: { siteId: string }) {
   const [state, setState] = useState<EditorState | null>(null);
   const [loadError, setLoadError] = useState('');
   const [pageId, setPageId] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>('sections');
+  const [tab, setTab] = useState<Tab>('brand');
   const [mode, setMode] = useState<'edit' | 'preview'>('edit');
   const [device, setDevice] = useState<Device>('desktop');
   const [selected, setSelected] = useState<string | null>(null);
@@ -51,6 +52,8 @@ export default function V2Editor({ siteId }: { siteId: string }) {
   const [pick, setPick] = useState<PickState | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [showRequest, setShowRequest] = useState(false);
+  const [addAt, setAddAt] = useState<number | null>(null);
+  const [contentOf, setContentOf] = useState<string | null>(null);
   const [archie, setArchie] = useState<ArchieOpen | null>(null);
   const archieBusy = useRef(false);
   const [publishing, setPublishing] = useState(false);
@@ -172,6 +175,24 @@ export default function V2Editor({ siteId }: { siteId: string }) {
     return field;
   }, [state]);
 
+  // Current stored value at a content path like "stats.2.label".
+  const valueAt = useCallback((instance: string, path: string): unknown => {
+    const parts = path.split('.');
+    let value: unknown = stateRef.current?.content.find((c) => c.instance === instance)?.values[parts[0]]?.value;
+    for (let i = 1; i < parts.length; i += 2) {
+      const items = (value as { items?: unknown[] } | undefined)?.items;
+      const item = Array.isArray(items) ? items[Number(parts[i])] : undefined;
+      value = parts[i + 1] !== undefined ? (item as Record<string, unknown> | undefined)?.[parts[i + 1]] : item;
+    }
+    return value;
+  }, []);
+
+  const sectionAction = useCallback((action: SectionAction, instance?: string, extra?: Obj) => {
+    if (!page) return Promise.resolve();
+    const success = action === 'remove' ? 'Section deleted. You can bring it back from History.' : action === 'add' ? 'Section added' : undefined;
+    return run(() => editorOp(siteId, 'section', { page: page.id, action, instance, ...extra, expected_version: layoutVersionOf(page.id) }), { success });
+  }, [page, run, siteId]);
+
   // ── Messages from the canvas ──────────────────────────────────────────────
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
@@ -181,6 +202,7 @@ export default function V2Editor({ siteId }: { siteId: string }) {
       switch (d.type) {
         case 'ready':
           iframeRef.current.contentWindow?.postMessage({ type: 'ks:scrollTo', y: scrollY.current }, '*');
+          iframeRef.current.contentWindow?.postMessage({ type: 'ks:meta', names: Object.fromEntries((state?.sections || []).map((s) => [s.key, s.name])) }, '*');
           if (selected) iframeRef.current.contentWindow?.postMessage({ type: 'ks:highlight', instance: selected }, '*');
           break;
         case 'scroll': {
@@ -200,8 +222,45 @@ export default function V2Editor({ siteId }: { siteId: string }) {
         }
         case 'select':
           setSelected(d.instance);
-          setTab('sections');
           break;
+        case 'section': {
+          const action = String(d.action) as SectionAction;
+          if (!['move', 'duplicate', 'remove', 'hide', 'show'].includes(action)) break;
+          if (action === 'remove') {
+            const inst = page?.sections.find((s) => s.id === d.instance);
+            const name = state?.sections.find((s) => s.key === inst?.section)?.name;
+            if (!confirm(`Delete the ${name ? `“${name}” ` : ''}section from this page? You can bring it back from History.`)) break;
+          }
+          void sectionAction(action, d.instance, action === 'move' ? { to: Number(d.to) } : undefined);
+          break;
+        }
+        case 'section-ask': {
+          if (archieBusy.current) break;
+          const rect = iframeRef.current.getBoundingClientRect();
+          scrollY.current = Number(d.scrollY) || scrollY.current;
+          setArchie({
+            anchor: { x: rect.left + (Number(d.x) || 0), y: rect.top + (Number(d.y) || 0) },
+            target: { instance: d.instance || null, section: d.section || null, tag: 'section', selector: null, text: '', html: null, hints: ['The owner picked the whole section from its toolbar, not one element in it.'] },
+            key: Date.now(),
+          });
+          break;
+        }
+        case 'section-content':
+          if (state?.content.some((c) => c.instance === d.instance)) setContentOf(d.instance);
+          break;
+        case 'add-section':
+          setAddAt(Math.max(0, Number(d.index) || 0));
+          break;
+        case 'visibility': {
+          const hidden = !!d.hidden;
+          if (d.kind === 'toggle') void actions.setField(d.instance, d.path, !hidden);
+          else {
+            const current = valueAt(d.instance, d.path);
+            const base = current && typeof current === 'object' ? current as Obj : typeof current === 'string' ? { html: current } : {};
+            void actions.setField(d.instance, d.path, { ...base, hidden });
+          }
+          break;
+        }
         case 'field':
           void run(() => saveContent(d.instance, d.path, d.value), { canvas: false });
           break;
@@ -209,7 +268,6 @@ export default function V2Editor({ siteId }: { siteId: string }) {
           const field = fieldAt(d.instance, d.path) || { id: d.path, type: d.fieldType };
           if (d.fieldType === 'image' || d.fieldType === 'bg') setPick({ kind: 'image', instance: d.instance, path: d.path, field, current: d.current || {} });
           else if (d.fieldType === 'link') setPick({ kind: 'link', instance: d.instance, path: d.path, field, current: d.current || {} });
-          else if (d.fieldType === 'toggle') void actions.setField(d.instance, d.path, false);
           break;
         }
         case 'list':
@@ -243,7 +301,7 @@ export default function V2Editor({ siteId }: { siteId: string }) {
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [actions, fieldAt, run, saveContent, selected, siteId, state, toast]);
+  }, [actions, fieldAt, page, run, saveContent, sectionAction, selected, siteId, state, toast, valueAt]);
 
   // ── Publish (same flow as the classic editor) ─────────────────────────────
   const publish = async () => {
@@ -358,27 +416,14 @@ export default function V2Editor({ siteId }: { siteId: string }) {
       <div className="flex min-h-0 flex-1">
         {/* Sidebar */}
         <aside className="flex w-80 shrink-0 flex-col border-r border-slate-200 bg-white">
-          <nav className="grid grid-cols-4 border-b border-slate-200 text-[11px] font-semibold text-slate-500">
-            {([['sections', Layers, 'Sections'], ['pages', FileText, 'Pages'], ['brand', Palette, 'Brand'], ['business', Building2, 'Business']] as const).map(([t, Icon, label]) => (
+          <nav className="grid grid-cols-3 border-b border-slate-200 text-[11px] font-semibold text-slate-500">
+            {([['brand', Palette, 'Brand'], ['pages', FileText, 'Pages'], ['business', Building2, 'Business']] as const).map(([t, Icon, label]) => (
               <button key={t} onClick={() => setTab(t)} className={`flex flex-col items-center gap-1 py-2.5 ${tab === t ? 'border-b-2 border-blue-600 text-blue-700' : 'hover:text-slate-800'}`}>
                 <Icon className="h-4 w-4" />{label}
               </button>
             ))}
           </nav>
           <div className="min-h-0 flex-1 overflow-y-auto p-3">
-            {tab === 'sections' && (
-              <SectionsPanel
-                state={state}
-                page={page}
-                selected={selected}
-                actions={actions}
-                onSelect={(instance) => {
-                  setSelected((s) => (s === instance ? null : instance));
-                  iframeRef.current?.contentWindow?.postMessage({ type: 'ks:highlight', instance }, '*');
-                }}
-                onSectionAction={(action, instance, extra) => run(() => editorOp(siteId, 'section', { page: page.id, action, instance, ...extra, expected_version: layoutVersionOf(page.id) }))}
-              />
-            )}
             {tab === 'pages' && (
               <PagesPanel
                 state={state}
@@ -425,6 +470,29 @@ export default function V2Editor({ siteId }: { siteId: string }) {
       </div>
 
       {/* Dialogs */}
+      {addAt !== null && (
+        <AddSectionModal
+          designs={state.sections.filter((s) => s.key !== state.theme.header && s.key !== state.theme.footer)}
+          usedOnPage={new Set(page.sections.map((s) => s.section))}
+          onClose={() => setAddAt(null)}
+          onChoose={(section) => {
+            const index = addAt;
+            setAddAt(null);
+            void sectionAction('add', undefined, { section, index });
+          }}
+          onAskArchie={() => {
+            setAddAt(null);
+            iframeRef.current?.contentWindow?.postMessage({ type: 'ks:ask-clear' }, '*');
+            setArchie({ anchor: null, target: null, key: Date.now() });
+          }}
+        />
+      )}
+      {contentOf && (() => {
+        const content = state.content.find((c) => c.instance === contentOf);
+        if (!content) return null;
+        const name = state.sections.find((s) => s.key === content.section)?.name || 'Section';
+        return <SectionContentModal name={name} content={content} actions={actions} onClose={() => setContentOf(null)} />;
+      })()}
       {pick?.kind === 'image' && (
         <MediaModal
           siteId={siteId}

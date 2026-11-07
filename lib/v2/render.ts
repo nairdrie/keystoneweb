@@ -211,6 +211,7 @@ function fillNode(node: AnyNode, values: Record<string, unknown>, fields: Map<st
     }
     if (ctx.mode === 'edit') {
       $el.attr('data-ks-f', `${path}${binding}`).attr('data-ks-t', field.type);
+      if (field.optional) $el.attr('data-ks-opt', '');
     }
     const descend = fillField($el, tag, field, value);
     if (!descend) return;
@@ -277,6 +278,17 @@ function renderList($list: Cheerio<Element>, id: string, value: unknown, field: 
     return;
   }
 
+  // An empty list in the editor keeps the designer's first item as a faded
+  // placeholder, so the owner has something to click to add an item.
+  if (!items.length && ctx.mode === 'edit') {
+    itemEls.slice(1).remove();
+    itemEls.first().attr('data-ks-ghost', '');
+    $list.attr('data-ks-l', listPath);
+    if (field?.optional) $list.attr('data-ks-opt', '');
+    if (list.hidden) $list.attr('data-ks-hidden', '');
+    return;
+  }
+
   // Remove the non-template items; render each value from the template.
   const rendered: string[] = [];
   items.forEach((item, index) => {
@@ -292,6 +304,7 @@ function renderList($list: Cheerio<Element>, id: string, value: unknown, field: 
 
   if (ctx.mode === 'edit') {
     $list.attr('data-ks-l', listPath);
+    if (field?.optional) $list.attr('data-ks-opt', '');
     if (list.hidden) $list.attr('data-ks-hidden', '');
   }
 }
@@ -635,7 +648,7 @@ ${body}
 ${footer}
 ${modules.join('\n')}
 <script src="${assetBase}/ks/runtime.js?v=3" defer></script>
-${mode === 'edit' ? `<script src="${assetBase}/ks/editor.js?v=4" defer></script>` : ''}
+${mode === 'edit' ? `<script src="${assetBase}/ks/editor.js?v=5" defer></script>` : ''}
 </body>
 </html>`;
 
@@ -681,6 +694,8 @@ const GENERIC_FONTS = new Set(['serif', 'sans-serif', 'monospace', 'cursive', 's
 
 const EDIT_MODE_CSS = `
 [data-ks-hidden]{opacity:.35!important;outline:2px dashed #94a3b8!important;outline-offset:-2px}
+[data-ks-ghost]{opacity:.4!important;outline:2px dashed #2563eb!important;outline-offset:2px;cursor:copy!important}
+[data-ks-ghost] *{pointer-events:none}
 `;
 
 export const ALLOWED_SCRIPT_HOSTS_FOR_CSP = SCRIPT_HOST_ALLOWLIST.map((h) => `https://${h}`).join(' ');

@@ -35,6 +35,7 @@ interface Msg { role: 'user' | 'assistant'; text: string; undoVersionId?: string
 const CARD_W = 360;
 
 const describe = (t: ArchieTarget, sectionName?: string): string => {
+  if (t.tag === 'section' && !t.selector) return sectionName ? `the “${sectionName}” section` : 'this section';
   const what = t.tag === 'svg' ? 'this graphic' : t.tag === 'img' ? 'this image' : t.text ? `“${t.text.slice(0, 40)}${t.text.length > 40 ? '…' : ''}”` : 'this spot';
   return sectionName ? `${what} in ${sectionName}` : what;
 };
