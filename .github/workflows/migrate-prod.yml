@@ -1,0 +1,64 @@
+name: Migrate prod DB
+
+# Applies new files in migrations/ to the prod Supabase DB when they land on main.
+# Tracking lives in public.schema_migrations; see scripts/migrate.sh for the rules.
+#
+# Vercel deploys the same push in parallel. Its build takes minutes and a migration
+# takes seconds, so the schema normally lands first. Keep migrations additive
+# (ADD COLUMN IF NOT EXISTS, new tables) so the old code keeps working either way.
+#
+# Manual runs (Actions tab -> "Run workflow"):
+#   dry-run   list pending migrations, change nothing
+#   apply     same as the automatic run
+#   baseline  one-time: mark every current file as applied without running it
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'migrations/**'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'dry-run | apply | baseline (baseline = mark all current files as already applied)'
+        type: choice
+        options: [dry-run, apply, baseline]
+        default: dry-run
+
+# Never run two migrations at once; queue instead of cancelling a run mid-way.
+concurrency:
+  group: migrate-prod
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Add a required reviewer to this environment in Settings -> Environments
+    # if you want to approve each prod migration before it runs.
+    environment: production-db
+    env:
+      DATABASE_URL: ${{ secrets.PROD_DB_URL }}
+      MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'apply' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check secret
+        run: |
+          case "$DATABASE_URL" in
+            postgres://*|postgresql://*) ;;
+            *) echo "::error::PROD_DB_URL secret is missing or not a postgres:// URL."; exit 1 ;;
+          esac
+
+      - name: Install postgres client
+        run: |
+          if ! command -v psql >/dev/null; then
+            sudo apt-get update && sudo apt-get install -y postgresql-client
+          fi
+          psql --version
+
+      - name: Run migrations (${{ env.MODE }})
+        run: bash scripts/migrate.sh "$MODE"
