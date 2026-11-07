@@ -67,6 +67,24 @@ Agents design how business data looks; Keystone runs the logic (`get_guide topic
 - **Agent tools**: `get_business_data`, `upsert_services`, `upsert_products`, `upsert_posts`.
 - **Admin**: the Booking and Ecommerce tabs appear for v2 sites whose design uses those features.
 
+## Archie v2 (in-editor AI)
+
+Owners get Archie inside the v2 editor (`app/(app)/design/v2/archie.tsx`):
+
+- **Click anything they can't edit** (shapes, svgs, backgrounds, spacing, custom HTML) → `public/ks/editor.js` outlines it
+  and posts `ask` with the section instance, a CSS path inside the section, trimmed markup and style hints. A popover
+  opens next to the click.
+- **"Ask for a change"** opens the same popover docked under the button (no element reference). "Ask a human" still
+  sends the old change request to the Keystone team.
+
+`POST /api/v2/archie` (NDJSON stream) runs a Claude tool loop (`lib/v2/archie.ts`) over the MCP tools, locked to the
+site (site_id injected, no publish / other sites / staff tools). The clicked section's code is preloaded. A restore
+point is taken before Archie's first write and returned as **Undo**. Each request counts as one AI prompt against the
+classic AI Builder limits (staff exempt; refunded if nothing happened). Env: `AI_BUILDER_API_KEY` (or
+`ARCHIE_API_KEY`), optional `ARCHIE_MODEL` (default `claude-sonnet-5-5`).
+
+Try it locally without Supabase: `npx tsx scripts/dev-v2-archie.ts` (prints the editor URL and a session cookie).
+
 ## Agent screenshots
 
 The MCP `screenshot` tool returns desktop/tablet/mobile JPEGs of a draft (scripts running) plus problems found:
@@ -108,6 +126,7 @@ concurrent edits never lose each other.
 | `app/api/mcp/route.ts` | MCP endpoint |
 | `app/api/v2/editor/route.ts` | Owner editor API |
 | `app/(app)/design/v2/*` | Owner editor UI |
+| `lib/v2/archie.ts`, `app/api/v2/archie/route.ts` | Archie v2 (in-editor AI over the MCP tools) |
 
 ## Tests
 
@@ -119,4 +138,3 @@ concurrent edits never lose each other.
 ## Not yet in v2
 
 Menu, events, blog lists, membership gating and translations still render only in classic sites.
-OAuth for third-party agent connectors and the in-editor "Ask AI" are later phases.

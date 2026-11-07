@@ -12,13 +12,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  Building2, Eye, FileText, History, Layers, LayoutDashboard, Loader2, MessageSquare, Monitor, Paintbrush, Palette, PenLine, Rocket, Smartphone, Tablet,
+  Building2, Eye, FileText, History, Layers, LayoutDashboard, Loader2, Monitor, Paintbrush, Palette, PenLine, Rocket, Smartphone, Tablet,
 } from 'lucide-react';
 import KeystoneLogo from '@/app/components/KeystoneLogo';
 import { hasPaidAccess } from '@/lib/subscription/access';
 import { editorOp, EditorApiError, loadEditorState, pagePath, type EditorState, type FieldInfo } from './api';
 import { BrandPanel, BusinessPanel, PagesPanel, SectionsPanel, type PanelActions } from './panels';
 import { ChangeRequestModal, HistoryModal, LinkModal, MediaModal } from './modals';
+import ArchiePopover, { type ArchieOpen } from './archie';
+import ArchieAIIcon from '@/app/components/ArchieAIIcon';
 
 type Obj = Record<string, unknown>;
 type Device = 'desktop' | 'tablet' | 'mobile';
@@ -49,6 +51,8 @@ export default function V2Editor({ siteId }: { siteId: string }) {
   const [pick, setPick] = useState<PickState | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [showRequest, setShowRequest] = useState(false);
+  const [archie, setArchie] = useState<ArchieOpen | null>(null);
+  const archieBusy = useRef(false);
   const [publishing, setPublishing] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -78,6 +82,12 @@ export default function V2Editor({ siteId }: { siteId: string }) {
   useEffect(() => { void refresh(); }, [refresh]);
 
   const page = useMemo(() => state?.pages.find((p) => p.id === pageId) || state?.pages[0] || null, [state, pageId]);
+
+  const closeArchie = useCallback(() => {
+    setArchie(null);
+    iframeRef.current?.contentWindow?.postMessage({ type: 'ks:ask-clear' }, '*');
+  }, []);
+  useEffect(() => { if (!archieBusy.current) setArchie(null); }, [pageId, mode]);
 
   // Edits run one at a time: each is a read-modify-write on the server, so
   // overlapping clicks (hide, then move) must not race each other.
@@ -173,9 +183,21 @@ export default function V2Editor({ siteId }: { siteId: string }) {
           iframeRef.current.contentWindow?.postMessage({ type: 'ks:scrollTo', y: scrollY.current }, '*');
           if (selected) iframeRef.current.contentWindow?.postMessage({ type: 'ks:highlight', instance: selected }, '*');
           break;
-        case 'scroll':
-          scrollY.current = Number(d.y) || 0;
+        case 'scroll': {
+          const y = Number(d.y) || 0;
+          const delta = y - scrollY.current;
+          scrollY.current = y;
+          // Keep Archie next to the spot it's pointing at while the page scrolls.
+          if (delta) setArchie((a) => (a?.anchor ? { ...a, anchor: { x: a.anchor.x, y: a.anchor.y - delta } } : a));
           break;
+        }
+        case 'ask': {
+          if (archieBusy.current) break;
+          const rect = iframeRef.current.getBoundingClientRect();
+          scrollY.current = Number(d.scrollY) || scrollY.current;
+          setArchie({ anchor: { x: rect.left + (Number(d.x) || 0), y: rect.top + (Number(d.y) || 0) }, target: d.target || null, key: Date.now() });
+          break;
+        }
         case 'select':
           setSelected(d.instance);
           setTab('sections');
@@ -321,7 +343,13 @@ export default function V2Editor({ siteId }: { siteId: string }) {
           <button onClick={() => setMode('preview')} className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 ${mode === 'preview' ? 'bg-white shadow-sm' : 'text-slate-500'}`}><Eye className="h-3.5 w-3.5" /> Preview</button>
         </div>
         <button onClick={() => setShowHistory(true)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100" title="History" aria-label="History"><History className="h-4 w-4" /></button>
-        <button onClick={() => setShowRequest(true)} className="hidden items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 md:flex"><MessageSquare className="h-4 w-4" /> Ask for a change</button>
+        <button
+          data-archie-trigger
+          onClick={() => { iframeRef.current?.contentWindow?.postMessage({ type: 'ks:ask-clear' }, '*'); setArchie((a) => (a && !a.anchor ? null : { anchor: null, target: null, key: Date.now() })); }}
+          className={`hidden items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium md:flex ${archie && !archie.anchor ? 'bg-violet-50 text-violet-700' : 'text-slate-600 hover:bg-violet-50 hover:text-violet-700'}`}
+        >
+          <ArchieAIIcon className="h-4 w-4" /> Ask for a change
+        </button>
         <button onClick={() => void publish()} disabled={publishing} className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50">
           {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />} Publish
         </button>
@@ -429,6 +457,20 @@ export default function V2Editor({ siteId }: { siteId: string }) {
         />
       )}
       {showHistory && <HistoryModal siteId={siteId} onClose={() => setShowHistory(false)} onRestored={() => { setShowHistory(false); void refresh(); toast('Version restored'); }} />}
+      {archie && (
+        <ArchiePopover
+          key="archie"
+          siteId={siteId}
+          pageSlug={page.slug}
+          open={archie}
+          sectionName={archie.target?.section ? state.sections.find((s) => s.key === archie.target?.section)?.name : undefined}
+          onBusyChange={(b) => { archieBusy.current = b; }}
+          onClose={closeArchie}
+          onChanged={() => { void refresh(); }}
+          onUndo={(versionId) => run(() => editorOp(siteId, 'restore', { versionId }), { success: "Undid Archie's change" })}
+          onAskTeam={() => { closeArchie(); setShowRequest(true); }}
+        />
+      )}
       {showRequest && (
         <ChangeRequestModal
           siteId={siteId}
