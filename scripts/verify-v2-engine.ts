@@ -10,6 +10,7 @@ import { applyFieldChange, normalizeFieldValue } from '../lib/v2/content';
 import { sampleBundle, SAMPLE_SECTIONS } from './fixtures/v2-sample-site';
 import { renderChrome, platformPalette } from '../lib/v2/render';
 import { featuresIn } from '../lib/v2/collections';
+import { sanitizeArticle } from '../lib/v2/sanitize';
 
 let passed = 0;
 function test(name: string, fn: () => void) {
@@ -274,8 +275,105 @@ test('hosted-page chrome carries the header, footer, tokens and platform colours
   assert.match(chrome.head, /--color-brand:#222222/);
   assert.equal(chrome.palette.primary, '#222222');
   assert.equal(platformPalette({ ...b.theme, platform: {} }).primary, '#222222', 'falls back to the first colour token');
-  assert.deepEqual(featuresIn([SHOP]), { ecommerce: true, booking: false });
-  assert.deepEqual(featuresIn(['<a href="/book">Book</a>']), { ecommerce: false, booking: true });
+  assert.deepEqual(featuresIn([SHOP]), { ecommerce: true, booking: false, blog: false });
+  assert.deepEqual(featuresIn(['<a href="/book">Book</a>']), { ecommerce: false, booking: true, blog: false });
+});
+
+const POST_LIST = `<section class="news"><h2 data-ks="heading">News</h2>
+<div class="grid" data-ks-collection="posts" data-ks-limit="2" data-ks-offset="1">
+  <a class="card" data-ks-item data-ks-bind="url" href="/blog/sample">
+    <img data-ks-if="image" data-ks-bind="image" src="https://cdn.example.com/s.jpg" alt="">
+    <time data-ks-bind="date">Jan 1</time><h3 data-ks-bind="title">Sample post</h3><p data-ks-bind="excerpt">Sample excerpt</p>
+  </a>
+  <p data-ks-empty data-ks="empty">No news yet</p>
+</div>
+<ul data-ks-collection="posts" data-ks-tag="press"><li data-ks-item data-ks-bind="title">Sample</li></ul>
+</section>`;
+const ARTICLE = `<article class="post" data-ks-collection="post"><div data-ks-item>
+  <h1 data-ks-bind="title">Sample title</h1><span data-ks-bind="reading_time">1 min</span>
+  <div class="prose" data-ks-bind="content"><p>Sample paragraph</p></div>
+</div></article>`;
+const POSTS = {
+  posts: ['Newest', 'Middle', 'Oldest', 'Fourth'].map((title, i) => ({
+    id: `b${i}`, title, slug: `s${i}`, excerpt: `${title} excerpt`, date: `March ${10 - i}, 2026`, date_iso: `2026-03-${String(10 - i).padStart(2, '0')}`,
+    image: i === 1 ? 'https://cdn.example.com/m.jpg' : '', author: '', tags: i === 2 ? 'Press, Awards' : '', tag: '', url: `/blog/s${i}`,
+    reading_time: '2 min read', featured: '', current: '',
+  })),
+  post: [{
+    id: 'b0', title: 'Newest', slug: 's0', excerpt: '', date: 'March 10, 2026', date_iso: '2026-03-10', image: '', author: '', tags: '', tag: '',
+    url: '/blog/s0', reading_time: '3 min read', featured: '', current: 'true',
+    content: '<h2>Why it matters</h2><p>Real <strong>article</strong> text.</p>',
+  }],
+};
+
+function newsBundle() {
+  const b = bundleWithSplitSources();
+  b.sections.news = { key: 'news', name: 'News', html: POST_LIST, css: '', js: '', schema: compileSection(POST_LIST) };
+  b.sections.article = { key: 'article', name: 'Article', html: ARTICLE, css: '', js: '', schema: compileSection(ARTICLE) };
+  b.pages[0].instances = [{ id: 'i-news', section: 'news' }];
+  return b;
+}
+
+test('posts compile: list and article markup pass; content needs a block container', () => {
+  assert.deepEqual(featuresIn([POST_LIST]), { ecommerce: false, booking: false, blog: true });
+  for (const html of [POST_LIST, ARTICLE]) {
+    const c = compileSection(html);
+    assert.deepEqual(c.issues.filter((i) => i.level === 'error'), [], JSON.stringify(c.issues));
+  }
+  const bad = compileSection('<div data-ks-collection="post"><div data-ks-item><p data-ks-bind="content">x</p><b data-ks-bind="price">y</b></div></div>');
+  const messages = bad.issues.filter((i) => i.level === 'error').map((i) => i.message).join(' | ');
+  assert.match(messages, /Bind "content" on a block element/);
+  assert.match(messages, /"price" is not a post field/);
+  const listContent = compileSection('<div data-ks-collection="posts"><div data-ks-item><div data-ks-bind="content">x</div></div></div>');
+  assert.ok(listContent.issues.some((i) => i.level === 'error' && /"content" is not a posts field/.test(i.message)), 'lists carry no article bodies');
+  assert.equal(compileSection(ARTICLE).issues.length, 0, 'sample paragraphs in the content element are fine');
+  const nested = compileSection('<div data-ks-collection="post"><div data-ks-item><div data-ks-bind="content"><div class="sidebar">x</div></div></div></div>');
+  assert.ok(nested.issues.some((i) => i.level === 'warning' && /replaced by the article/.test(i.message)), 'design inside the content element is flagged');
+});
+
+test('post lists: newest first, offset, limit, tag filter, dates and links', () => {
+  const b = newsBundle();
+  const { html } = renderPage(b, b.pages[0], { mode: 'published', siteUrl: 'https://x.kswd.ca', collections: POSTS });
+  const grid = html.slice(html.indexOf('class="grid"'), html.indexOf('</div>', html.indexOf('class="grid"')));
+  assert.doesNotMatch(grid, /Newest/, 'offset 1 skips the newest');
+  assert.match(grid, /Middle[\s\S]*Oldest/);
+  assert.doesNotMatch(grid, /Fourth/, 'limit 2');
+  assert.match(grid, /href="\/blog\/s1"/);
+  assert.match(grid, /<time datetime="2026-03-09">March 9, 2026<\/time>/);
+  assert.match(grid, /src="https:\/\/cdn.example.com\/m.jpg" alt="Middle"/);
+  assert.equal((grid.match(/<img/g) || []).length, 1, 'data-ks-if drops the image for posts without one');
+  assert.match(html, /<ul[^>]*><li>Oldest<\/li><\/ul>/, 'data-ks-tag matches any tag, case-insensitively');
+  assert.doesNotMatch(html, /No news yet/);
+});
+
+test('article layout binds the post, including its formatted body', () => {
+  const b = newsBundle();
+  b.pages[0].instances = [{ id: 'i-article', section: 'article' }];
+  const { html } = renderPage(b, b.pages[0], { mode: 'published', collections: POSTS });
+  assert.match(html, /<h1>Newest<\/h1>/);
+  assert.match(html, /<div class="prose"><h2>Why it matters<\/h2><p>Real <strong>article<\/strong> text.<\/p><\/div>/);
+  assert.doesNotMatch(html, /Sample paragraph/);
+  assert.match(html, /3 min read/);
+});
+
+test('article bodies are sanitized: no script, handlers or javascript: links', () => {
+  const dirty = '<h2 style="text-align:center;position:fixed">Hi</h2><p onclick="x()">a <a href="javascript:alert(1)">b</a> <a href="https://ok.example" target="_blank">c</a></p><script>alert(1)</script><img src="javascript:x" onerror="y"><img src="https://cdn.example.com/a.jpg" alt="A"><iframe src="https://evil.example"></iframe><table><tr><td colspan="2">t</td></tr></table>';
+  const clean = sanitizeArticle(dirty);
+  assert.doesNotMatch(clean, /script|onclick|onerror|javascript:|iframe|position/);
+  assert.match(clean, /<h2 style="text-align:center">Hi<\/h2>/);
+  assert.match(clean, /rel="noopener noreferrer"/);
+  assert.match(clean, /<img src="https:\/\/cdn.example.com\/a.jpg" alt="A" \/>|<img src="https:\/\/cdn.example.com\/a.jpg" alt="A">/);
+  assert.match(clean, /<td colspan="2">t<\/td>/);
+});
+
+test('empty post lists: published shows the empty message; drafts keep samples', () => {
+  const b = newsBundle();
+  const pub = renderPage(b, b.pages[0], { mode: 'published', collections: { posts: [] } }).html;
+  assert.match(pub, /No news yet/);
+  assert.doesNotMatch(pub, /Sample post/);
+  const draft = renderPage(b, b.pages[0], { mode: 'edit', collections: { posts: [] } }).html;
+  assert.match(draft, /data-ks-c="posts"/);
+  assert.match(draft, /data-ks-sample/);
 });
 
 console.log(`\n${passed} passed`);

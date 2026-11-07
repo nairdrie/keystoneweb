@@ -334,7 +334,7 @@ export function PagesPanel({
           <li key={p.id}>
             <button onClick={() => onOpen(p.id)} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm ${p.id === currentId ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100'}`}>
               <span className="truncate">{p.navLabel || p.title}</span>
-              <span className={`text-xs ${p.id === currentId ? 'text-slate-300' : 'text-slate-400'}`}>/{p.slug === 'home' ? '' : p.slug}</span>
+              <span className={`text-xs ${p.id === currentId ? 'text-slate-300' : 'text-slate-400'}`}>{p.template === 'post' ? 'every blog post' : `/${p.slug === 'home' ? '' : p.slug}`}</span>
             </button>
           </li>
         ))}

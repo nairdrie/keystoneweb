@@ -38,6 +38,8 @@ export interface PageInfo {
   seo: { title?: string; description?: string; ogImage?: string };
   sections: Array<{ id: string; section: string; hidden?: boolean }>;
   layoutVersion?: number;
+  /** "post": the article layout used for every blog post */
+  template?: 'post';
 }
 
 export interface EditorState {

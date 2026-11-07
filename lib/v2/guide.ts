@@ -93,7 +93,7 @@ const content = `# Content
   and the write is rejected (status "conflict" / error reason "stale") if someone changed it since — re-read and retry.
   Without them your write still never clobbers a concurrent one, but it won't tell you the page moved on.`;
 
-const business = `# Business features (store, booking, reviews)
+const business = `# Business features (store, booking, blog, reviews)
 
 Keystone runs the business logic; you design how it looks. Everything below works inside your own markup.
 
@@ -135,6 +135,49 @@ Keystone, wrapped in YOUR header and footer and coloured with the tokens you set
 Agent JS can use \`ks.cart.count()\`, \`ks.cart.items()\`, \`ks.cart.add({productId,name,price_cents,currency,image})\`
 and listen for \`document.addEventListener('ks:cart', …)\`.
 
+## Blog posts — the owner writes, you design
+Posts are the owner's: they write and edit them in Admin → Blog (title, text, cover image, author, tags,
+publish/featured). You decide how they look — grids, lists, magazine layouts, a featured hero, anything.
+Articles live at \`/blog/<slug>\`; new posts appear everywhere without republishing.
+
+**Lists** — anywhere on any page:
+\`\`\`html
+<div class="stories" data-ks-collection="posts" data-ks-limit="6">
+  <a class="story" data-ks-item data-ks-bind="url" href="/blog/sample">
+    <img data-ks-if="image" data-ks-bind="image" src="https://…/sample.jpg" alt="">
+    <p class="meta"><time data-ks-bind="date">March 3, 2026</time> · <span data-ks-bind="reading_time">4 min read</span></p>
+    <h3 data-ks-bind="title">Sample post title</h3>
+    <p data-ks-bind="excerpt">A short summary of the article.</p>
+  </a>
+  <p data-ks-empty data-ks="emptyText">New articles are on the way.</p>
+</div>
+\`\`\`
+Fields: title, excerpt, date, date_iso, image, author, tags, tag, url, reading_time, featured, current, slug, id.
+\`<time data-ks-bind="date">\` also gets a machine-readable datetime. Options: \`data-ks-limit\`, \`data-ks-offset="1"\`
+(skip the newest, e.g. after a featured hero), \`data-ks-filter="featured"\`, \`data-ks-tag="Press"\`.
+Newest first. Make a page that lists them (e.g. slug "blog" or "news") and link to it from the nav.
+
+**The article page** — design it once; it's used for every post. Make a page with
+\`put_page { slug: "article", template: "post", sections: [...] }\` (it stays out of the menu and isn't a URL of its own).
+Its sections use \`data-ks-collection="post"\` — the article being read — with the same fields plus \`content\`:
+\`\`\`html
+<article class="post" data-ks-collection="post">
+  <div data-ks-item>
+    <p class="meta"><span data-ks-bind="tag">Press</span> · <time data-ks-bind="date">March 3, 2026</time></p>
+    <h1 data-ks-bind="title">Sample article title</h1>
+    <img class="cover" data-ks-if="image" data-ks-bind="image" src="https://…/sample.jpg" alt="">
+    <div class="prose" data-ks-bind="content"><p>Sample paragraph.</p><h2>Sample heading</h2><p>More text.</p></div>
+    <p class="byline" data-ks-if="author">By <span data-ks-bind="author">Author</span></p>
+  </div>
+</article>
+\`\`\`
+- Bind \`content\` on a div/article/section: it's the owner's formatted article (p, h2–h4, lists, quotes, links,
+  images, code, tables) — style those elements inside your container (e.g. \`.prose h2\`, \`.prose img\`).
+- Add other sections to the article page as you like ("more stories" with \`data-ks-filter="!current"\`, a CTA,
+  a newsletter band). The page title, description, social image and BlogPosting structured data come from the post.
+- On any other page, \`data-ks-collection="post"\` shows the newest post (e.g. a "latest news" spotlight).
+- No article page yet? /blog/<slug> still works with Keystone's plain article layout in your header and footer.
+
 ## Reviews and FAQs → Google rich results
 Mark owner-editable lists so search engines understand them:
 - \`data-ks-list="reviews" data-ks-schema="reviews"\` with item fields \`author\`, \`quote\`, optional \`rating\` (1–5).
@@ -143,7 +186,9 @@ Seed reviews from research_business (real Google review snippets, quoted accurat
 — never invent reviews. Services in a services collection also become structured data automatically.
 
 ## Setting up data for a new business
-get_business_data shows what exists. upsert_services / upsert_products add records (import images first).
+get_business_data shows what exists. upsert_services / upsert_products / upsert_posts add records (import images
+first). Moving a business off an old site? Import its articles with upsert_posts, keeping their original
+published_at dates, and link to /blog/<slug> — not to the old site's URLs, which stop working once the domain moves.
 The owner manages payments, hours, shipping and taxes in Admin; tell them what's left to configure.`;
 
 const forms = `# Forms
@@ -191,6 +236,8 @@ const workflow = `# Workflow
 5. put_section for each home page section → put_page("home", sections + content).
 6. screenshot (desktop + mobile) after each section or page: look at the images and fix every listed problem
    (sideways scrolling, invisible text, broken images, JS errors). Repeat per page (about, services, contact…).
+   Products, services or a blog/news section? Use live data (topic "business") so the owner can keep them up to date
+   in Admin — never hard-code a list of articles or products as static content.
 7. validate → fix errors.
 8. publish (if your token has sites:publish and the owner has a plan) or request_approval to send the owner the preview.
 Every write returns issues and a preview link — read them before the next step.`;

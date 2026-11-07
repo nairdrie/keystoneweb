@@ -52,16 +52,19 @@ the owner couldn't edit.
 
 Agents design how business data looks; Keystone runs the logic (`get_guide topic=business`):
 
-- **Live collections in agent markup**: `data-ks-collection="products|services"` with an item template and
-  `data-ks-bind` / `data-ks-bind-bg` / `data-ks-if`, filled from the products and booking tables at request time
-  (`lib/v2/collections.ts`), so new products show up without republishing.
+- **Live collections in agent markup**: `data-ks-collection="products|services|posts|post"` with an item template and
+  `data-ks-bind` / `data-ks-bind-bg` / `data-ks-if`, filled from the products, booking and blog tables at request time
+  (`lib/v2/collections.ts`), so new products and posts show up without republishing.
+- **Blog**: owners write posts in Admin → Blog (`blog_posts`); articles live at `/blog/<slug>`. The agent designs the
+  lists and one article layout page (`put_page { template: "post" }`, `data-ks-collection="post"` incl. the sanitized
+  `content`); without it Keystone shows a plain article in the site's header/footer (`lib/v2/articles.ts`).
 - **Actions**: `data-ks-action="add-to-cart|open-cart|book"`, live `data-ks-cart-count`. The cart uses the same
   storage format as Keystone's checkout (`public/ks/runtime.js`).
 - **Hosted flows in the site's design**: `/cart`, `/book[?service=id]`, `/product/<id>` and `/order-confirmation`
   run Keystone's existing cart/checkout, booking and product components wrapped in the agent's header, footer and
   tokens (`app/v2flow`, middleware rewrite). `set_theme.platform` picks their colours.
 - **Structured data**: lists marked `data-ks-schema="reviews|faq"` and live services become JSON-LD.
-- **Agent tools**: `get_business_data`, `upsert_services`, `upsert_products`.
+- **Agent tools**: `get_business_data`, `upsert_services`, `upsert_products`, `upsert_posts`.
 - **Admin**: the Booking and Ecommerce tabs appear for v2 sites whose design uses those features.
 
 ## Agent screenshots

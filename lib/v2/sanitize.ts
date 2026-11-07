@@ -37,6 +37,41 @@ export function sanitizeRich(html: string): string {
   }).trim();
 }
 
+const ARTICLE_TAGS = [
+  ...INLINE_TAGS, ...BLOCK_TAGS,
+  'h1', 'h5', 'h6', 'pre', 'code', 'hr', 'figure', 'figcaption', 'img',
+  'table', 'thead', 'tbody', 'tr', 'th', 'td', 'caption', 'del', 'ins', 'abbr', 'cite', 'q',
+];
+
+/**
+ * Blog article bodies (written in Admin → Blog's rich-text editor, or imported
+ * by an agent): headings, lists, quotes, code, images, tables, plus the colour
+ * and alignment styles the editor produces. No script, no event handlers.
+ */
+export function sanitizeArticle(html: string): string {
+  if (!html) return '';
+  return sanitizeHtml(String(html), {
+    allowedTags: ARTICLE_TAGS,
+    allowedAttributes: {
+      ...ATTRS,
+      img: ['src', 'alt', 'width', 'height', 'loading'],
+      th: ['colspan', 'rowspan', 'scope'],
+      td: ['colspan', 'rowspan'],
+      abbr: ['title'],
+      '*': ['style'],
+    },
+    allowedStyles: {
+      '*': {
+        color: [/^#[0-9a-f]{3,8}$/i, /^rgba?\([\d\s.,%]+\)$/i],
+        'text-align': [/^(left|right|center|justify)$/],
+      },
+    },
+    allowedSchemes: SAFE_SCHEMES,
+    allowedSchemesByTag: { img: ['http', 'https'] },
+    transformTags: { a: forceSafeLink },
+  }).trim();
+}
+
 function forceSafeLink(tagName: string, attribs: sanitizeHtml.Attributes) {
   const next = { ...attribs };
   if (next.target === '_blank') next.rel = 'noopener noreferrer';
