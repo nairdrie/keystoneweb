@@ -1,6 +1,6 @@
 /**
  * Local sandbox for trying the v2 editor (and Archie) in a browser without a real Supabase:
- * fake Supabase + `next dev` on :3100, seeded with the e2e sample site.
+ * fake Supabase + `next dev` on :3200 (NEXT_PORT / SUPA_PORT to change), seeded with the e2e sample site.
  *
  *   npx tsx scripts/dev-v2-archie.ts
  *
@@ -13,8 +13,9 @@ import path from 'node:path';
 import { startFakeSupabase } from './fixtures/fake-supabase-server';
 import { hashToken } from '../lib/v2/api-tokens';
 
-const NEXT_PORT = 3100;
-const SUPA_PORT = 54321;
+// Not the e2e test's ports (3100 / 54321), so both can run at once.
+const NEXT_PORT = Number(process.env.NEXT_PORT) || 3200;
+const SUPA_PORT = Number(process.env.SUPA_PORT) || 54331;
 const BASE = `http://localhost:${NEXT_PORT}`;
 const OWNER = '11111111-1111-1111-1111-111111111111';
 const TOKEN = `ks_pat_dev${'x'.repeat(36)}`;
