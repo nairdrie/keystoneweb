@@ -10,7 +10,7 @@ import { applyFieldChange, normalizeFieldValue } from '../lib/v2/content';
 import { sampleBundle, SAMPLE_SECTIONS } from './fixtures/v2-sample-site';
 import { renderChrome, platformPalette } from '../lib/v2/render';
 import { featuresIn } from '../lib/v2/collections';
-import { sanitizeArticle } from '../lib/v2/sanitize';
+import { sanitizeArticle, toPlainText } from '../lib/v2/sanitize';
 import { validateBundle } from '../lib/v2/validate';
 
 let passed = 0;
@@ -396,6 +396,26 @@ test('article bodies are sanitized: no script, handlers or javascript: links', (
   assert.match(clean, /rel="noopener noreferrer"/);
   assert.match(clean, /<img src="https:\/\/cdn.example.com\/a.jpg" alt="A" \/>|<img src="https:\/\/cdn.example.com\/a.jpg" alt="A">/);
   assert.match(clean, /<td colspan="2">t<\/td>/);
+});
+
+test('toPlainText returns real characters, not entities', () => {
+  assert.equal(toPlainText('AI Trust &amp; Efficiency'), 'AI Trust & Efficiency');
+  assert.equal(toPlainText('<b>Fish</b> & Chips'), 'Fish & Chips');
+  assert.equal(toPlainText(`Q&A: "quotes" it's 5 < 6 > 4`), `Q&A: "quotes" it's 5 < 6 > 4`);
+  // Single pass: an escaped entity stays one level escaped, never decodes twice into markup.
+  assert.equal(toPlainText('&amp;lt;b&amp;gt;'), '&lt;b&gt;');
+  // Tags are still stripped, so decoding can't smuggle markup through.
+  assert.equal(toPlainText('<script>alert(1)</script><img src=x onerror=y>Hi'), 'Hi');
+});
+
+test('plain-text fields are escaped exactly once when rendered', () => {
+  const b = sampleBundle();
+  const page = b.pages[0];
+  // What ops.ts stores for a page title of "Fish & Chips <Deluxe>".
+  page.seo = { ...page.seo, title: toPlainText('Fish &amp; Chips &lt;Deluxe&gt;') };
+  const { html } = renderPage(b, page, { mode: 'published' });
+  assert.match(html, /<title>Fish &amp; Chips &lt;Deluxe&gt;<\/title>/);
+  assert.doesNotMatch(html, /&amp;amp;|&amp;lt;|<Deluxe>/);
 });
 
 test('empty post lists: published shows the empty message; drafts keep samples', () => {

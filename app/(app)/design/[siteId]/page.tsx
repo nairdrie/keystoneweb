@@ -6,6 +6,7 @@ import Header from '@/app/components/Header';
 import SignUpModal from '@/app/components/SignUpModal';
 import { useAuth } from '@/lib/auth/context';
 import AlertModal from '@/app/components/ui/AlertModal';
+import EditorLoadingScreen from '@/app/components/EditorLoadingScreen';
 
 interface SiteData {
   id: string;
@@ -107,14 +108,7 @@ export default function DesignPage() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mb-4"></div>
-          <p className="text-slate-600">Loading your design...</p>
-        </div>
-      </div>
-    );
+    return <EditorLoadingScreen />;
   }
 
   if (!site) {

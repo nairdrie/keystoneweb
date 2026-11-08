@@ -79,9 +79,14 @@ function forceSafeLink(tagName: string, attribs: sanitizeHtml.Attributes) {
   return { tagName, attribs: next };
 }
 
-/** Plain text from inline html (for labels, alt text, titles). */
+/**
+ * Plain text from inline html (for labels, alt text, titles). Returns real characters, not
+ * entities: sanitize-html re-encodes & < > " in its output, and every caller escapes again when
+ * it renders, so leaving them encoded showed "AI Trust &amp; Efficiency" on the page.
+ */
 export function toPlainText(html: string): string {
   return sanitizeHtml(String(html || ''), { allowedTags: [], allowedAttributes: {} })
+    .replace(/&(lt|gt|quot|#39|amp);/g, (_, e: string) => ({ lt: '<', gt: '>', quot: '"', '#39': "'", amp: '&' })[e]!)
     .replace(/\s+/g, ' ')
     .trim();
 }

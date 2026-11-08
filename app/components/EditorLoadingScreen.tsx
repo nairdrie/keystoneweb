@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useId } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const AI_BUILDING_MESSAGES = [
@@ -18,10 +18,34 @@ const AI_BUILDING_MESSAGES = [
 
 // How long each message displays before cycling
 const MESSAGE_CYCLE_MS = 5000;
-// How long the arch animation takes to fully build (last stone delay + spring settle)
-const ARCH_ANIM_DURATION_MS = 2200;
-// Interval at which the arch replays
-const ARCH_REPLAY_MS = 5500;
+
+// Brand coral from the logo mark, and a pale tint of it for the empty stone.
+const CORAL = '#ff5f5f';
+const PALE = '#ffd9d9';
+
+// The logo's keystone: a rounded trapezoid, wide at the top.
+const KEYSTONE_PATH =
+    'M 62 30 Q 60 18 72 18 L 128 18 Q 140 18 138 30 L 124 128 Q 122 140 110 140 L 90 140 Q 78 140 76 128 Z';
+
+// Two full wave periods (120 units each) so the surface can scroll
+// sideways forever without a seam inside the keystone (x 60–140).
+const WAVE_PATH = 'M 40 0 Q 70 -8 100 0 T 160 0 T 220 0 T 280 0 V 200 H 40 Z';
+
+const KEYFRAMES = `
+.ks-loader-fill { animation: ks-loader-rise 2.6s cubic-bezier(.45,0,.55,1) infinite; }
+.ks-loader-wave { animation: ks-loader-wave 1.1s linear infinite; }
+@keyframes ks-loader-rise {
+    0% { transform: translateY(150px); opacity: 1 }
+    70%, 82% { transform: translateY(8px); opacity: 1 }
+    96%, 100% { transform: translateY(8px); opacity: 0 }
+}
+@keyframes ks-loader-wave { from { transform: translateX(0) } to { transform: translateX(-120px) } }
+@media (prefers-reduced-motion: reduce) {
+    .ks-loader-fill { animation: ks-loader-pulse 2s ease-in-out infinite; transform: translateY(70px); }
+    .ks-loader-wave { animation: none; }
+    @keyframes ks-loader-pulse { 50% { opacity: .55 } }
+}
+`;
 
 interface Props {
     message?: string;
@@ -43,7 +67,7 @@ interface Props {
 export default function EditorLoadingScreen({ message, liveMessage, variant = 'fullscreen' }: Props = {}) {
     const isAiBuilding = !!message; // if a message is passed, we're in AI building mode
     const [messageIndex, setMessageIndex] = useState(0);
-    const [archKey, setArchKey] = useState(0); // changing key forces re-mount → replays animation
+    const clipId = `ks-loader-clip-${useId().replace(/:/g, '')}`;
 
     // Cycle through generic messages only when there's no live progress.
     useEffect(() => {
@@ -54,131 +78,58 @@ export default function EditorLoadingScreen({ message, liveMessage, variant = 'f
         return () => clearInterval(interval);
     }, [isAiBuilding, liveMessage]);
 
-    // Replay arch animation periodically
-    useEffect(() => {
-        if (!isAiBuilding) return;
-        const interval = setInterval(() => {
-            setArchKey((prev: number) => prev + 1);
-        }, ARCH_REPLAY_MS);
-        return () => clearInterval(interval);
-    }, [isAiBuilding]);
-
     const displayMessage = liveMessage
         ? liveMessage
         : isAiBuilding
             ? AI_BUILDING_MESSAGES[messageIndex]
             : message;
 
-    // Precise SVG coordinates spanning an arch with inner radius 30 and outer radius 70.
-    // Center at (100, 90). The pillars extend straight down to y=170.
-    const archStones = [
-        // L1 (Base 1)
-        { points: "25,168 25,128 65,128 65,168", cx: 45, cy: 148, isKeystone: false },
-        // R1 (Base 1)
-        { points: "135,168 135,128 175,128 175,168", cx: 155, cy: 148, isKeystone: false },
-        // L2 (Base 2)
-        { points: "25,126 25,90 65,90 65,126", cx: 45, cy: 108, isKeystone: false },
-        // R2 (Base 2)
-        { points: "135,126 135,90 175,90 175,126", cx: 155, cy: 108, isKeystone: false },
-
-        // L3 (Lower Curve)
-        { points: "25,88 38.5,49.5 72,71.5 65,88", cx: 50, cy: 74, isKeystone: false },
-
-        // R3 (Lower Curve)
-        { points: "161.5,49.5 175,88 135,88 128,71.5", cx: 150, cy: 74, isKeystone: false },
-
-        // L4 (Upper Curve)
-        { points: "41.5,46.5 75,22 88.5,59.5 73.5,69", cx: 69.6, cy: 49.2, isKeystone: false },
-
-        // R4 (Upper Curve)
-        { points: "125,22 158.5,46.5 126.5,69 111.5,59.5", cx: 130.4, cy: 49.2, isKeystone: false },
-
-        // Keystone (Top Center)
-        { points: "78.5,21 121.5,21 108.5,58 91.5,58", cx: 100, cy: 39.5, isKeystone: true },
-    ];
-
     // 'fill' uses absolute positioning so it spans the nearest positioned
     // ancestor (the editor's relative scroll container) instead of the
-    // viewport — no white gap below if the inner wrapper has no explicit
-    // height. 'fullscreen' still needs `relative` to anchor the inner glow.
+    // viewport — no white gap below if the inner wrapper has no explicit height.
     const sizingClass = variant === 'fill'
         ? 'absolute inset-0'
-        : 'w-full min-h-screen relative';
+        : 'w-full min-h-screen';
 
     return (
-        <div className={`${sizingClass} flex flex-col items-center justify-center bg-red-600 overflow-hidden`}>
-            {/* Background glow behind arch */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-red-500 rounded-full blur-[100px] opacity-50 pointer-events-none" />
+        <div
+            role="status"
+            aria-label={displayMessage || 'Loading'}
+            className={`${sizingClass} flex flex-col items-center justify-center bg-slate-50 overflow-hidden`}
+        >
+            <style>{KEYFRAMES}</style>
 
-            <div className="relative z-10 flex flex-col items-center">
-                {/* Perfect fitted SVG Archway Container — key change forces re-mount to replay animation */}
-                <svg key={archKey} viewBox="0 0 200 200" className="w-64 h-64 relative mb-12 overflow-visible drop-shadow-2xl">
-                    <defs>
-                        <linearGradient id="stoneGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stopColor="#ffffff" />
-                            <stop offset="100%" stopColor="#f8fafc" />
-                        </linearGradient>
-                        <linearGradient id="keystoneGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stopColor="#ffffff" />
-                            <stop offset="100%" stopColor="#fef3c7" />
-                        </linearGradient>
-                    </defs>
+            {/* The logo keystone, filling up with a gentle wave */}
+            <svg viewBox="50 10 100 140" className="w-14 h-20 overflow-visible" aria-hidden="true">
+                <defs>
+                    <clipPath id={clipId}>
+                        <path d={KEYSTONE_PATH} />
+                    </clipPath>
+                </defs>
+                <path d={KEYSTONE_PATH} fill={PALE} />
+                <g clipPath={`url(#${clipId})`}>
+                    <g className="ks-loader-fill">
+                        <path d={WAVE_PATH} fill={CORAL} className="ks-loader-wave" />
+                    </g>
+                </g>
+            </svg>
 
-                    {archStones.map((stone, index) => {
-                        const step = Math.floor(index / 2);
-                        const delay = step * 0.15;
-
-                        return (
-                            <motion.polygon
-                                key={index}
-                                points={stone.points}
-                                initial={{ scale: 0 }}
-                                animate={{ scale: 0.85 }}
-                                transition={{
-                                    type: "spring",
-                                    stiffness: 400,
-                                    damping: 20,
-                                    mass: 1.5,
-                                    delay: delay,
-                                }}
-                                style={{ transformOrigin: `${stone.cx}px ${stone.cy}px` }}
-                                fill="url(#stoneGrad)"
-                                stroke="url(#stoneGrad)"
-                                strokeWidth="4"
-                                strokeLinejoin="round"
-                            />
-                        );
-                    })}
-                </svg>
-
-                {/* Cycling status message with crossfade */}
-                <div className="h-8 flex items-center justify-center">
-                    <AnimatePresence mode="wait">
-                        {displayMessage && (
-                            <motion.p
-                                key={displayMessage}
-                                initial={{ opacity: 0, y: 8 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -8 }}
-                                transition={{ duration: 0.4 }}
-                                className="text-white/90 text-lg font-semibold text-center"
-                            >
-                                {displayMessage}
-                            </motion.p>
-                        )}
-                    </AnimatePresence>
-                </div>
-
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 1.5, duration: 1 }}
-                    className="flex justify-center items-center gap-2 mt-4"
-                >
-                    <span className="w-2.5 h-2.5 rounded-full bg-white/70 animate-bounce" style={{ animationDelay: "0ms" }} />
-                    <span className="w-2.5 h-2.5 rounded-full bg-white/70 animate-bounce" style={{ animationDelay: "150ms" }} />
-                    <span className="w-2.5 h-2.5 rounded-full bg-white/70 animate-bounce" style={{ animationDelay: "300ms" }} />
-                </motion.div>
+            {/* Status message with crossfade (AI builds / live progress only) */}
+            <div className="h-6 mt-6 flex items-center justify-center">
+                <AnimatePresence mode="wait">
+                    {displayMessage && (
+                        <motion.p
+                            key={displayMessage}
+                            initial={{ opacity: 0, y: 6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -6 }}
+                            transition={{ duration: 0.35 }}
+                            className="text-slate-500 text-sm font-medium text-center px-6"
+                        >
+                            {displayMessage}
+                        </motion.p>
+                    )}
+                </AnimatePresence>
             </div>
         </div>
     );

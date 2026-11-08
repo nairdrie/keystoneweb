@@ -21,6 +21,7 @@ import { BrandPanel, BusinessPanel, PagesPanel, type PanelActions } from './pane
 import { AddSectionModal, ChangeRequestModal, HistoryModal, LinkModal, MediaModal, SectionContentModal } from './modals';
 import ArchiePopover, { useArchie, type ArchieOpen } from './archie';
 import ArchieAIIcon from '@/app/components/ArchieAIIcon';
+import EditorLoadingScreen from '@/app/components/EditorLoadingScreen';
 
 type Obj = Record<string, unknown>;
 type Device = 'desktop' | 'tablet' | 'mobile';
@@ -373,7 +374,7 @@ export default function V2Editor({ siteId }: { siteId: string }) {
     );
   }
   if (!state || !page) {
-    return <div className="flex min-h-screen items-center justify-center bg-slate-50"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>;
+    return <EditorLoadingScreen />;
   }
 
   const base = mode === 'edit' ? state.canvas.editBase : state.canvas.previewBase;
