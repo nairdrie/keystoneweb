@@ -265,10 +265,12 @@ export default function V2Editor({ siteId }: { siteId: string }) {
           });
           break;
         }
+        // These dialogs replace Archie rather than open underneath it (Archie keeps working).
         case 'section-content':
-          if (state?.content.some((c) => c.instance === d.instance)) setContentOf(d.instance);
+          if (state?.content.some((c) => c.instance === d.instance)) { closeArchie(); setContentOf(d.instance); }
           break;
         case 'add-section':
+          closeArchie();
           setAddAt(Math.max(0, Number(d.index) || 0));
           break;
         case 'visibility': {
@@ -321,7 +323,7 @@ export default function V2Editor({ siteId }: { siteId: string }) {
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [actions, fieldAt, page, run, saveContent, sectionAction, selected, siteId, state, toast, valueAt]);
+  }, [actions, closeArchie, fieldAt, page, run, saveContent, sectionAction, selected, siteId, state, toast, valueAt]);
 
   // ── Publish (same flow as the classic editor) ─────────────────────────────
   const publish = async () => {

@@ -337,6 +337,7 @@ async function main() {
 
     await step('"Edit all content" edits a list item field', async () => {
       await (await sectionButton('home-services', 'content')).click();
+      await page.getByRole('dialog', { name: 'Ask Archie' }).waitFor({ state: 'detached' }); // never left on top of the dialog
       const modal = page.getByRole('dialog', { name: 'Services grid' });
       await modal.getByRole('button', { name: 'Repairs', exact: true }).click();
       const item = modal.locator('div.rounded-lg.border', { has: page.getByRole('button', { name: 'Repairs', exact: true }) }).first();
