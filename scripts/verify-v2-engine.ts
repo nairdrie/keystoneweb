@@ -11,6 +11,7 @@ import { sampleBundle, SAMPLE_SECTIONS } from './fixtures/v2-sample-site';
 import { renderChrome, platformPalette } from '../lib/v2/render';
 import { featuresIn } from '../lib/v2/collections';
 import { sanitizeArticle } from '../lib/v2/sanitize';
+import { validateBundle } from '../lib/v2/validate';
 
 let passed = 0;
 function test(name: string, fn: () => void) {
@@ -374,6 +375,62 @@ test('empty post lists: published shows the empty message; drafts keep samples',
   const draft = renderPage(b, b.pages[0], { mode: 'edit', collections: { posts: [] } }).html;
   assert.match(draft, /data-ks-c="posts"/);
   assert.match(draft, /data-ks-sample/);
+});
+
+// ── "Powered by Keystone" ──
+function withFooter(html: string, css = '', js = '') {
+  const b = sampleBundle();
+  b.sections.footer = { ...b.sections.footer, html, css, js, schema: compileSection(html) };
+  return b;
+}
+const SLOT_FOOTER = '<footer><p data-ks="blurb">Northline Roofing</p><p class="credit" data-ks-attribution>anything</p></footer>';
+
+test('attribution: a footer without a slot gets the fallback line, on pages and hosted flows', () => {
+  const b = sampleBundle();
+  for (const mode of ['published', 'preview', 'edit'] as const) {
+    const html = renderPage(b, b.pages[0], { mode }).html;
+    assert.match(html, /data-ks-attribution-fallback[^>]*>Powered by <a href="https:\/\/keystoneweb\.ca"[^>]*>Keystone<\/a><\/div>/, mode);
+    assert.ok(html.indexOf('data-ks-attribution-fallback') > html.indexOf('</footer>'), 'after the footer');
+  }
+  assert.match(renderChrome(b).footer, /data-ks-attribution-fallback/);
+  assert.ok(validateBundle(b).warnings.some((w) => w.rule === 'attribution'));
+});
+
+test('attribution: the agent slot is filled with fixed text + link, keeps its styling hook, no fallback', () => {
+  const b = withFooter(SLOT_FOOTER);
+  assert.equal(compileSection(SLOT_FOOTER).issues.filter((i) => i.level === 'error').length, 0);
+  const html = renderPage(b, b.pages[0], { mode: 'published' }).html;
+  assert.match(html, /<p class="credit" data-ks-attribution(="")? style="visibility:visible!important[^"]*">Powered by <a href="https:\/\/keystoneweb\.ca" target="_blank" rel="noopener"[^>]*>Keystone<\/a><\/p>/);
+  assert.doesNotMatch(html, /anything/);
+  assert.doesNotMatch(html, /data-ks-attribution-fallback/);
+  assert.doesNotMatch(renderChrome(b).footer, /data-ks-attribution-fallback/);
+  assert.ok(!validateBundle(b).warnings.some((w) => w.rule === 'attribution'));
+  // The link and text are fixed, and hiding attributes are dropped.
+  const hidden = withFooter('<footer><a data-ks-attribution hidden aria-hidden="true" href="https://evil.example">x</a></footer>');
+  const h = renderPage(hidden, hidden.pages[0], { mode: 'published' }).html;
+  assert.match(h, /<a data-ks-attribution[^>]*href="https:\/\/keystoneweb\.ca"[^>]*>Powered by Keystone<\/a>/);
+  const footerHtml = h.slice(h.indexOf('<footer>'), h.indexOf('</footer>'));
+  assert.doesNotMatch(footerHtml, /evil\.example|aria-hidden|\shidden/);
+});
+
+test('attribution: removing the slot brings the fallback back; hiding it in CSS/JS fails validation', () => {
+  const removed = withFooter('<footer><p data-ks="blurb">Northline Roofing</p></footer>');
+  assert.match(renderPage(removed, removed.pages[0], { mode: 'published' }).html, /data-ks-attribution-fallback/);
+  for (const css of [
+    '[data-ks-attribution]{display:none}',
+    '.x [data-ks-attribution] a { opacity: 0.1 }',
+    'p[data-ks-attribution]{font-size:6px}',
+    '[data-ks-attribution]{position:absolute;left:-9999px}',
+  ]) {
+    assert.ok(validateBundle(withFooter(SLOT_FOOTER, css)).errors.some((e) => e.rule === 'attribution'), css);
+  }
+  const styled = validateBundle(withFooter(SLOT_FOOTER, '[data-ks-attribution]{font-size:12px;opacity:.7;color:var(--muted);text-align:center} [data-ks-attribution] a{color:inherit}'));
+  assert.ok(!styled.errors.some((e) => e.rule === 'attribution'), JSON.stringify(styled.errors));
+  const js = validateBundle(withFooter(SLOT_FOOTER, '', "export default (root) => { root.querySelector('[data-ks-attribution]').remove(); }"));
+  assert.ok(js.errors.some((e) => e.rule === 'attribution'));
+  const g = sampleBundle();
+  g.theme = { ...g.theme, global_css: 'footer [data-ks-attribution]{visibility:hidden}' };
+  assert.ok(validateBundle(g).errors.some((e) => e.rule === 'attribution'));
 });
 
 console.log(`\n${passed} passed`);

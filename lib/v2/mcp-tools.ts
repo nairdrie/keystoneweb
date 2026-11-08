@@ -306,7 +306,7 @@ export const TOOLS: ToolDef[] = [
   {
     name: 'set_layout',
     title: 'Set header and footer',
-    description: 'Choose the section designs used as the global header and footer (null removes). Optionally set their content (instances "header" / "footer").',
+    description: 'Choose the section designs used as the global header and footer (null removes). Optionally set their content (instances "header" / "footer"). The footer must contain an empty <p data-ks-attribution></p> slot for the required "Powered by Keystone" link (Keystone fills it); without one Keystone adds a plain line below the footer.',
     scope: 'sites:write',
     inputSchema: {
       type: 'object',

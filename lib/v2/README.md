@@ -85,6 +85,21 @@ classic AI Builder limits (staff exempt; refunded if nothing happened). Env: `AI
 
 Try it locally without Supabase: `npx tsx scripts/dev-v2-archie.ts` (prints the editor URL and a session cookie).
 
+## "Powered by Keystone" (required on every site)
+
+Enforced by the platform, so it holds for external MCP agents, Archie and our team alike:
+
+- **Renderer** (`lib/v2/render.ts`): an element with `data-ks-attribution` (agents put `<p data-ks-attribution></p>` in the
+  footer) is always filled with "Powered by <a href=https://keystoneweb.ca>Keystone</a>"; its own text/href are ignored and
+  `hidden`/`aria-hidden` are dropped. Agents style it with CSS. No slot (forgotten, removed, no footer) → a plain fallback
+  line is rendered after the footer, on pages and on the hosted cart/booking/product pages.
+- **Runtime** (`public/ks/runtime.js`): if the slot is hidden, shrunk, off-screen or transparent after scripts run, a plain
+  badge is appended (waits for scroll-reveal fades and background tabs).
+- **Validator**: CSS that hides the slot and scripts that reference it are errors (publish blocked); a footer without a
+  slot is a warning.
+- **Agents are told** in the MCP `initialize` instructions (in every external client's system prompt), the `set_layout`
+  description, `get_guide` and Archie's prompt.
+
 ## Agent screenshots
 
 The MCP `screenshot` tool returns desktop/tablet/mobile JPEGs of a draft (scripts running) plus problems found:

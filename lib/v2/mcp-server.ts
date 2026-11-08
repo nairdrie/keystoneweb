@@ -12,7 +12,9 @@ const SERVER_INFO = { name: 'keystone', title: 'Keystone Web', version: '0.1.0' 
 const INSTRUCTIONS =
   'Keystone builds and hosts websites for small businesses. You design each site from scratch with HTML/CSS/JS; ' +
   'the owner edits words, images and links afterwards. Call get_guide first and follow its workflow. ' +
-  'Never overwrite content the owner edited unless the human asked you to.';
+  'Never overwrite content the owner edited unless the human asked you to. ' +
+  'Every Keystone site must show a small "Powered by Keystone" link: put an empty <p data-ks-attribution></p> in the ' +
+  'footer (Keystone fills in the text and link) and style it to fit; never hide, cover or remove it.';
 
 interface RpcMessage {
   jsonrpc?: string;

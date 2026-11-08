@@ -92,7 +92,7 @@ export default async function V2FlowPage({ params, searchParams }: { params: Pro
       />
       <div dangerouslySetInnerHTML={{ __html: chrome.footer }} />
       {onSiteHost && <div dangerouslySetInnerHTML={{ __html: chrome.modules }} />}
-      <Script src="/ks/runtime.js?v=3" strategy="afterInteractive" />
+      <Script src="/ks/runtime.js?v=4" strategy="afterInteractive" />
     </>
   );
 }

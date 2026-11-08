@@ -28,6 +28,38 @@ import { postPath, type ArticleMeta, type CollectionData, type CollectionItem, t
 
 const STATIC_TAGS = new Set(['svg', 'select', 'option', 'textarea', 'noscript', 'template', 'canvas', 'video', 'audio', 'iframe', 'math']);
 
+// ── "Powered by Keystone" ──────────────────────────────────────────────────
+// Required on every Keystone site, whoever designed it (an external MCP agent,
+// Archie or our team). Agents opt into a styled version by putting an element
+// with data-ks-attribution in their footer; the renderer always writes its
+// text and link, so neither the agent nor the owner can change or drop them.
+// Without a slot, a plain fallback line is rendered after the footer.
+// public/ks/runtime.js re-adds the fallback if CSS/JS hides the slot.
+export const ATTRIBUTION_URL = 'https://keystoneweb.ca';
+const ATTRIBUTION_GUARD = 'visibility:visible!important;filter:none!important;clip-path:none!important';
+const ATTRIBUTION_LINK = `<a href="${ATTRIBUTION_URL}" target="_blank" rel="noopener" style="${ATTRIBUTION_GUARD};display:inline!important">Keystone</a>`;
+export const ATTRIBUTION_FALLBACK_HTML =
+  `<div data-ks-attribution data-ks-attribution-fallback style="display:block!important;${ATTRIBUTION_GUARD};opacity:1!important;position:static!important;` +
+  `margin:0!important;padding:12px 16px!important;text-align:center!important;font:12px/1.4 system-ui,-apple-system,'Segoe UI',sans-serif!important;` +
+  `color:inherit;background:transparent">Powered by ${ATTRIBUTION_LINK.replace('style="', 'style="color:inherit;text-decoration:underline;')}</div>`;
+
+/** Append the fallback badge unless the rendered page already has a filled slot. */
+export function withAttribution(html: string, found: boolean): string {
+  return found ? html : `${html}\n${ATTRIBUTION_FALLBACK_HTML}`;
+}
+
+function fillAttribution($el: Cheerio<Element>, tag: string) {
+  for (const a of ['hidden', 'inert', 'aria-hidden', 'tabindex']) $el.removeAttr(a);
+  const style = ($el.attr('style') || '').trim().replace(/;?$/, '');
+  $el.attr('style', `${style ? `${style};` : ''}${ATTRIBUTION_GUARD}`);
+  if (tag === 'a') {
+    $el.attr('href', ATTRIBUTION_URL).attr('target', '_blank').attr('rel', 'noopener');
+    $el.text('Powered by Keystone');
+  } else {
+    $el.html(`Powered by ${ATTRIBUTION_LINK}`);
+  }
+}
+
 export interface RenderOptions {
   mode: RenderMode;
   /** Absolute origin of the site, e.g. https://acme.kswd.ca (published) */
@@ -102,6 +134,8 @@ interface FillCtx {
   bundle: SiteBundle;
   page: PageRecord | null;
   collections?: CollectionData;
+  /** Set when a data-ks-attribution slot was filled. */
+  attribution?: { found: boolean };
 }
 
 /** Field values for an instance: template defaults overlaid with stored content. */
@@ -123,11 +157,12 @@ export function renderInstance(
   page: PageRecord | null,
   mode: RenderMode,
   collections?: CollectionData,
+  attribution?: { found: boolean },
 ): string {
   const $ = load(section.html || '', null, false);
   const schema = ensureSchema(section);
   const values = instanceValues(section, bundle.content[instance.id]);
-  const ctx: FillCtx = { $, mode, globals: globalsFor(bundle), bundle, page, collections };
+  const ctx: FillCtx = { $, mode, globals: globalsFor(bundle), bundle, page, collections, attribution };
 
   fillScope($.root().contents(), values, schema.fields, '', ctx);
   if (mode === 'published') stripEditorAttributes($);
@@ -151,6 +186,12 @@ function fillNode(node: AnyNode, values: Record<string, unknown>, fields: Map<st
   const $el = ctx.$(el);
   const tag = el.tagName.toLowerCase();
   const attrs = el.attribs || {};
+
+  if ('data-ks-attribution' in attrs) {
+    fillAttribution($el, tag);
+    if (ctx.attribution) ctx.attribution.found = true;
+    return;
+  }
 
   if ('data-ks-static' in attrs || 'data-ks-cart-count' in attrs || STATIC_TAGS.has(tag)) return;
 
@@ -465,6 +506,7 @@ function stripEditorAttributes($: CheerioAPI) {
       if (!name.startsWith('data-ks')) continue;
       if (name.startsWith('data-ks-form') || name === 'data-ks-action' || name.startsWith('data-ks-action-')) continue;
       if (name === 'data-ks-product' || name === 'data-ks-service' || name === 'data-ks-cart-count') continue;
+      if (name.startsWith('data-ks-attribution')) continue; // runtime.js checks it stays visible
       delete el.attribs[name];
     }
   });
@@ -496,6 +538,7 @@ export function renderPage(bundle: SiteBundle, page: PageRecord | null, options:
   const theme = bundle.theme;
   const used = new Map<string, SectionRecord>();
   const renderedInstances: Array<{ section: SectionRecord; instance: SectionInstance }> = [];
+  const attribution = { found: false };
 
   const renderOne = (instance: SectionInstance): string => {
     const section = bundle.sections[instance.section];
@@ -505,7 +548,7 @@ export function renderPage(bundle: SiteBundle, page: PageRecord | null, options:
     if (instance.hidden && mode !== 'edit') return '';
     used.set(section.key, section);
     renderedInstances.push({ section, instance });
-    return renderInstance(bundle, section, instance, page, mode, options.collections);
+    return renderInstance(bundle, section, instance, page, mode, options.collections, attribution);
   };
 
   const header = theme.header_section ? renderOne({ id: GLOBAL_INSTANCE_HEADER, section: theme.header_section }) : '';
@@ -515,6 +558,7 @@ export function renderPage(bundle: SiteBundle, page: PageRecord | null, options:
     : page
     ? page.instances.map(renderOne).join('\n')
     : `<section style="min-height:50vh;display:grid;place-items:center;text-align:center;padding:4rem 1rem"><div><h1>Page not found</h1><p><a href="/">Go to the home page</a></p></div></section>`;
+  const footerWithAttribution = withAttribution(footer, attribution.found);
 
   // ── CSS ──
   const tokens = resolveTokens(theme);
@@ -632,9 +676,9 @@ ${header}
 <main id="main">
 ${body}
 </main>
-${footer}
+${footerWithAttribution}
 ${modules.join('\n')}
-<script src="${assetBase}/ks/runtime.js?v=3" defer></script>
+<script src="${assetBase}/ks/runtime.js?v=4" defer></script>
 ${mode === 'edit' ? `<script src="${assetBase}/ks/editor.js?v=4" defer></script>` : ''}
 </body>
 </html>`;
@@ -755,13 +799,14 @@ export interface RenderedChrome {
 export function renderChrome(bundle: SiteBundle, options: { siteUrl?: string; collections?: CollectionData } = {}): RenderedChrome {
   const theme = bundle.theme;
   const used: SectionRecord[] = [];
+  const attribution = { found: false };
   const one = (id: string, key: string | null) => {
     if (!key || !bundle.sections[key]) return '';
     used.push(bundle.sections[key]);
-    return renderInstance(bundle, bundle.sections[key], { id, section: key }, null, 'published', options.collections);
+    return renderInstance(bundle, bundle.sections[key], { id, section: key }, null, 'published', options.collections, attribution);
   };
   const header = one(GLOBAL_INSTANCE_HEADER, theme.header_section);
-  const footer = one(GLOBAL_INSTANCE_FOOTER, theme.footer_section);
+  const footer = withAttribution(one(GLOBAL_INSTANCE_FOOTER, theme.footer_section), attribution.found);
   const tokens = resolveTokens(theme);
   const tokenCss = tokens.length ? `:root{${tokens.map((t) => `--${t.name}:${safeTokenValue(t.value)}`).join(';')}}` : '';
   const css = [tokenCss, theme.global_css || '', ...used.map((s) => scopeCss(s.css || '', sectionScopeSelector(s.key)).css)].filter(Boolean).join('\n');
