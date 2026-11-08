@@ -54,6 +54,7 @@ export function validateBundle(bundle: SiteBundle): ValidationReport {
       issues.push({ level: 'error', rule: 'js-module', message: 'Section JS must be an ES module with `export default (root, ks) => { ... }`.', section: section.key });
     }
     issues.push(...scanJs(section.js || '', section.key));
+    issues.push(...scanAttributionCss(section.css || '', section.key));
   }
 
   // ── Theme ──
@@ -72,8 +73,18 @@ export function validateBundle(bundle: SiteBundle): ValidationReport {
     issues.push({ level: 'error', rule: 'js-module', message: 'Global JS must be an ES module with `export default (ks) => { ... }`.' });
   }
   issues.push(...scanJs(theme.global_js || '', undefined));
+  issues.push(...scanAttributionCss(theme.global_css || '', undefined));
   if (!theme.header_section) issues.push({ level: 'warning', rule: 'no-header', message: 'No header section set (set_layout).' });
   if (!theme.footer_section) issues.push({ level: 'warning', rule: 'no-footer', message: 'No footer section set (set_layout).' });
+  const footerHtml = theme.footer_section ? bundle.sections[theme.footer_section]?.html : undefined;
+  if (footerHtml !== undefined && !/\sdata-ks-attribution(?:[\s=>]|$)/i.test(footerHtml)) {
+    issues.push({
+      level: 'warning',
+      rule: 'attribution',
+      message: 'The footer has no "Powered by Keystone" slot, so Keystone adds a plain line below it. Put <p data-ks-attribution></p> in the footer and style it to match (get_guide topic "sections").',
+      section: theme.footer_section || undefined,
+    });
+  }
   for (const key of [theme.header_section, theme.footer_section]) {
     if (key && !bundle.sections[key]) issues.push({ level: 'error', rule: 'missing-section', message: `Layout uses section "${key}" which does not exist.` });
   }
@@ -184,6 +195,51 @@ function scanJs(js: string, section: string | undefined): SiteIssue[] {
   if (/\beval\s*\(|new\s+Function\s*\(/.test(js)) {
     out.push({ level: 'error', rule: 'js-forbidden', message: 'eval / new Function are not allowed.', section });
   }
+  if (/ks-attribution|keystoneweb\.ca/i.test(js)) {
+    out.push({ level: 'error', rule: 'attribution', message: 'Scripts may not touch the "Powered by Keystone" link. It is required on every Keystone site.', section });
+  }
+  return out;
+}
+
+// Declarations that would hide or shrink the "Powered by Keystone" slot.
+const HIDING_DECLS: Array<[RegExp, RegExp]> = [
+  [/^display$/, /^none\b/],
+  [/^visibility$/, /^(hidden|collapse)\b/],
+  [/^opacity$/, /^(0(\.[0-2]\d*)?|\.[0-2]\d*|[0-2]?\d(\.\d+)?%)\s*(!important)?$/],
+  [/^font-size$/, /^(0|[0-8](\.\d+)?px|0?\.[0-5]\d*(r?em)?)\s*(!important)?$/],
+  [/^(width|height|max-width|max-height)$/, /^0(px|%|r?em)?\s*(!important)?$/],
+  [/^(clip|clip-path|filter|mask|mask-image|-webkit-mask)$/, /./],
+  [/^(transform|translate|scale)$/, /scale\(\s*0\s*[,)]|^0$|-?\d{3,}(\.\d+)?(px|%|vw|vh|r?em)/],
+  [/^(left|right|top|bottom|inset|margin|margin-left|margin-top|text-indent)$/, /-\d{3,}/],
+  [/^color$/, /^transparent\b/],
+  [/^content-visibility$/, /^hidden\b/],
+];
+
+/** CSS rules aimed at the attribution slot may restyle it but not hide it. */
+function scanAttributionCss(css: string, section: string | undefined): SiteIssue[] {
+  if (!/attribution/i.test(css)) return [];
+  let root: postcss.Root;
+  try {
+    root = postcss.parse(css);
+  } catch {
+    return []; // reported as css-syntax
+  }
+  const out: SiteIssue[] = [];
+  root.walkRules((rule) => {
+    if (!/attribution/i.test(rule.selector)) return;
+    rule.walkDecls((decl) => {
+      const prop = decl.prop.toLowerCase();
+      const value = decl.value.trim().toLowerCase();
+      if (HIDING_DECLS.some(([p, v]) => p.test(prop) && v.test(value))) {
+        out.push({
+          level: 'error',
+          rule: 'attribution',
+          message: `"${rule.selector} { ${decl.prop}: ${decl.value} }" hides the "Powered by Keystone" link. Style it to fit the design, but keep it visible and legible.`,
+          section,
+        });
+      }
+    });
+  });
   return out;
 }
 

@@ -22,6 +22,12 @@ A site has three layers:
 There are no fixed blocks and no style limits: write any HTML/CSS/JS you want, as long as everything a
 visitor can read or see is editable by the owner (see "sections").
 
+**Required on every site: a small "Powered by Keystone" link.** Put an empty \`<p data-ks-attribution></p>\` (or
+\`<span>\`) in your footer; Keystone fills in the text and the link to keystoneweb.ca. Style it to fit your design
+(\`[data-ks-attribution]\` and \`[data-ks-attribution] a\` in the footer CSS: font, colour, alignment, spacing), but keep
+it visible and legible. Never hide, cover, shrink or remove it, from CSS or JS. If the footer has no slot, Keystone
+adds a plain line below it; if it is hidden, Keystone puts a plain one back.
+
 Call get_guide with topic = sections | theme | content | business | forms | scripts | quality | workflow | example.`;
 
 const sections = `# Sections (annotated HTML)
@@ -39,6 +45,7 @@ the field ids stay the same — so keep ids stable when you iterate.
 | \`data-ks-optional\` | On a field: the owner may hide it. As \`data-ks-optional="id"\` on any other element: a show/hide switch. |
 | \`data-ks-static\` | Purely decorative subtree (ornamental numbers, marquee words, decorative images). Not editable. Use sparingly. |
 | \`data-ks-nav\` | A container whose links are generated from the site's pages (in nav order). Put one example link inside, e.g. \`<ul data-ks-nav><li><a href="/">Home</a></li></ul>\`. The current page gets \`aria-current="page"\`. |
+| \`data-ks-attribution\` | Required, once, in the footer: the "Powered by Keystone" link. Leave it empty; Keystone writes the text and link. Style it, don't hide it. |
 | \`data-ks="@business.phone"\` | Site-wide values the owner sets once: ${GLOBAL_BINDINGS.join(', ')}. On an \`<a>\`, phone/email also set tel:/mailto: hrefs; \`@site.logo\` goes on an \`<img>\`. |
 
 Hints the editor enforces so owners can't break your layout:
@@ -230,6 +237,7 @@ This is a done-for-you product: the site should look like a top agency built it 
 - Robust to edits: the owner will change text length and swap images. Use flexible layouts, \`object-fit: cover\`,
   aspect-ratio boxes, and data-ks-max / data-ks-aspect hints. Don't rely on exact word counts.
 - SEO: page titles and descriptions via put_page seo, descriptive link text, real headings.
+- The footer carries the "Powered by Keystone" slot (\`<p data-ks-attribution></p>\`), styled to match the footer.
 Run validate before finishing; fix every error and as many warnings as you can.`;
 
 const workflow = `# Workflow
@@ -238,7 +246,7 @@ const workflow = `# Workflow
    reviews, photos and brand colours.
 2. update_business_profile (name, phone, email, address, hours, logo) — these feed @business.* bindings and SEO.
 3. set_theme (tokens, fonts, global CSS).
-4. put_section for header and footer → set_layout.
+4. put_section for header and footer (with the \`<p data-ks-attribution></p>\` "Powered by Keystone" slot) → set_layout.
 5. put_section for each home page section → put_page("home", sections + content).
 6. screenshot (desktop + mobile) after each section or page: look at the images and fix every listed problem
    (sideways scrolling, invisible text, broken images, JS errors). Repeat per page (about, services, contact…).

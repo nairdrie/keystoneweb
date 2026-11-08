@@ -3,6 +3,7 @@
  *  - runs agent section/global JS modules (not while editing)
  *  - wires <form data-ks-form> to the Keystone inbox
  *  - records page views
+ *  - keeps the required "Powered by Keystone" link visible
  * Agent modules receive `ks`: { mode, siteId, pageId, track(event, data) }.
  */
 (function () {
@@ -248,6 +249,83 @@
     var success = form.querySelector('[data-ks-form-success]');
     if (success) success.hidden = true;
   });
+
+  // ── "Powered by Keystone" ────────────────────────────────────────────────
+  // Required on every Keystone site. The renderer always outputs it (styled
+  // slot or plain fallback); if CSS or a script hides it, add the fallback back.
+  var BADGE_URL = 'https://keystoneweb.ca';
+  // 'ok' | 'hidden' | 'faded' (faded = transparent, maybe a scroll-reveal animation that hasn't run yet)
+  function badgeState(el) {
+    if (!el || !el.isConnected || !el.getClientRects().length) return 'hidden';
+    var link = el.tagName === 'A' ? el : el.querySelector('a[href^="' + BADGE_URL + '"]');
+    if (!link || (link.getAttribute('href') || '').indexOf(BADGE_URL) !== 0) return 'hidden';
+    if (!/powered by\s+keystone/i.test((el.textContent || '').replace(/\s+/g, ' '))) return 'hidden';
+    var box = el.getBoundingClientRect();
+    if (box.width < 40 || box.height < 8) return 'hidden';
+    if (box.right <= 0 || box.left >= document.documentElement.scrollWidth || box.bottom + window.scrollY <= 0) return 'hidden';
+    var style = getComputedStyle(el);
+    if (style.visibility !== 'visible' || parseFloat(style.fontSize) < 9) return 'hidden';
+    if (style.filter && style.filter !== 'none') return 'hidden';
+    for (var node = el; node && node.nodeType === 1; node = node.parentElement) {
+      var s = node === el ? style : getComputedStyle(node);
+      if (s.clipPath && s.clipPath !== 'none') return 'hidden';
+      if (parseFloat(s.opacity) < 0.3) return 'faded';
+    }
+    return 'ok';
+  }
+  var badgeRestored = false;
+  function restoreBadge() {
+    if (badgeRestored || !document.body) return;
+    badgeRestored = true;
+    var badge = document.createElement('div');
+    badge.setAttribute('data-ks-attribution', '');
+    badge.setAttribute('data-ks-attribution-fallback', 'restored');
+    badge.style.cssText = 'display:block!important;visibility:visible!important;opacity:1!important;filter:none!important;' +
+      'clip-path:none!important;position:relative!important;z-index:2147483647!important;margin:0!important;padding:12px 16px!important;' +
+      'text-align:center!important;font:12px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif!important;color:#444!important;background:#fff!important';
+    badge.appendChild(document.createTextNode('Powered by '));
+    var a = document.createElement('a');
+    a.href = BADGE_URL;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.textContent = 'Keystone';
+    a.style.cssText = 'color:inherit!important;text-decoration:underline!important;display:inline!important;visibility:visible!important;opacity:1!important';
+    badge.appendChild(a);
+    document.body.appendChild(badge);
+  }
+  function checkBadge(final) {
+    if (badgeRestored) return;
+    var slots = document.querySelectorAll('[data-ks-attribution]');
+    var faded = [];
+    for (var i = 0; i < slots.length; i++) {
+      var state = badgeState(slots[i]);
+      if (state === 'ok') return;
+      if (state === 'faded') faded.push(slots[i]);
+    }
+    if (!faded.length || final || typeof IntersectionObserver !== 'function') { restoreBadge(); return; }
+    // Give scroll-reveal animations a chance: re-check once the slot has been on screen for a moment.
+    var observer = new IntersectionObserver(function (entries) {
+      if (!entries.some(function (e) { return e.isIntersecting; })) return;
+      observer.disconnect();
+      setTimeout(function () { checkBadge(true); }, 2500);
+    });
+    faded.forEach(function (el) { observer.observe(el); });
+  }
+  // After agent scripts have had a chance to run (they load as async modules).
+  // Hidden (background) tabs may not be laid out yet, so wait until the page is shown.
+  function scheduleBadgeCheck() {
+    if (document.visibilityState === 'hidden') {
+      document.addEventListener('visibilitychange', function onShow() {
+        if (document.visibilityState === 'hidden') return;
+        document.removeEventListener('visibilitychange', onShow);
+        scheduleBadgeCheck();
+      });
+      return;
+    }
+    setTimeout(function () { checkBadge(false); }, 2000);
+  }
+  if (document.readyState === 'complete') scheduleBadgeCheck();
+  else window.addEventListener('load', scheduleBadgeCheck);
 
   // ── Page views ───────────────────────────────────────────────────────────
   if (published && cfg.siteId) {

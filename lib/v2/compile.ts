@@ -150,6 +150,19 @@ function walk(node: AnyNode, scope: Scope, ctx: Ctx, covered: boolean): void {
   checkSecurity(el, tag, attrs, ctx);
   if (tag === 'script' || tag === 'style') return;
 
+  if ('data-ks-attribution' in attrs) {
+    // "Powered by Keystone" slot: the renderer writes its text and link.
+    if (ctx.$(el).find('[data-ks],[data-ks-list],[data-ks-nav],[data-ks-collection]').length) {
+      ctx.issues.push({
+        level: 'error',
+        rule: 'attribution',
+        message: 'data-ks-attribution is filled by Keystone ("Powered by Keystone"); don\'t put fields inside it.',
+        snippet: snippetOf(ctx.$, el),
+      });
+    }
+    return;
+  }
+
   if ('data-ks-static' in attrs || 'data-ks-cart-count' in attrs || STATIC_TAGS.has(tag)) {
     // Decorative or form furniture: allowed to have unbound text.
     for (const child of el.children) walk(child, scope, ctx, true);
