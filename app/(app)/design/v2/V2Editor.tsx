@@ -12,13 +12,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  Building2, Eye, FileText, History, LayoutDashboard, Loader2, Monitor, Paintbrush, Palette, PenLine, Rocket, Smartphone, Tablet,
+  Building2, Eye, FileText, History, LayoutDashboard, Loader2, Monitor, Paintbrush, Palette, PenLine, Rocket, Share2, Smartphone, Tablet,
 } from 'lucide-react';
 import KeystoneLogo from '@/app/components/KeystoneLogo';
 import { hasPaidAccess } from '@/lib/subscription/access';
 import { editorOp, EditorApiError, loadEditorState, pagePath, type EditorState, type FieldInfo } from './api';
 import { BrandPanel, BusinessPanel, PagesPanel, type PanelActions } from './panels';
-import { AddSectionModal, ChangeRequestModal, HistoryModal, LinkModal, MediaModal, SectionContentModal } from './modals';
+import { AddSectionModal, ChangeRequestModal, HistoryModal, LinkModal, MediaModal, SectionContentModal, SharePreviewModal } from './modals';
 import ArchiePopover, { useArchie, type ArchieOpen } from './archie';
 import ArchieAIIcon from '@/app/components/ArchieAIIcon';
 import EditorLoadingScreen from '@/app/components/EditorLoadingScreen';
@@ -53,6 +53,7 @@ export default function V2Editor({ siteId }: { siteId: string }) {
   const [pick, setPick] = useState<PickState | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [showRequest, setShowRequest] = useState(false);
+  const [showShare, setShowShare] = useState(false);
   const [addAt, setAddAt] = useState<number | null>(null);
   const [contentOf, setContentOf] = useState<string | null>(null);
   const [archie, setArchie] = useState<ArchieOpen | null>(null);
@@ -431,6 +432,9 @@ export default function V2Editor({ siteId }: { siteId: string }) {
           {archieApi.busy ? <Loader2 className="h-4 w-4 animate-spin text-violet-500" /> : <ArchieAIIcon className="h-4 w-4" />}
           {archieApi.busy ? 'Archie is working…' : 'Ask for a change'}
         </button>
+        <button onClick={() => setShowShare(true)} className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" title="Share a preview link without publishing">
+          <Share2 className="h-4 w-4" /> <span className="hidden lg:inline">Share</span>
+        </button>
         <button onClick={() => void publish()} disabled={publishing} className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50">
           {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />} Publish
         </button>
@@ -559,6 +563,7 @@ export default function V2Editor({ siteId }: { siteId: string }) {
           onAskTeam={() => { closeArchie(); setShowRequest(true); }}
         />
       )}
+      {showShare && <SharePreviewModal siteId={siteId} appUrl={state.appUrl} page={page} onClose={() => setShowShare(false)} />}
       {showRequest && (
         <ChangeRequestModal
           siteId={siteId}
