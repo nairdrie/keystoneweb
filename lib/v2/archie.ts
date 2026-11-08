@@ -46,6 +46,8 @@ const READ_ONLY = new Set(TOOLS.filter((t) => t.readOnly).map((t) => t.name));
 
 /** What the owner clicked on in the canvas (sent by public/ks/editor.js). */
 export interface ArchieTarget {
+  /** Short owner-facing description, e.g. "this graphic in Hero". */
+  label?: string | null;
   instance?: string | null;
   section?: string | null;
   selector?: string | null;
@@ -59,15 +61,120 @@ export interface ArchieRequest {
   prompt: string;
   pageSlug?: string | null;
   target?: ArchieTarget | null;
-  /** Earlier turns of this Archie conversation (plain text only). */
+  /** Earlier turns with Archie on this site (plain text only, already trimmed to a window). */
   history?: Array<{ role: 'user' | 'assistant'; text: string }>;
 }
 
 export type ArchieEvent =
+  | { type: 'run'; id: string }
   | { type: 'status'; text: string }
   | { type: 'tool'; name: string; text: string }
-  | { type: 'done'; text: string; changed: boolean; undoVersionId: string | null }
+  | { type: 'done'; text: string; changed: boolean; undoVersionId: string | null; stopped?: boolean }
   | { type: 'error'; text: string };
+
+// ── Run history ──────────────────────────────────────────────────────────────
+// Each request is one row in v2_activity (action "archie"), so owners can see
+// what Archie did after a refresh, and a run keeps going if they leave.
+
+export type ArchieRunStatus = 'running' | 'done' | 'error' | 'stopped';
+
+export interface ArchieRun {
+  id: string;
+  createdAt: string;
+  prompt: string;
+  pageSlug: string | null;
+  target: { label: string | null; instance: string | null; section: string | null } | null;
+  status: ArchieRunStatus;
+  /** Latest progress line while running. */
+  progress: string | null;
+  reply: string | null;
+  changed: boolean;
+  undoVersionId: string | null;
+  /** The owner pressed Undo on this run. */
+  undone?: boolean;
+  stopRequested?: boolean;
+}
+
+const RUN_ACTION = 'archie';
+/** A run still "running" after this long was cut off (function timeout, crash). */
+const RUN_STALE_MS = 6 * 60 * 1000;
+/** How many earlier runs Archie sees, and how far back: the prompt never grows past this. */
+const HISTORY_RUNS = 6;
+const HISTORY_WINDOW_MS = 24 * 3600 * 1000;
+
+type RunDetail = Omit<ArchieRun, 'id' | 'createdAt'>;
+
+function rowToRun(row: { id: string; created_at: string; detail: unknown }): ArchieRun {
+  const d = (row.detail || {}) as Partial<RunDetail>;
+  let status = (d.status || 'done') as ArchieRunStatus;
+  let reply = d.reply ?? null;
+  if (status === 'running' && Date.now() - new Date(row.created_at).getTime() > RUN_STALE_MS) {
+    status = 'error';
+    reply = reply || "I didn't get to finish this one. Anything I changed is saved — ask me again to continue.";
+  }
+  return {
+    id: row.id,
+    createdAt: row.created_at,
+    prompt: String(d.prompt || ''),
+    pageSlug: d.pageSlug ?? null,
+    target: d.target ?? null,
+    status,
+    progress: status === 'running' ? d.progress ?? null : null,
+    reply,
+    changed: !!d.changed,
+    undoVersionId: d.undoVersionId ?? null,
+    undone: !!d.undone,
+    stopRequested: !!d.stopRequested,
+  };
+}
+
+export async function listArchieRuns(db: Db, siteId: string, limit = 30): Promise<ArchieRun[]> {
+  const { data } = await db
+    .from('v2_activity')
+    .select('id, created_at, detail')
+    .eq('site_id', siteId)
+    .eq('action', RUN_ACTION)
+    .order('created_at', { ascending: false })
+    .limit(Math.min(100, limit));
+  return (data || []).map(rowToRun).reverse();
+}
+
+export async function getArchieRun(db: Db, siteId: string, id: string): Promise<ArchieRun | null> {
+  const { data } = await db.from('v2_activity').select('id, created_at, detail, site_id, action').eq('id', id).maybeSingle();
+  if (!data || data.site_id !== siteId || data.action !== RUN_ACTION) return null;
+  return rowToRun(data);
+}
+
+export async function startArchieRun(db: Db, siteId: string, actor: Actor, detail: RunDetail): Promise<string> {
+  const { data, error } = await db
+    .from('v2_activity')
+    .insert({ site_id: siteId, actor_type: actor.type, actor_label: actor.label, action: RUN_ACTION, detail })
+    .select('id')
+    .single();
+  if (error || !data) throw new Error(`Could not start Archie: ${error?.message || 'no row'}`);
+  return data.id as string;
+}
+
+/** Merge a patch into the run (read-modify-write; only one writer per run plus the stop flag). */
+export async function updateArchieRun(db: Db, id: string, patch: Partial<RunDetail>): Promise<void> {
+  const { data } = await db.from('v2_activity').select('detail').eq('id', id).maybeSingle();
+  const detail = { ...((data?.detail as RunDetail) || {}), ...patch };
+  // Never let a progress write clear a stop request made in between.
+  if ((data?.detail as RunDetail | undefined)?.stopRequested) detail.stopRequested = true;
+  await db.from('v2_activity').update({ detail }).eq('id', id);
+}
+
+/** Earlier runs as plain conversation turns for the model: recent ones only, trimmed. */
+export function runsToHistory(runs: ArchieRun[], excludeId?: string): ArchieRequest['history'] {
+  const since = Date.now() - HISTORY_WINDOW_MS;
+  const recent = runs
+    .filter((r) => r.id !== excludeId && r.status !== 'running' && r.reply && new Date(r.createdAt).getTime() >= since)
+    .slice(-HISTORY_RUNS);
+  return recent.flatMap((r) => [
+    { role: 'user' as const, text: `[Earlier request${r.target?.label ? `, about ${r.target.label}` : ''}${r.pageSlug ? ` on page "${r.pageSlug}"` : ''}]\n${r.prompt.slice(0, 1200)}` },
+    { role: 'assistant' as const, text: `${(r.reply || '').slice(0, 800)}${r.status === 'stopped' ? ' (stopped by the owner)' : ''}` },
+  ]);
+}
 
 const TOOL_LABELS: Record<string, string> = {
   get_site: 'Looking over your site',
@@ -191,8 +298,11 @@ async function siteOverview(ctx: ToolContext, siteId: string, sectionKey: string
 
 function describeTarget(target: ArchieTarget): string {
   const clip = (s: string | null | undefined, n: number) => (s ? String(s).slice(0, n) : '');
+  const wholeSection = target.tag === 'section' && !target.selector;
   const lines = [
-    'The owner clicked this spot on the page (something they could not edit themselves):',
+    wholeSection
+      ? 'The owner opened you from a section\'s toolbar: their request is about this whole section (its layout, look or content), not one element.'
+      : 'The owner clicked this spot on the page (something they could not edit themselves):',
     target.instance ? `- Section instance: "${clip(target.instance, 80)}" (section design "${clip(target.section, 80) || 'unknown'}")` : '- Not inside a section (page chrome or global theme).',
     target.tag ? `- Element: <${clip(target.tag, 30)}>` : '',
     target.selector ? `- CSS path inside the section: ${clip(target.selector, 400)}` : '',
@@ -211,6 +321,8 @@ export async function runArchie(opts: {
   apiKey: string;
   signal?: AbortSignal;
   emit: (event: ArchieEvent) => void;
+  /** Checked between model turns; true ends the run (the owner pressed Stop). */
+  shouldStop?: () => Promise<boolean>;
   deadlineMs?: number;
 }): Promise<void> {
   const { db, siteId, user, request, emit, signal } = opts;
@@ -240,7 +352,7 @@ export async function runArchie(opts: {
   ].filter(Boolean);
 
   const messages: Anthropic.Beta.BetaMessageParam[] = [];
-  for (const turn of (request.history || []).slice(-8)) {
+  for (const turn of (request.history || []).slice(-HISTORY_RUNS * 2)) {
     const text = String(turn.text || '').slice(0, 2000);
     if (text) messages.push({ role: turn.role === 'assistant' ? 'assistant' : 'user', content: text });
   }
@@ -252,8 +364,14 @@ export async function runArchie(opts: {
   let changed = false;
   let undoVersionId: string | null = null;
   let finalText = '';
+  let stopped = false;
 
   for (let turn = 0; turn < 30; turn++) {
+    if (turn > 0 && opts.shouldStop && (await opts.shouldStop().catch(() => false))) {
+      stopped = true;
+      finalText = changed ? 'Stopped. What I changed before you stopped me is saved — use Undo if you want it gone.' : 'Stopped before I changed anything.';
+      break;
+    }
     if (Date.now() > deadline) {
       finalText = finalText || "I ran out of time before finishing. What I changed so far is saved — ask me again to continue.";
       break;
@@ -338,5 +456,5 @@ export async function runArchie(opts: {
     messages.push({ role: 'user', content: results });
   }
 
-  emit({ type: 'done', text: finalText || (changed ? 'Done! Take a look.' : "I didn't change anything."), changed, undoVersionId: changed ? undoVersionId : null });
+  emit({ type: 'done', text: finalText || (changed ? 'Done! Take a look.' : "I didn't change anything."), changed, undoVersionId: changed ? undoVersionId : null, stopped });
 }

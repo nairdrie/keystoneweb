@@ -61,6 +61,12 @@ Rules (the validator rejects violations):
 - No inline event handlers (onclick=…), no \`<script>\` tags in the HTML (use the section JS), no javascript: URLs.
 - Internal links are plain paths: \`href="/contact"\`. Link only to pages that exist (create them with put_page).
 
+Lists are about labelling, not looks. When you repeat one structure and the owner might want more or fewer of
+it (stats, badges, steps, cards, logos, team members), make it a \`data-ks-list\` instead of numbered ids like
+\`stat1\`, \`stat2\`. Design it however you like; just mark the container and its items. Skip it when the exact
+count is part of the design (cap it with \`data-ks-max-items\` if only a few fit). Owners can reorder, add,
+duplicate and hide sections, so each section should look right on its own, whatever is above or below it.
+
 You may include \`<style>\` and \`<script type="module">\` blocks at the end of the section HTML; they are moved
 into the section's CSS and JS. Section CSS is automatically scoped to the section: write plain selectors.
 \`:root\`, \`html\`, \`body\` and \`:scope\` inside section CSS mean "this section". @keyframes and @font-face stay global.`;

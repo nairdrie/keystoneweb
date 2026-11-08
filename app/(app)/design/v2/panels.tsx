@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Copy, Eye, EyeOff, ImageIcon, Link2, Loader2, Plus, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Copy, ImageIcon, Link2, Loader2, Plus, Trash2 } from 'lucide-react';
 import {
   FONT_CHOICES,
   htmlToText,
@@ -20,97 +20,6 @@ export interface PanelActions {
   listOp: (instance: string, path: string, op: 'add' | 'duplicate' | 'remove' | 'move', index?: number, to?: number) => Promise<void>;
   pickImage: (instance: string, path: string, field: FieldInfo, current: Obj) => void;
   pickLink: (instance: string, path: string, field: FieldInfo, current: Obj) => void;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Sections
-// ─────────────────────────────────────────────────────────────────────────────
-
-export function SectionsPanel({
-  state,
-  page,
-  selected,
-  onSelect,
-  onSectionAction,
-  actions,
-}: {
-  state: EditorState;
-  page: PageInfo;
-  selected: string | null;
-  onSelect: (instance: string) => void;
-  onSectionAction: (action: 'add' | 'move' | 'duplicate' | 'remove' | 'hide' | 'show', instance?: string, extra?: Obj) => Promise<void>;
-  actions: PanelActions;
-}) {
-  const [adding, setAdding] = useState(false);
-  const nameOf = (key: string) => state.sections.find((s) => s.key === key)?.name || key;
-  const contentFor = (instance: string) => state.content.find((c) => c.instance === instance);
-  const usable = state.sections.filter((s) => s.key !== state.theme.header && s.key !== state.theme.footer);
-
-  const row = (instance: string, label: string, opts: { index?: number; hidden?: boolean; global?: boolean }) => {
-    const open = selected === instance;
-    const content = contentFor(instance);
-    return (
-      <li key={instance} className={`rounded-xl border ${open ? 'border-blue-300 bg-blue-50/40' : 'border-slate-200 bg-white'}`}>
-        <div className="flex items-center gap-1 px-2 py-1.5">
-          <button onClick={() => onSelect(instance)} className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-1 py-1 text-left text-sm font-medium text-slate-800">
-            {open ? <ChevronDown className="h-3.5 w-3.5 shrink-0 text-slate-400" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-400" />}
-            <span className={`truncate ${opts.hidden ? 'text-slate-400 line-through' : ''}`}>{label}</span>
-            {opts.global && <span className="rounded bg-slate-100 px-1.5 text-[10px] font-semibold uppercase text-slate-500">All pages</span>}
-          </button>
-          {!opts.global && opts.index !== undefined && (
-            <>
-              <IconBtn title="Move up" disabled={opts.index === 0} onClick={() => onSectionAction('move', instance, { to: opts.index! - 1 })}><ArrowUp /></IconBtn>
-              <IconBtn title="Move down" disabled={opts.index === page.sections.length - 1} onClick={() => onSectionAction('move', instance, { to: opts.index! + 1 })}><ArrowDown /></IconBtn>
-              <IconBtn title={opts.hidden ? 'Show' : 'Hide'} onClick={() => onSectionAction(opts.hidden ? 'show' : 'hide', instance)}>{opts.hidden ? <EyeOff /> : <Eye />}</IconBtn>
-              <IconBtn title="Duplicate" onClick={() => onSectionAction('duplicate', instance)}><Copy /></IconBtn>
-              <IconBtn title="Remove" onClick={() => { if (confirm('Remove this section from the page? You can restore it from History.')) void onSectionAction('remove', instance); }}><Trash2 /></IconBtn>
-            </>
-          )}
-        </div>
-        {open && content && (
-          <div className="border-t border-slate-200 px-3 py-3">
-            <ContentForm content={content} actions={actions} />
-          </div>
-        )}
-      </li>
-    );
-  };
-
-  return (
-    <div className="space-y-2">
-      <p className="px-1 text-xs text-slate-500">Click anything on the page to edit it, or open a section here.</p>
-      <ul className="space-y-2">
-        {state.theme.header && row('header', nameOf(state.theme.header), { global: true })}
-        {page.sections.map((s, i) => row(s.id, nameOf(s.section), { index: i, hidden: s.hidden }))}
-        {state.theme.footer && row('footer', nameOf(state.theme.footer), { global: true })}
-      </ul>
-      {page.sections.length === 0 && <p className="px-1 py-4 text-center text-sm text-slate-400">This page has no sections yet.</p>}
-
-      <div className="relative pt-1">
-        <button onClick={() => setAdding((v) => !v)} className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-300 py-2.5 text-sm font-medium text-slate-600 hover:border-blue-400 hover:text-blue-600">
-          <Plus className="h-4 w-4" /> Add a section
-        </button>
-        {adding && (
-          <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
-            <p className="px-3 py-2 text-xs text-slate-500">Sections designed for your site:</p>
-            {usable.map((s) => (
-              <button
-                key={s.key}
-                onClick={async () => {
-                  setAdding(false);
-                  await onSectionAction('add', undefined, { section: s.key, index: page.sections.length });
-                }}
-                className="block w-full rounded-lg px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100"
-              >
-                {s.name}
-              </button>
-            ))}
-            {usable.length === 0 && <p className="px-3 py-2 text-sm text-slate-400">No section designs yet.</p>}
-          </div>
-        )}
-      </div>
-    </div>
-  );
 }
 
 function IconBtn({ title, onClick, disabled, children }: { title: string; onClick: () => void; disabled?: boolean; children: React.ReactElement<{ className?: string }> }) {
@@ -135,7 +44,7 @@ function IconBtn({ title, onClick, disabled, children }: { title: string; onClic
 // Content form (the "form view" of a section)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function ContentForm({ content, actions }: { content: InstanceContent; actions: PanelActions }) {
+export function ContentForm({ content, actions }: { content: InstanceContent; actions: PanelActions }) {
   return (
     <div className="space-y-3">
       {content.fields.map((f) => (
