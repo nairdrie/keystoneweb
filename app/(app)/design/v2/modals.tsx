@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { History, ImageIcon, Link2, List, Loader2, MessageSquare, Plus, RotateCcw, Search, Upload, X } from 'lucide-react';
+import { Check, Copy, ExternalLink, History, ImageIcon, Link2, List, Loader2, MessageSquare, Plus, RotateCcw, Search, Share2, Upload, X } from 'lucide-react';
 import ArchieAIIcon from '@/app/components/ArchieAIIcon';
 import { editorOp, type InstanceContent, type PageInfo } from './api';
 import { ContentForm, type PanelActions } from './panels';
@@ -392,6 +392,63 @@ export function SectionContentModal({ name, content, actions, onClose }: { name:
 }
 
 // ── Request a change ─────────────────────────────────────────────────────────
+
+// ── Share draft preview ──────────────────────────────────────────────────────
+
+/**
+ * /preview?siteId=… never expires: each visit redirects to a fresh signed
+ * /v2r/draft link (app/preview/page.tsx), so the shared URL keeps working.
+ */
+export function SharePreviewModal({ siteId, appUrl, page, onClose }: { siteId: string; appUrl: string; page: PageInfo; onClose: () => void }) {
+  const canLinkPage = page.slug !== 'home' && page.template !== 'post';
+  const [scope, setScope] = useState<'page' | 'site'>(canLinkPage ? 'page' : 'site');
+  const [copied, setCopied] = useState(false);
+  const origin = (appUrl || (typeof window !== 'undefined' ? window.location.origin : '')).replace(/\/$/, '');
+  const url = `${origin}/preview?siteId=${encodeURIComponent(siteId)}${scope === 'page' ? `&pageId=${encodeURIComponent(page.id)}` : ''}`;
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  };
+
+  return (
+    <Modal title="Share a preview" icon={<Share2 className="h-4 w-4 text-slate-500" />} onClose={onClose}>
+      <p className="mb-4 text-sm text-slate-500">
+        Anyone with this link can see your latest changes before you publish. They don&apos;t need an account, and the link always shows the current draft.
+      </p>
+      {canLinkPage && (
+        <div className="mb-3 flex gap-1 rounded-lg bg-slate-100 p-1 text-sm font-medium">
+          <button onClick={() => setScope('page')} className={`flex-1 rounded-md px-2.5 py-1 ${scope === 'page' ? 'bg-white shadow-sm' : 'text-slate-500'}`}>
+            This page ({page.navLabel || page.title})
+          </button>
+          <button onClick={() => setScope('site')} className={`flex-1 rounded-md px-2.5 py-1 ${scope === 'site' ? 'bg-white shadow-sm' : 'text-slate-500'}`}>
+            Home page
+          </button>
+        </div>
+      )}
+      <input
+        readOnly
+        value={url}
+        onFocus={(e) => e.currentTarget.select()}
+        className="mb-4 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-600"
+        aria-label="Preview link"
+      />
+      <div className="flex gap-2">
+        <button onClick={() => void copy()} className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200">
+          {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />} {copied ? 'Copied!' : 'Copy link'}
+        </button>
+        <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500">
+          <ExternalLink className="h-4 w-4" /> Open preview
+        </a>
+      </div>
+    </Modal>
+  );
+}
 
 export function ChangeRequestModal({ siteId, pageSlug, instance, onClose, onSent }: { siteId: string; pageSlug?: string; instance?: string | null; onClose: () => void; onSent: () => void }) {
   const [message, setMessage] = useState('');
