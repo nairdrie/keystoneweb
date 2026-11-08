@@ -12,7 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  Building2, Eye, FileText, History, LayoutDashboard, Loader2, Monitor, Paintbrush, Palette, PenLine, Rocket, Share2, Smartphone, Tablet,
+  Building2, Eye, FileText, History, LayoutDashboard, Loader2, Monitor, Paintbrush, Palette, PenLine, Rocket, Settings, Share2, Smartphone, Tablet,
 } from 'lucide-react';
 import KeystoneLogo from '@/app/components/KeystoneLogo';
 import { hasPaidAccess } from '@/lib/subscription/access';
@@ -497,6 +497,7 @@ export default function V2Editor({ siteId }: { siteId: string }) {
   }
 
   const adminHref = `/admin?siteId=${encodeURIComponent(siteId)}`;
+  const settingsHref = `/admin/settings?siteId=${encodeURIComponent(siteId)}`;
 
   return (
     <div className="flex h-screen flex-col bg-slate-100">
@@ -542,6 +543,7 @@ export default function V2Editor({ siteId }: { siteId: string }) {
           <button onClick={() => setMode('preview')} className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 ${mode === 'preview' ? 'bg-white shadow-sm' : 'text-slate-500'}`}><Eye className="h-3.5 w-3.5" /> Preview</button>
         </div>
         <button onClick={() => setShowHistory(true)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100" title="History" aria-label="History"><History className="h-4 w-4" /></button>
+        <a href={settingsHref} onClick={(e) => void leaveTo(e, settingsHref)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100" title="Site settings: transfer, duplicate, delete" aria-label="Site settings"><Settings className="h-4 w-4" /></a>
         <button
           data-archie-trigger
           onClick={() => { iframeRef.current?.contentWindow?.postMessage({ type: 'ks:ask-clear' }, '*'); setArchie((a) => (a && !a.rect ? null : { rect: null, point: null, target: null, key: Date.now() })); }}

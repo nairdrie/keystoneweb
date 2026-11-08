@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth/context';
 import Link from 'next/link';
-import { ExternalLink, X, BarChart3, Globe, ShoppingBag, Calendar, Loader2, Menu, Mail, TrendingUp, Search, Package, CalendarDays, MessageSquare, Link2, BookOpen, UtensilsCrossed, FileImage, Users, Minimize2, Paintbrush, ChevronDown, EyeOff, Plus, Stethoscope, LayoutDashboard, Pencil, Check, Wrench } from 'lucide-react';
+import { ExternalLink, X, BarChart3, Globe, ShoppingBag, Calendar, Loader2, Menu, Mail, TrendingUp, Search, Package, CalendarDays, MessageSquare, Link2, BookOpen, UtensilsCrossed, FileImage, Users, Minimize2, Paintbrush, ChevronDown, EyeOff, Plus, Stethoscope, LayoutDashboard, Pencil, Check, Wrench, Settings } from 'lucide-react';
 import AlertModal from '@/app/components/ui/AlertModal';
 import EditorLoadingScreen from '@/app/components/EditorLoadingScreen';
 import WalkthroughModal, { WalkthroughStep } from '@/app/components/WalkthroughModal';
@@ -59,6 +59,7 @@ const ALL_TABS: TabDef[] = [
   { id: 'ecommerce', label: 'Ecommerce', icon: ShoppingBag, path: '/admin/ecommerce', requiresAnyBlock: ['productGrid'] },
   { id: 'media',    label: 'Media',     icon: FileImage, path: '/admin/media', core: true },
   { id: 'health',   label: 'Health',    icon: Stethoscope, path: '/admin/health', core: true },
+  { id: 'settings', label: 'Settings',  icon: Settings,  path: '/admin/settings', core: true },
   { id: 'marketing', label: 'Marketing', icon: TrendingUp, path: '/admin/marketing', requiresMarketing: true },
   // Feature-flagged like Marketing: visible only when sites.shop_enabled is on.
   { id: 'shop',      label: 'Shop',      icon: Wrench,     path: '/admin/shop',      requiresShop: true },
