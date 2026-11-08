@@ -55,7 +55,7 @@ nav{margin-left:auto}nav ul{display:flex;gap:1.5rem;list-style:none;margin:0;pad
 <div class="copy"><p class="eyebrow" data-ks="eyebrow">Oakville · Since 1994</p>
 <h1 data-ks="title" data-ks-max="70">Roofs done <em>right</em>, the first time.</h1>
 <div class="intro" data-ks="intro" data-ks-type="richtext"><p>Family-owned crews, written warranties, and a site that's spotless when we leave.</p></div>
-<div class="ctas"><a class="btn" data-ks="cta" href="/contact">Get a free quote</a><a class="btn ghost" data-ks="cta2" data-ks-optional href="/work">See our work</a></div>
+<div class="ctas"><a class="btn" data-ks="cta" href="/contact">Get a free quote</a><a class="btn ghost" data-ks="cta2" href="/work">See our work</a></div>
 <ul class="badges" data-ks-list="badges" data-ks-max-items="4"><li data-ks-item><span data-ks="label">Licensed &amp; insured</span></li><li data-ks-item><span data-ks="label">25-year warranty</span></li></ul></div>
 <img class="photo" data-ks="photo" data-ks-aspect="4/5" src="/templates/airy.png" alt="A finished roof"></section>
 <style>.hero{display:grid;grid-template-columns:1.1fr .9fr;gap:4rem;align-items:center;padding:4rem 0 6rem}
@@ -294,16 +294,11 @@ async function main() {
       return b;
     };
 
-    await step('section toolbar on the page hides, shows and reorders sections', async () => {
+    await step('section toolbar on the page reorders sections (no hide: owners remove instead)', async () => {
       await canvas.locator('[data-ks-instance="home-services"] h2').hover();
       await canvas.locator('#ks-section-bar .ks-name', { hasText: 'Services grid' }).waitFor();
       assert.equal(await canvas.locator('#ks-section-bar button[data-sop="up"]').isDisabled(), false);
-      await (await sectionButton('home-services', 'hide')).click();
-      await eventually(() => (layout()?.instances as Array<{ id: string; hidden?: boolean }>).find((i) => i.id === 'home-services')?.hidden === true, 'hidden');
-      await canvas.locator('[data-ks-instance="home-services"][data-ks-hidden]').waitFor();
-      await (await sectionButton('home-services', 'show')).click();
-      await eventually(() => !(layout()?.instances as Array<{ id: string; hidden?: boolean }>).find((i) => i.id === 'home-services')?.hidden, 'shown');
-      await canvas.locator('[data-ks-instance="home-services"]:not([data-ks-hidden])').waitFor();
+      assert.equal(await canvas.locator('#ks-section-bar button[data-sop="hide"]').count(), 0);
       await (await sectionButton('home-services', 'down')).click();
       await eventually(() => homeIds()[2] === 'home-services', 'moved');
       await shot(page, '1b-section-toolbar');
@@ -321,12 +316,14 @@ async function main() {
       await eventually(() => homeIds().length === 3 && !homeIds().includes(added), 'deleted');
     });
 
-    await step('optional parts hide from their chip and come back with a click', async () => {
+    await step('any editable part can be removed from its chip, and Undo brings it back', async () => {
       await canvas.locator('a[data-ks-f="cta2"]').hover();
-      await canvas.locator('#ks-opt-chip button', { hasText: 'Hide' }).click();
-      await eventually(() => (content('home-hero', 'cta2')?.value as { hidden?: boolean })?.hidden === true, 'cta2 hidden');
-      await canvas.locator('a[data-ks-f="cta2"][data-ks-hidden]').click();
-      await eventually(() => (content('home-hero', 'cta2')?.value as { hidden?: boolean })?.hidden === false, 'cta2 shown');
+      await canvas.locator('#ks-rm-chip button', { hasText: 'Remove' }).click();
+      await eventually(() => (content('home-hero', 'cta2')?.value as { hidden?: boolean })?.hidden === true, 'cta2 removed');
+      assert.equal(await canvas.locator('a[data-ks-f="cta2"]').isVisible(), false);
+      await page.getByRole('button', { name: 'Undo' }).click();
+      await eventually(() => (content('home-hero', 'cta2')?.value as { hidden?: boolean })?.hidden === false, 'cta2 back');
+      await canvas.locator('a[data-ks-f="cta2"]').waitFor({ state: 'visible' });
     });
 
     await step('Archie opens from a section toolbar, aimed at that section', async () => {
@@ -419,7 +416,7 @@ async function main() {
       assert.equal(home.status, 200);
       assert.match(home.body, /Oakville roofs, done properly\./);
       assert.match(home.body, /--brand:#1d4ed8/);
-      assert.match(home.body, /What we do/, 'services section survived hide → show → move');
+      assert.match(home.body, /What we do/, 'services section survived the move');
       assert.ok(home.body.indexOf('What we do') > home.body.indexOf('Get a free quote'), 'services moved below contact');
       assert.doesNotMatch(home.body, /data-ks-f=/);
       assert.match(String(home.headers['content-security-policy']), /script-src 'self' blob:/);

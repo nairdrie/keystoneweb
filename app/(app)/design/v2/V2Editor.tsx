@@ -17,7 +17,7 @@ import {
 import KeystoneLogo from '@/app/components/KeystoneLogo';
 import { hasPaidAccess } from '@/lib/subscription/access';
 import { editorOp, EditorApiError, loadEditorState, pagePath, type EditorState, type FieldInfo } from './api';
-import { BrandPanel, BusinessPanel, PagesPanel, type PanelActions } from './panels';
+import { BrandPanel, BusinessPanel, PagesPanel, type PanelActions, type RemoveKind } from './panels';
 import { AddSectionModal, ChangeRequestModal, HistoryModal, LinkModal, MediaModal, SectionContentModal } from './modals';
 import ArchiePopover, { useArchie, type ArchieOpen } from './archie';
 import ArchieAIIcon from '@/app/components/ArchieAIIcon';
@@ -28,7 +28,7 @@ type Device = 'desktop' | 'tablet' | 'mobile';
 type Tab = 'brand' | 'pages' | 'business';
 type SectionAction = 'add' | 'move' | 'duplicate' | 'remove' | 'hide' | 'show';
 
-interface Toast { id: number; text: string; tone: 'ok' | 'warn' | 'error' }
+interface Toast { id: number; text: string; tone: 'ok' | 'warn' | 'error'; action?: { label: string; run: () => void } }
 
 interface PickState {
   kind: 'image' | 'link';
@@ -39,6 +39,10 @@ interface PickState {
 }
 
 const DEVICE_WIDTH: Record<Device, string> = { desktop: '100%', tablet: '820px', mobile: '390px' };
+/** Canvas links are signed for 12 hours; reuse them for 6 so the canvas URL stays put. */
+const CANVAS_LINK_REUSE_MS = 6 * 3600 * 1000;
+
+interface CanvasFrame { key: number; src: string }
 
 export default function V2Editor({ siteId }: { siteId: string }) {
   const router = useRouter();
@@ -58,19 +62,51 @@ export default function V2Editor({ siteId }: { siteId: string }) {
   const [archie, setArchie] = useState<ArchieOpen | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [saving, setSaving] = useState(0);
   const stateRef = useRef<EditorState | null>(null);
   const scrollY = useRef(0);
+  const canvasIssuedAt = useRef(0);
 
-  const toast = useCallback((text: string, tone: Toast['tone'] = 'ok') => {
-    const id = Date.now() + Math.random();
-    setToasts((t) => [...t, { id, text, tone }]);
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), tone === 'error' ? 7000 : 3500);
+  // ── Canvas frames ─────────────────────────────────────────────────────────
+  // The visible canvas is never torn down to show a change. A new render loads
+  // in a hidden frame behind it and replaces it once it's ready and scrolled
+  // to the same spot, so there's no blank flash. Most edits don't need a new
+  // render at all: they're applied to the visible canvas directly (ks:apply).
+  const [frames, setFrames] = useState<{ active: CanvasFrame | null; pending: CanvasFrame | null }>({ active: null, pending: null });
+  const framesRef = useRef(frames);
+  const frameEls = useRef(new Map<number, HTMLIFrameElement>());
+  const frameSeq = useRef(0);
+  // Read by the message handler and iframeRef; kept current during render, not after it.
+  framesRef.current = frames;
+  const iframeRef = useMemo(() => ({
+    get current(): HTMLIFrameElement | null {
+      const active = framesRef.current.active;
+      return active ? frameEls.current.get(active.key) ?? null : null;
+    },
+  }), []);
+  const promote = useCallback((key: number) => {
+    setFrames((f) => (f.pending?.key === key ? { active: f.pending, pending: null } : f));
   }, []);
+  /** Apply an edit to the visible canvas right away (the save runs in the background). */
+  const applyInCanvas = useCallback((change: Obj) => {
+    iframeRef.current?.contentWindow?.postMessage({ type: 'ks:apply', change }, '*');
+  }, [iframeRef]);
+
+  const dismissToast = useCallback((id: number) => setToasts((t) => t.filter((x) => x.id !== id)), []);
+  const toast = useCallback((text: string, tone: Toast['tone'] = 'ok', action?: Toast['action']) => {
+    const id = Date.now() + Math.random();
+    setToasts((t) => [...t, { id, text, tone, action }]);
+    setTimeout(() => dismissToast(id), action ? 8000 : tone === 'error' ? 7000 : 3500);
+  }, [dismissToast]);
 
   const refresh = useCallback(async (opts: { canvas?: boolean } = { canvas: true }) => {
     try {
       const next = await loadEditorState(siteId);
+      // Every load signs fresh canvas links. Keep the ones we have (they last
+      // 12 hours) so the canvas URL only changes when we mean to re-render it.
+      const prev = stateRef.current;
+      if (prev && Date.now() - canvasIssuedAt.current < CANVAS_LINK_REUSE_MS) next.canvas = prev.canvas;
+      else canvasIssuedAt.current = Date.now();
       // Update synchronously: the next queued edit reads versions from here
       // before React has re-rendered.
       stateRef.current = next;
@@ -92,13 +128,16 @@ export default function V2Editor({ siteId }: { siteId: string }) {
   const closeArchie = useCallback(() => {
     setArchie(null);
     iframeRef.current?.contentWindow?.postMessage({ type: 'ks:ask-clear' }, '*');
-  }, []);
+  }, [iframeRef]);
   useEffect(() => { setArchie(null); }, [pageId, mode]);
 
   // Edits run one at a time: each is a read-modify-write on the server, so
   // overlapping clicks (hide, then move) must not race each other.
   const queue = useRef<Promise<unknown>>(Promise.resolve());
+  // `canvas: false` means the canvas already shows the change (typed in place
+  // or applied with ks:apply); if the save fails it's re-rendered from the server.
   const run = useCallback((fn: () => Promise<unknown>, opts: { canvas?: boolean; success?: string } = {}): Promise<void> => {
+    setSaving((n) => n + 1);
     const next = queue.current.then(async () => {
       try {
         await fn();
@@ -112,7 +151,10 @@ export default function V2Editor({ siteId }: { siteId: string }) {
           toast(err.message || 'This was just changed by someone else. We reloaded it — please make your change again.', 'warn');
           return;
         }
+        if (opts.canvas === false) await refresh({ canvas: true });
         toast(err.message || 'Something went wrong', 'error');
+      } finally {
+        setSaving((n) => n - 1);
       }
     });
     queue.current = next;
@@ -155,13 +197,62 @@ export default function V2Editor({ siteId }: { siteId: string }) {
     if (result?.status === 'error') throw new EditorApiError(result.message || 'Could not save');
   }, [siteId]);
 
+  // Current stored value at a content path like "stats.2.label".
+  const valueAt = useCallback((instance: string, path: string): unknown => {
+    const parts = path.split('.');
+    let value: unknown = stateRef.current?.content.find((c) => c.instance === instance)?.values[parts[0]]?.value;
+    for (let i = 1; i < parts.length; i += 2) {
+      const items = (value as { items?: unknown[] } | undefined)?.items;
+      const item = Array.isArray(items) ? items[Number(parts[i])] : undefined;
+      value = parts[i + 1] !== undefined ? (item as Record<string, unknown> | undefined)?.[parts[i + 1]] : item;
+    }
+    return value;
+  }, []);
+
+  // Remove: stored as hidden: true (a background keeps its element and loses only its
+  // image). The canvas drops it at once; Undo in the toast is the way back.
+  const removePart = useCallback((instance: string, path: string, kind: RemoveKind) => {
+    let value: unknown;
+    let undo: unknown;
+    if (kind === 'toggle') {
+      value = false;
+      undo = true;
+    } else {
+      const current = valueAt(instance, path);
+      const base = current && typeof current === 'object' ? { ...(current as Obj) } : typeof current === 'string' ? { html: current } : {};
+      value = { ...base, hidden: true };
+      undo = { ...base, hidden: false };
+    }
+    const show = (hidden: boolean, v: unknown) => applyInCanvas(kind === 'bg'
+      ? { op: 'field', instance, path, value: v }
+      : { op: 'visibility', instance, path, kind: kind === 'list' ? 'list' : 'field', hidden });
+    show(true, value);
+    void run(() => saveContent(instance, path, value), { canvas: false });
+    toast(kind === 'bg' ? 'Background image removed' : kind === 'list' ? 'List removed' : 'Removed', 'ok', {
+      label: 'Undo',
+      run: () => {
+        show(false, undo);
+        void run(() => saveContent(instance, path, undo), { canvas: false });
+      },
+    });
+  }, [applyInCanvas, run, saveContent, toast, valueAt]);
+
   // ── Actions shared by the canvas and the panels ───────────────────────────
   const actions: PanelActions = useMemo(() => ({
-    setField: (instance, path, value) => run(() => saveContent(instance, path, value)),
-    listOp: (instance, path, op, index, to) => run(() => editorOp(siteId, 'list', { instance, path, listOp: op, index, to, expected_rev: revOf(instance, path) })),
+    setField: (instance, path, value) => {
+      applyInCanvas({ op: 'field', instance, path, value });
+      return run(() => saveContent(instance, path, value), { canvas: false });
+    },
+    listOp: (instance, path, op, index, to) => {
+      // A new item needs the designer's template filled in: that one re-renders.
+      const inPlace = op !== 'add';
+      if (inPlace) applyInCanvas({ op: 'list', instance, path, action: op, index, to });
+      return run(() => editorOp(siteId, 'list', { instance, path, listOp: op, index, to, expected_rev: revOf(instance, path) }), { canvas: !inPlace });
+    },
     pickImage: (instance, path, field, current) => setPick({ kind: 'image', instance, path, field, current }),
     pickLink: (instance, path, field, current) => setPick({ kind: 'link', instance, path, field, current }),
-  }), [run, saveContent, siteId]);
+    remove: removePart,
+  }), [applyInCanvas, removePart, run, saveContent, siteId]);
 
   const fieldAt = useCallback((instance: string, path: string): FieldInfo | undefined => {
     const content = state?.content.find((c) => c.instance === instance);
@@ -178,35 +269,56 @@ export default function V2Editor({ siteId }: { siteId: string }) {
     return field;
   }, [state]);
 
-  // Current stored value at a content path like "stats.2.label".
-  const valueAt = useCallback((instance: string, path: string): unknown => {
-    const parts = path.split('.');
-    let value: unknown = stateRef.current?.content.find((c) => c.instance === instance)?.values[parts[0]]?.value;
-    for (let i = 1; i < parts.length; i += 2) {
-      const items = (value as { items?: unknown[] } | undefined)?.items;
-      const item = Array.isArray(items) ? items[Number(parts[i])] : undefined;
-      value = parts[i + 1] !== undefined ? (item as Record<string, unknown> | undefined)?.[parts[i + 1]] : item;
-    }
-    return value;
-  }, []);
-
   const sectionAction = useCallback((action: SectionAction, instance?: string, extra?: Obj) => {
     if (!page) return Promise.resolve();
     const success = action === 'remove' ? 'Section deleted. You can bring it back from History.' : action === 'add' ? 'Section added' : undefined;
-    return run(() => editorOp(siteId, 'section', { page: page.id, action, instance, ...extra, expected_version: layoutVersionOf(page.id) }), { success });
-  }, [page, run, siteId]);
+    const send = () => editorOp<{ created?: string }>(siteId, 'section', { page: page.id, action, instance, ...extra, expected_version: layoutVersionOf(page.id) });
+    // A new section has to be rendered by the server; everything else is shown right away.
+    if (action === 'add') return run(send, { success });
+    if (action === 'duplicate') {
+      // The copy needs the id the server gives it before it can be edited.
+      return run(async () => {
+        const r = await send();
+        if (r.created) applyInCanvas({ op: 'section', action, instance, created: r.created });
+        else throw new EditorApiError('Could not duplicate the section');
+      }, { canvas: false, success });
+    }
+    applyInCanvas({ op: 'section', action, instance, ...extra });
+    return run(send, { canvas: false, success });
+  }, [applyInCanvas, page, run, siteId]);
 
   // ── Messages from the canvas ──────────────────────────────────────────────
   useEffect(() => {
+    const init = (win: Window) => {
+      win.postMessage({ type: 'ks:scrollTo', y: scrollY.current }, '*');
+      win.postMessage({
+        type: 'ks:meta',
+        names: Object.fromEntries((state?.sections || []).map((s) => [s.key, s.name])),
+        colors: (state?.theme.tokens || []).filter((t) => t.type === 'color').map((t) => ({ name: t.name, label: t.label || t.name })),
+      }, '*');
+      if (selected) win.postMessage({ type: 'ks:highlight', instance: selected }, '*');
+    };
     const onMessage = (e: MessageEvent) => {
-      if (!iframeRef.current || e.source !== iframeRef.current.contentWindow) return;
       const d = e.data || {};
       if (d.source !== 'ks-editor') return;
+      // A re-render loading behind the canvas: set it up, then show it.
+      const pending = framesRef.current.pending;
+      const pendingWin = pending ? frameEls.current.get(pending.key)?.contentWindow : null;
+      if (pending && pendingWin && e.source === pendingWin) {
+        if (d.type === 'ready') {
+          init(pendingWin);
+          requestAnimationFrame(() => requestAnimationFrame(() => promote(pending.key)));
+        }
+        return;
+      }
+      if (!iframeRef.current || e.source !== iframeRef.current.contentWindow) return;
       switch (d.type) {
         case 'ready':
-          iframeRef.current.contentWindow?.postMessage({ type: 'ks:scrollTo', y: scrollY.current }, '*');
-          iframeRef.current.contentWindow?.postMessage({ type: 'ks:meta', names: Object.fromEntries((state?.sections || []).map((s) => [s.key, s.name])) }, '*');
-          if (selected) iframeRef.current.contentWindow?.postMessage({ type: 'ks:highlight', instance: selected }, '*');
+          init(iframeRef.current.contentWindow!);
+          break;
+        case 'reload':
+          // The canvas couldn't show a change in place: re-render once saves finish.
+          void run(async () => {}, { canvas: true });
           break;
         case 'scroll': {
           const y = Number(d.y) || 0;
@@ -272,16 +384,9 @@ export default function V2Editor({ siteId }: { siteId: string }) {
         case 'add-section':
           setAddAt(Math.max(0, Number(d.index) || 0));
           break;
-        case 'visibility': {
-          const hidden = !!d.hidden;
-          if (d.kind === 'toggle') void actions.setField(d.instance, d.path, !hidden);
-          else {
-            const current = valueAt(d.instance, d.path);
-            const base = current && typeof current === 'object' ? current as Obj : typeof current === 'string' ? { html: current } : {};
-            void actions.setField(d.instance, d.path, { ...base, hidden });
-          }
+        case 'remove':
+          if (['field', 'list', 'toggle', 'bg'].includes(d.kind)) removePart(d.instance, d.path, d.kind as RemoveKind);
           break;
-        }
         case 'field':
           void run(() => saveContent(d.instance, d.path, d.value), { canvas: false });
           break;
@@ -322,7 +427,7 @@ export default function V2Editor({ siteId }: { siteId: string }) {
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [actions, fieldAt, page, run, saveContent, sectionAction, selected, siteId, state, toast, valueAt]);
+  }, [actions, applyInCanvas, fieldAt, iframeRef, page, promote, removePart, run, saveContent, sectionAction, selected, siteId, state, toast, valueAt]);
 
   // ── Publish (same flow as the classic editor) ─────────────────────────────
   const publish = async () => {
@@ -362,6 +467,19 @@ export default function V2Editor({ siteId }: { siteId: string }) {
     }
   };
 
+  // ── Canvas source → frames ────────────────────────────────────────────────
+  const canvasSrc = state && page
+    ? `${mode === 'edit' ? state.canvas.editBase : state.canvas.previewBase}${pagePath(page.slug)}?v=${canvasVersion}`
+    : null;
+  useEffect(() => {
+    if (!canvasSrc) return;
+    setFrames((f) => {
+      if ((f.pending ?? f.active)?.src === canvasSrc) return f;
+      const frame = { key: ++frameSeq.current, src: canvasSrc };
+      return f.active ? { active: f.active, pending: frame } : { active: frame, pending: null };
+    });
+  }, [canvasSrc]);
+
   // ── Render ────────────────────────────────────────────────────────────────
   if (loadError) {
     return (
@@ -377,8 +495,6 @@ export default function V2Editor({ siteId }: { siteId: string }) {
     return <EditorLoadingScreen />;
   }
 
-  const base = mode === 'edit' ? state.canvas.editBase : state.canvas.previewBase;
-  const canvasSrc = `${base}${pagePath(page.slug)}?v=${canvasVersion}`;
   const adminHref = `/admin?siteId=${encodeURIComponent(siteId)}`;
 
   return (
@@ -404,6 +520,9 @@ export default function V2Editor({ siteId }: { siteId: string }) {
           <p className="truncate text-sm font-semibold text-slate-900">{state.site.title}</p>
           <p className="truncate text-[11px] text-slate-500">{state.site.isPublished && state.site.domain ? state.site.domain : 'Not published yet'}</p>
         </div>
+        <span className={`flex shrink-0 items-center gap-1 text-[11px] font-medium text-slate-500 transition-opacity ${saving > 0 ? 'opacity-100' : 'opacity-0'}`} role="status" aria-live="polite">
+          <Loader2 className="h-3 w-3 animate-spin" /> {saving > 0 ? 'Saving…' : ''}
+        </span>
 
         <select value={page.id} onChange={(e) => { setPageId(e.target.value); scrollY.current = 0; setSelected(null); }} className="ml-4 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm" aria-label="Page">
           {state.pages.map((p) => <option key={p.id} value={p.id}>{p.template === 'post' ? `Blog article layout (${p.navLabel || p.title})` : p.navLabel || p.title}</option>)}
@@ -479,15 +598,30 @@ export default function V2Editor({ siteId }: { siteId: string }) {
 
         {/* Canvas */}
         <main className="min-w-0 flex-1 overflow-auto p-4">
-          <div className="mx-auto h-full overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-slate-200 transition-[width]" style={{ width: DEVICE_WIDTH[device], maxWidth: '100%' }}>
-            <iframe
-              key={`${mode}-${page.id}`}
-              ref={iframeRef}
-              src={canvasSrc}
-              title="Your site"
-              className="h-full w-full border-0"
-              sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
-            />
+          <div className="relative mx-auto h-full overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-slate-200 transition-[width]" style={{ width: DEVICE_WIDTH[device], maxWidth: '100%' }}>
+            {/* Always [active, pending] in this order: promoting the pending frame
+                only removes the old one, so the new iframe is never moved (moving reloads it). */}
+            {[frames.active, frames.pending].map((frame) => frame && (
+              <iframe
+                key={frame.key}
+                ref={(el) => { if (el) frameEls.current.set(frame.key, el); else frameEls.current.delete(frame.key); }}
+                src={frame.src}
+                title={frame === frames.active ? 'Your site' : 'Your site (updating)'}
+                aria-hidden={frame !== frames.active || undefined}
+                tabIndex={frame !== frames.active ? -1 : undefined}
+                onLoad={() => {
+                  // Preview pages have no editor script to say "ready"; edit pages say it before load.
+                  if (framesRef.current.pending?.key === frame.key) setTimeout(() => promote(frame.key), mode === 'edit' ? 1500 : 0);
+                }}
+                className={`absolute inset-0 h-full w-full border-0 ${frame === frames.active ? (frames.pending ? 'pointer-events-none' : '') : 'pointer-events-none invisible'}`}
+                sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
+              />
+            ))}
+            {frames.pending && (
+              <div className="pointer-events-none absolute right-3 top-3 z-10 flex items-center gap-1.5 rounded-full bg-slate-900/85 px-2.5 py-1 text-[11px] font-medium text-white shadow">
+                <Loader2 className="h-3 w-3 animate-spin" /> Updating…
+              </div>
+            )}
           </div>
         </main>
       </div>
@@ -530,7 +664,8 @@ export default function V2Editor({ siteId }: { siteId: string }) {
               await run(() => editorOp(siteId, 'business', { business: { logo: value.src } }), { success: 'Logo updated' });
               return;
             }
-            await actions.setField(target.instance, target.path, { ...target.current, ...value });
+            // A new background image brings a removed background back.
+            await actions.setField(target.instance, target.path, { ...target.current, ...value, ...(target.field.type === 'bg' ? { hidden: false } : {}) });
           }}
         />
       )}
@@ -543,7 +678,8 @@ export default function V2Editor({ siteId }: { siteId: string }) {
           onSave={async (value) => {
             const target = pick;
             setPick(null);
-            await actions.setField(target.instance, target.path, { ...target.current, ...value });
+            // A new background image brings a removed background back.
+            await actions.setField(target.instance, target.path, { ...target.current, ...value, ...(target.field.type === 'bg' ? { hidden: false } : {}) });
           }}
         />
       )}
@@ -573,6 +709,14 @@ export default function V2Editor({ siteId }: { siteId: string }) {
         {toasts.map((t) => (
           <div key={t.id} role="status" className={`pointer-events-auto max-w-md rounded-xl px-4 py-2.5 text-sm font-medium shadow-lg ${t.tone === 'error' ? 'bg-red-600 text-white' : t.tone === 'warn' ? 'bg-amber-500 text-white' : 'bg-slate-900 text-white'}`}>
             {t.text}
+            {t.action && (
+              <button
+                onClick={() => { t.action!.run(); dismissToast(t.id); }}
+                className="ml-3 rounded-md bg-white/15 px-2 py-0.5 text-sm font-semibold text-white hover:bg-white/25"
+              >
+                {t.action.label}
+              </button>
+            )}
           </div>
         ))}
       </div>

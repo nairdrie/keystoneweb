@@ -38,15 +38,23 @@ the field ids stay the same — so keep ids stable when you iterate.
 
 | Attribute | Meaning |
 |---|---|
-| \`data-ks="id"\` | Editable field. Type is inferred: \`<img>\` → image, \`<a>\` → link (label + URL), anything else → text (inline formatting kept: em, strong, span.class, br). |
+| \`data-ks="id"\` | Editable field. Type is inferred: \`<img>\` → image, \`<a>\` → link (label + URL), anything else → text (inline formatting kept: em, strong, b, i, u, mark, small and span, each with an optional class, plus br). |
 | \`data-ks-type="richtext"\` | Multi-paragraph text (p, h2–h4, lists, blockquote). Put it on a wrapper \`<div>\`. |
 | \`data-ks-type="bg"\` | Background image on any element (set \`style="background-image:url(...)"\`). Its children can hold other fields. |
 | \`data-ks-list="id"\` + \`data-ks-item\` | Repeatable items. Every direct child marked \`data-ks-item\` is one item; they must share the same fields. The owner can add, remove, duplicate and reorder. Field ids inside an item are scoped to the item. |
-| \`data-ks-optional\` | On a field: the owner may hide it. As \`data-ks-optional="id"\` on any other element: a show/hide switch. |
 | \`data-ks-static\` | Purely decorative subtree (ornamental numbers, marquee words, decorative images). Not editable. Use sparingly. |
 | \`data-ks-nav\` | A container whose links are generated from the site's pages (in nav order). Put one example link inside, e.g. \`<ul data-ks-nav><li><a href="/">Home</a></li></ul>\`. The current page gets \`aria-current="page"\`. |
 | \`data-ks-attribution\` | Required, once, in the footer: the "Powered by Keystone" link. Leave it empty; Keystone writes the text and link. Style it, don't hide it. |
 | \`data-ks="@business.phone"\` | Site-wide values the owner sets once: ${GLOBAL_BINDINGS.join(', ')}. On an \`<a>\`, phone/email also set tel:/mailto: hrefs; \`@site.logo\` goes on an \`<img>\`. |
+
+Owners can remove any editable field, list or section. Removed fields are stored as \`hidden: true\`.
+
+Accents inside text (a highlighted word, a script-font phrase, a gradient keyword): wrap the words in an inline
+element with a class and style the class in your CSS, e.g. \`<h1 data-ks="title">Roofs that <em class="accent">last</em></h1>\`.
+Owners edit text with a formatting bar, and every class you use inside a field becomes a style they can put on
+other words in that field, so your accents survive their edits and they stay on-brand. Inline \`style=""\` inside
+text is removed, so don't rely on it. Owners can also colour words with your theme's colour tokens, and add bold,
+italic, underline and links; fonts and sizes stay yours.
 
 Hints the editor enforces so owners can't break your layout:
 \`data-ks-label="Hero headline"\`, \`data-ks-max="60"\` (characters), \`data-ks-aspect="4/5"\` (image crop),
@@ -95,8 +103,10 @@ const content = `# Content
   Paths reach into lists: \`items.2.name\`. Header/footer instances are \`header\` and \`footer\`.
 - Value shapes (shorthand strings are accepted):
   text/richtext → "<em>html</em>" or { html } · image → "https://…" or { src, alt } · bg → "https://…" or { src }
-  link → "/contact" or { href, label, newTab } · list → [ { fieldId: value, … }, … ] · toggle → true (shown) / false (hidden)
-  Any field value may include hidden: true to hide an optional field.
+  link → "/contact" or { href, label, newTab } · list → [ { fieldId: value, … }, … ]
+  Any field value may include hidden: true (removed from the page; on a bg field only the image goes) or hidden: false.
+  A field the owner removed counts as an owner edit: don't bring it back unless the human asks (then set hidden: false,
+  with force: true). If a removal leaves an empty card or a gap, fix the layout when asked.
 - Fields the owner already edited are skipped (status "skipped_owner_edit"). Only pass force: true if the human asked for it.
 - Write real, specific copy for the business (from research_business / the brief). Never lorem ipsum, never "Service 1".
 - Images: use import_media for every image (stock or the business's own photos) — hotlinked images are flagged.
@@ -264,7 +274,7 @@ const example = `# Example section
   <h1 data-ks="title" data-ks-max="70">Roofs done <em>right</em>, the first time.</h1>
   <div data-ks="intro" data-ks-type="richtext"><p>Family-owned crews and written warranties.</p></div>
   <a class="btn" data-ks="cta" href="/contact">Get a free quote</a>
-  <a class="btn ghost" data-ks="cta2" data-ks-optional href="/work">See our work</a>
+  <a class="btn ghost" data-ks="cta2" href="/work">See our work</a>
   <ul class="badges" data-ks-list="badges" data-ks-max-items="4">
     <li data-ks-item><span data-ks="label">Licensed &amp; insured</span></li>
     <li data-ks-item><span data-ks="label">25-year warranty</span></li>

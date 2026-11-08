@@ -19,7 +19,7 @@ const hero = `
   <div data-ks="intro" data-ks-type="richtext"><p>Family-owned crews, written warranties, and a site that's spotless when we leave.</p></div>
   <div class="ctas">
     <a class="btn" data-ks="cta" href="/contact">Get a free quote</a>
-    <a class="btn ghost" data-ks="cta2" data-ks-optional href="/work">See our work</a>
+    <a class="btn ghost" data-ks="cta2" href="/work">See our work</a>
   </div>
   <ul class="badges" data-ks-list="badges" data-ks-max-items="4">
     <li data-ks-item><span data-ks="label">Licensed &amp; insured</span></li>

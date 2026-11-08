@@ -24,6 +24,7 @@ import { compileSection } from './compile';
 import { scopeCss, sectionScopeSelector } from './css-scope';
 import { escapeHtml, safeHref, safeSrc, safeTokenValue, sanitizeInline, sanitizeRich, toPlainText } from './sanitize';
 import { SCRIPT_HOST_ALLOWLIST } from './policy';
+import { textStylesFor } from './text-styles';
 import { postPath, type ArticleMeta, type CollectionData, type CollectionItem, type CollectionKind } from './collections';
 
 const STATIC_TAGS = new Set(['svg', 'select', 'option', 'textarea', 'noscript', 'template', 'canvas', 'video', 'audio', 'iframe', 'math']);
@@ -136,6 +137,8 @@ interface FillCtx {
   collections?: CollectionData;
   /** Set when a data-ks-attribution slot was filled. */
   attribution?: { found: boolean };
+  /** Edit mode: the designer's default values for this scope (where text styles come from). */
+  defaults?: Record<string, unknown>;
 }
 
 /** Field values for an instance: template defaults overlaid with stored content. */
@@ -162,7 +165,7 @@ export function renderInstance(
   const $ = load(section.html || '', null, false);
   const schema = ensureSchema(section);
   const values = instanceValues(section, bundle.content[instance.id]);
-  const ctx: FillCtx = { $, mode, globals: globalsFor(bundle), bundle, page, collections, attribution };
+  const ctx: FillCtx = { $, mode, globals: globalsFor(bundle), bundle, page, collections, attribution, defaults: schema.defaults as Record<string, unknown> };
 
   fillScope($.root().contents(), values, schema.fields, '', ctx);
   if (mode === 'published') stripEditorAttributes($);
@@ -223,15 +226,12 @@ function fillNode(node: AnyNode, values: Record<string, unknown>, fields: Map<st
 
   if ('data-ks-optional' in attrs && !('data-ks' in attrs) && attrs['data-ks-optional']) {
     const id = attrs['data-ks-optional'];
-    const hidden = isHidden(values[id]);
-    if (hidden && ctx.mode !== 'edit') {
+    // Older designs' show/hide switches. Still honoured; agents no longer write them.
+    if (isHidden(values[id])) {
       $el.remove();
       return;
     }
-    if (ctx.mode === 'edit') {
-      $el.attr('data-ks-f', `${path}${id}`).attr('data-ks-t', 'toggle');
-      if (hidden) $el.attr('data-ks-hidden', '');
-    }
+    if (ctx.mode === 'edit') $el.attr('data-ks-f', `${path}${id}`).attr('data-ks-t', 'toggle');
   }
 
   if ('data-ks' in attrs) {
@@ -243,16 +243,19 @@ function fillNode(node: AnyNode, values: Record<string, unknown>, fields: Map<st
     const field = fields.get(binding);
     if (!field) return;
     const value = values[binding];
-    if (isHidden(value)) {
-      if (ctx.mode !== 'edit') {
-        $el.remove();
-        return;
-      }
-      $el.attr('data-ks-hidden', '');
+    // The owner removed it (stored as hidden: true): gone, in the editor too.
+    // A background is the exception: removing it clears the image, its content stays.
+    if (isHidden(value) && field.type !== 'bg') {
+      $el.remove();
+      return;
     }
     if (ctx.mode === 'edit') {
       $el.attr('data-ks-f', `${path}${binding}`).attr('data-ks-t', field.type);
-      if (field.optional) $el.attr('data-ks-opt', '');
+      if (field.type === 'text' || field.type === 'richtext') {
+        // The designer's own accent styles, offered in the text toolbar.
+        const styles = textStylesFor([ctx.defaults?.[binding], value]);
+        if (styles.length) $el.attr('data-ks-st', JSON.stringify(styles));
+      }
     }
     const descend = fillField($el, tag, field, value);
     if (!descend) return;
@@ -284,7 +287,11 @@ function fillField($el: Cheerio<Element>, tag: string, field: FieldSchema, value
     }
     case 'bg': {
       const src = safeSrc(v.src ?? value);
-      if (src) {
+      if (v.hidden) {
+        // Removed by the owner: no image, from the template or the design's CSS.
+        const style = ($el.attr('style') || '').replace(/background-image\s*:[^;]*;?/gi, '').trim();
+        $el.attr('style', `${style}${style && !style.endsWith(';') ? ';' : ''}background-image:none`);
+      } else if (src) {
         const style = ($el.attr('style') || '').replace(/background-image\s*:[^;]*;?/gi, '').trim();
         const sep = style && !style.endsWith(';') ? ';' : '';
         const encoded = src.replace(/['"\\\n\r()]/g, (c) => URL_ESCAPES[c] ?? '');
@@ -314,7 +321,7 @@ function renderList($list: Cheerio<Element>, id: string, value: unknown, field: 
   const items = Array.isArray(list.items) ? list.items : [];
   const listPath = `${path}${id}`;
 
-  if (list.hidden && ctx.mode !== 'edit') {
+  if (list.hidden) {
     $list.remove();
     return;
   }
@@ -325,8 +332,6 @@ function renderList($list: Cheerio<Element>, id: string, value: unknown, field: 
     itemEls.slice(1).remove();
     itemEls.first().attr('data-ks-ghost', '');
     $list.attr('data-ks-l', listPath);
-    if (field?.optional) $list.attr('data-ks-opt', '');
-    if (list.hidden) $list.attr('data-ks-hidden', '');
     return;
   }
 
@@ -335,6 +340,12 @@ function renderList($list: Cheerio<Element>, id: string, value: unknown, field: 
   items.forEach((item, index) => {
     const $item = load(template, null, false);
     const sub: FillCtx = { ...ctx, $: $item };
+    if (ctx.mode === 'edit') {
+      // Styles for a field in a list come from that field in every default item.
+      const defaultItems = listItemsOf(ctx.defaults?.[id]);
+      const keys = new Set(defaultItems.flatMap((d) => (d && typeof d === 'object' ? Object.keys(d as object) : [])));
+      sub.defaults = Object.fromEntries([...keys].map((k) => [k, defaultItems.map((d) => (d as Record<string, unknown> | null)?.[k])]));
+    }
     fillScope($item.root().contents(), (item || {}) as Record<string, unknown>, field?.item || [], `${listPath}.${index}.`, sub);
     if (ctx.mode === 'edit') $item.root().children().first().attr('data-ks-i', String(index));
     rendered.push($item.html());
@@ -343,11 +354,7 @@ function renderList($list: Cheerio<Element>, id: string, value: unknown, field: 
   itemEls.slice(1).remove();
   itemEls.first().replaceWith(rendered.join(''));
 
-  if (ctx.mode === 'edit') {
-    $list.attr('data-ks-l', listPath);
-    if (field?.optional) $list.attr('data-ks-opt', '');
-    if (list.hidden) $list.attr('data-ks-hidden', '');
-  }
+  if (ctx.mode === 'edit') $list.attr('data-ks-l', listPath);
 }
 
 function renderCollection($box: Cheerio<Element>, kind: CollectionKind, ctx: FillCtx) {
@@ -525,6 +532,13 @@ function stripEditorAttributes($: CheerioAPI) {
   });
 }
 
+/** Items of a list value; in a nested list's defaults that's one list per parent item. */
+function listItemsOf(value: unknown): unknown[] {
+  if (Array.isArray(value)) return value.flatMap(listItemsOf);
+  const items = (value as { items?: unknown } | null)?.items;
+  return Array.isArray(items) ? items : [];
+}
+
 function isHidden(value: unknown): boolean {
   return !!(value && typeof value === 'object' && (value as { hidden?: boolean }).hidden);
 }
@@ -692,7 +706,7 @@ ${body}
 ${footerWithAttribution}
 ${modules.join('\n')}
 <script src="${assetBase}/ks/runtime.js?v=4" defer></script>
-${mode === 'edit' ? `<script src="${assetBase}/ks/editor.js?v=6" defer></script>` : ''}
+${mode === 'edit' ? `<script src="${assetBase}/ks/editor.js?v=8" defer></script>` : ''}
 </body>
 </html>`;
 
@@ -737,7 +751,8 @@ const URL_ESCAPES: Record<string, string> = { "'": '%27', '"': '%22', '(': '%28'
 const GENERIC_FONTS = new Set(['serif', 'sans-serif', 'monospace', 'cursive', 'system-ui', 'ui-sans-serif', 'ui-serif', 'inherit', 'georgia', 'arial', 'helvetica']);
 
 const EDIT_MODE_CSS = `
-[data-ks-hidden]{opacity:.35!important;outline:2px dashed #94a3b8!important;outline-offset:-2px}
+[data-ks-instance][data-ks-hidden]{opacity:.35!important;outline:2px dashed #94a3b8!important;outline-offset:-2px}
+[data-ks-hidden]:not([data-ks-instance]){display:none!important}
 [data-ks-ghost]{opacity:.4!important;outline:2px dashed #2563eb!important;outline-offset:2px;cursor:copy!important}
 [data-ks-ghost] *{pointer-events:none}
 `;

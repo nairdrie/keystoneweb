@@ -15,11 +15,15 @@ import {
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => !!v && typeof v === 'object' && !Array.isArray(v);
 
+/** What a Remove takes away: a field, a whole list, an older design's show/hide area, or a background image. */
+export type RemoveKind = 'field' | 'list' | 'toggle' | 'bg';
+
 export interface PanelActions {
   setField: (instance: string, path: string, value: unknown) => Promise<void>;
   listOp: (instance: string, path: string, op: 'add' | 'duplicate' | 'remove' | 'move', index?: number, to?: number) => Promise<void>;
   pickImage: (instance: string, path: string, field: FieldInfo, current: Obj) => void;
   pickLink: (instance: string, path: string, field: FieldInfo, current: Obj) => void;
+  remove: (instance: string, path: string, kind: RemoveKind) => void;
 }
 
 function IconBtn({ title, onClick, disabled, children }: { title: string; onClick: () => void; disabled?: boolean; children: React.ReactElement<{ className?: string }> }) {
@@ -60,12 +64,23 @@ function FieldEditor({ field, value, instance, path, actions }: { field: FieldIn
   const label = field.label || field.id;
   const hidden = !!v.hidden;
 
-  const hideToggle = field.optional && field.type !== 'toggle' ? (
+  // Removed parts aren't on the page; Undo (right after) or the site's agent brings them back.
+  if (hidden && field.type !== 'bg') {
+    return (
+      <div className="flex items-center justify-between rounded-lg border border-dashed border-slate-200 px-3 py-2 text-xs text-slate-400">
+        <span>{label}</span><span>Removed</span>
+      </div>
+    );
+  }
+  const kind: RemoveKind = field.type === 'list' ? 'list' : field.type === 'toggle' ? 'toggle' : field.type === 'bg' ? 'bg' : 'field';
+  const hasImage = field.type !== 'bg' || (!hidden && typeof v.src === 'string' && !!v.src);
+  const hideToggle = hasImage ? (
     <button
-      onClick={() => actions.setField(instance, path, { ...v, hidden: !hidden })}
-      className="text-[11px] font-medium text-slate-400 hover:text-slate-700"
+      onClick={() => actions.remove(instance, path, kind)}
+      className="text-[11px] font-medium text-slate-400 hover:text-red-600"
+      title={field.type === 'bg' ? 'Remove the background image (the content stays)' : 'Remove this from your site'}
     >
-      {hidden ? 'Show' : 'Hide'}
+      {field.type === 'bg' ? 'Remove image' : 'Remove'}
     </button>
   ) : null;
 
@@ -112,10 +127,10 @@ function FieldEditor({ field, value, instance, path, actions }: { field: FieldIn
       );
     case 'toggle':
       return (
-        <label className="flex items-center justify-between rounded-lg bg-white px-3 py-2 text-sm text-slate-700">
+        <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2 text-sm text-slate-700">
           {label}
-          <input type="checkbox" checked={!hidden} onChange={(e) => actions.setField(instance, path, e.target.checked)} />
-        </label>
+          {hideToggle}
+        </div>
       );
     case 'list':
       return <ListEditor field={field} value={v} instance={instance} path={path} actions={actions} label={label} hidden={hidden} hideToggle={hideToggle} />;

@@ -33,16 +33,26 @@ nav{margin-left:auto}nav ul{display:flex;gap:1.5rem;list-style:none;margin:0;pad
     name: 'Hero — headline and photo',
     html: `<section class="hero wrap">
 <div class="copy"><p class="eyebrow" data-ks="eyebrow">Oakville · Since 1994</p>
-<h1 data-ks="title">Roofs done <em>right</em>, the first time.</h1>
+<h1 data-ks="title">Roofs done <em>right</em>, the <span class="swash">first time</span>.</h1>
 <div class="intro" data-ks="intro" data-ks-type="richtext"><p>Family-owned crews, written warranties, and a spotless site when we leave.</p></div>
 <div class="ctas"><a class="btn" data-ks="cta" href="/">Get a free quote</a></div></div>
 <div class="art"><svg class="blob" viewBox="0 0 200 200" aria-hidden="true"><path fill="currentColor" d="M44.7,-58.2C57.6,-49.6,67.3,-35.7,71.5,-20.2C75.7,-4.7,74.4,12.4,67.2,26.3C60,40.2,47,50.9,32.4,58.6C17.8,66.3,1.6,71,-15.6,69.4C-32.8,67.8,-51,59.9,-62.1,46.1C-73.2,32.3,-77.2,12.6,-74.4,-5.6C-71.6,-23.8,-62,-40.5,-48.4,-49.2C-34.8,-57.9,-17.4,-58.6,-0.3,-58.2C16.8,-57.8,31.8,-66.8,44.7,-58.2Z" transform="translate(100 100)"/></svg>
 <img class="photo" data-ks="photo" src="/templates/airy.png" alt="A finished roof"></div></section>
 <style>.hero{display:grid;grid-template-columns:1.1fr .9fr;gap:4rem;align-items:center;padding:4rem 0 6rem}
 .eyebrow{text-transform:uppercase;letter-spacing:.14em;font-size:.8rem;color:var(--brand);font-weight:700}
-h1{font-size:clamp(2.8rem,6.5vw,5.6rem);font-weight:800}h1 em{color:var(--brand)}.intro{font-size:1.15rem;max-width:34ch;opacity:.85}
+h1{font-size:clamp(2.8rem,6.5vw,5.6rem);font-weight:800}h1 em{color:var(--brand)}.swash{background:linear-gradient(transparent 62%,#fcd34d 62%)}.intro{font-size:1.15rem;max-width:34ch;opacity:.85}
 .ctas{display:flex;gap:.75rem;margin:2rem 0}.art{position:relative}.blob{position:absolute;inset:-12% -10% auto auto;width:80%;color:var(--brand);opacity:.18;z-index:0}
 .photo{position:relative;z-index:1;width:100%;aspect-ratio:4/5;object-fit:cover;border-radius:28px}</style>`,
+  },
+  features: {
+    name: 'Why us — three cards',
+    html: `<section class="feat wrap"><h2 data-ks="title">Why <mark>Northline</mark></h2>
+<ul class="cards" data-ks-list="cards">
+<li data-ks-item><h3 data-ks="name">Licensed &amp; insured</h3><p data-ks="text">Fully covered crews on every job.</p></li>
+<li data-ks-item><h3 data-ks="name">25-year warranty</h3><p data-ks="text">In writing, <span class="pop">transferable</span> to the next owner.</p></li>
+<li data-ks-item><h3 data-ks="name">Spotless sites</h3><p data-ks="text">Magnet sweeps for every nail.</p></li></ul></section>
+<style>.feat{padding:4rem 0}h2{font-size:2.6rem;margin-bottom:2rem}mark{background:none;color:var(--brand)}.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;list-style:none;margin:0;padding:0}
+.cards li{background:#fff;border-radius:18px;padding:1.5rem}.pop{font-style:italic;color:var(--brand)}</style>`,
   },
   footer: {
     name: 'Footer',
@@ -119,7 +129,7 @@ async function main() {
   await tool('set_theme', { site_id: siteId, ...THEME });
   for (const [key, s] of Object.entries(SECTIONS)) await tool('put_section', { site_id: siteId, key, name: s.name, html: s.html });
   await tool('set_layout', { site_id: siteId, header: 'header', footer: 'footer' });
-  await tool('put_page', { site_id: siteId, slug: 'home', title: 'Home', sections: [{ section: 'hero', id: 'home-hero' }] });
+  await tool('put_page', { site_id: siteId, slug: 'home', title: 'Home', sections: [{ section: 'hero', id: 'home-hero' }, { section: 'features', id: 'home-features' }] });
 
   console.log(`\n[dev-v2-archie] ready\n  editor: ${BASE}/design?siteId=${siteId}\n  cookie: ${auth.cookieName}=${auth.cookieValue}\n`);
 }

@@ -16,7 +16,8 @@
     "test:settings-schema": "node scripts/verify-settings-schemas.mjs",
     "test:shop": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-shop.mjs",
     "test:visual:card-presets": "node scripts/playwright-card-preset-edit-smoke.mjs",
-    "test:v2": "tsx scripts/verify-v2-engine.ts && tsx scripts/verify-v2-flow.ts",
+    "test:v2": "tsx scripts/verify-v2-engine.ts && tsx scripts/verify-v2-flow.ts && node scripts/build-ks-text-editor.mjs --check",
+    "build:ks-text-editor": "node scripts/build-ks-text-editor.mjs",
     "test:v2:e2e": "tsx scripts/e2e-v2-editor.ts",
     "test:v2:e2e:oauth": "tsx scripts/e2e-mcp-oauth.ts"
   },

@@ -190,7 +190,6 @@ function summarizeFields(fields: FieldSchema[]): unknown[] {
     label: f.label,
     ...(f.max ? { max: f.max } : {}),
     ...(f.aspect ? { aspect: f.aspect } : {}),
-    ...(f.optional ? { optional: true } : {}),
     ...(f.hrefOnly ? { hrefOnly: true } : {}),
     ...(f.item ? { item: summarizeFields(f.item) } : {}),
   }));

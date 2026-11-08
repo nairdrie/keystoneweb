@@ -298,17 +298,32 @@ function compileField(el: Element, tag: string, attrs: Record<string, string>, i
     }
     case 'richtext': {
       if ($el.find('[data-ks]').length) nestedFieldError(id, el, ctx);
+      inlineStyleWarning(id, el, ctx);
       scope.defaults[id] = { html: sanitizeRich($el.html() || '') };
       scope.fields.push(field);
       return false;
     }
     default: {
       if ($el.find('[data-ks]').length) nestedFieldError(id, el, ctx);
+      inlineStyleWarning(id, el, ctx);
       scope.defaults[id] = { html: sanitizeInline($el.html() || '') };
       scope.fields.push(field);
       return false;
     }
   }
+}
+
+/** Inline styles inside owner text are dropped on save; accents should be classes the owner can reuse. */
+function inlineStyleWarning(id: string, el: Element, ctx: Ctx): void {
+  const styled = ctx.$(el).find('[style]').first();
+  if (!styled.length) return;
+  ctx.issues.push({
+    level: 'warning',
+    rule: 'text-inline-style',
+    message: `Text field "${id}" has inline style="" inside it. Owner text keeps classes, not inline styles, so this look is lost.`,
+    snippet: snippetOf(ctx.$, el),
+    fix: 'Give the element a class (e.g. <em class="accent">) and style it in the section CSS; the owner can then apply that style to other words.',
+  });
 }
 
 function compileList(el: Element, attrs: Record<string, string>, scope: Scope, ctx: Ctx): void {
@@ -477,7 +492,6 @@ function readHints(attrs: Record<string, string>, id: string): Partial<FieldSche
   const maxItems = Number(attrs['data-ks-max-items']);
   if (Number.isFinite(minItems) && minItems >= 0 && attrs['data-ks-min']) hints.minItems = minItems;
   if (Number.isFinite(maxItems) && maxItems > 0) hints.maxItems = maxItems;
-  if ('data-ks-optional' in attrs) hints.optional = true;
   if (attrs['data-ks-schema'] && attrs['data-ks-schema'] in SCHEMA_HINTS) hints.schema = attrs['data-ks-schema'] as FieldSchema['schema'];
   return hints;
 }

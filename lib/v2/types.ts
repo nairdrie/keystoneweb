@@ -19,7 +19,7 @@ export interface FieldHints {
   aspect?: string;       // e.g. "4/5" (image) — crop ratio in the editor
   minItems?: number;     // lists
   maxItems?: number;     // lists
-  optional?: boolean;    // owner may hide this element
+  optional?: boolean;    // legacy data-ks-optional="id" switches only (every field is removable now)
   schema?: 'reviews' | 'faq'; // lists: emit structured data for search engines
 }
 
