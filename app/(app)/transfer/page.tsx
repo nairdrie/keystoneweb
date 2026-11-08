@@ -197,9 +197,20 @@ function PlanSelectionStep({
           </div>
         </div>
 
-        <p className="text-center text-xs text-slate-400 mt-6">
-          You can upgrade or downgrade anytime from your account settings.
-        </p>
+        {/* The transfer is already done at this point; skipping just leaves
+            the site unpublished in the new owner's account. */}
+        <div className="mt-8 text-center">
+          <a
+            href={`/editor?siteId=${encodeURIComponent(acceptedSiteId)}`}
+            aria-disabled={loading}
+            className={`inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-6 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 ${loading ? 'pointer-events-none opacity-50' : ''}`}
+          >
+            Skip for now and keep it unpublished
+          </a>
+          <p className="text-xs text-slate-400 mt-3">
+            The site stays in your account as a draft. Pick a plan whenever you&apos;re ready to publish.
+          </p>
+        </div>
       </div>
     </div>
   );
