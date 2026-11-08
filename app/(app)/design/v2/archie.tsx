@@ -215,6 +215,8 @@ const timeLabel = (iso: string): string => {
 };
 
 export function describeTarget(t: ArchieTarget, sectionName?: string): string {
+  // Opened from a section's toolbar: the request is about the whole section.
+  if (t.tag === 'section' && !t.selector) return sectionName ? `the “${sectionName}” section` : 'this section';
   const what = t.tag === 'svg' ? 'this graphic' : t.tag === 'img' ? 'this image' : t.text ? `“${t.text.slice(0, 40)}${t.text.length > 40 ? '…' : ''}”` : 'this spot';
   return sectionName ? `${what} in ${sectionName}` : what;
 }

@@ -157,6 +157,37 @@ test('edit mode marks fields, lists, items and keeps hidden elements visible-but
   assert.doesNotMatch(html, /text\/ks-module/); // agent JS is not run while editing
 });
 
+test('edit mode marks optional parts and keeps a placeholder in empty lists', () => {
+  const b = bundleWithSplitSources();
+  b.content['i-hero'] = { badges: { items: [] } };
+  const page = findPageByPath(b, '/')!;
+  const edit = renderPage(b, page, { mode: 'edit' }).html;
+  assert.match(edit, /data-ks-f="cta2"[^>]*data-ks-opt|data-ks-opt[^>]*data-ks-f="cta2"/);
+  assert.match(edit, /data-ks-l="badges"/);
+  assert.match(edit, /<li data-ks-item="" data-ks-ghost="">/);
+  const pub = renderPage(b, page, { mode: 'published' }).html;
+  assert.doesNotMatch(pub, /data-ks-ghost|data-ks-opt/);
+  assert.doesNotMatch(pub, /Licensed/); // no placeholder item on the live site
+});
+
+test('repeated items with numbered fields get a list hint (warning only)', () => {
+  const stats = '<section><h2 data-ks="title">Results</h2><div class="stats">'
+    + [1, 2, 3].map((n) => `<div class="stat"><strong data-ks="stat${n}Value">${n}0+</strong><span data-ks="stat${n}Label">Label ${n}</span></div>`).join('')
+    + '</div></section>';
+  const c = compileSection(stats);
+  const hint = c.issues.find((i) => i.rule === 'repeated-items');
+  assert.ok(hint, 'expected a repeated-items hint');
+  assert.equal(hint!.level, 'warning');
+  assert.equal(c.issues.filter((i) => i.level === 'error').length, 0);
+
+  // Already a list, or a run of plain paragraphs: no hint.
+  const asList = compileSection('<section><div class="stats" data-ks-list="stats">'
+    + [1, 2, 3].map((n) => `<div class="stat" data-ks-item><strong data-ks="value">${n}</strong><span data-ks="label">L</span></div>`).join('') + '</div></section>');
+  assert.ok(!asList.issues.some((i) => i.rule === 'repeated-items'));
+  const copy = compileSection('<section><div><p data-ks="p1">a</p><p data-ks="p2">b</p><p data-ks="p3">c</p></div></section>');
+  assert.ok(!copy.issues.some((i) => i.rule === 'repeated-items'));
+});
+
 test('unknown paths render a 404 inside the site chrome', () => {
   const b = bundleWithSplitSources();
   const { status, html } = renderPage(b, findPageByPath(b, '/nope') || null, { mode: 'published' });

@@ -63,7 +63,58 @@ export function compileSection(html: string): CompiledSection {
     });
   }
 
+  checkRepeatedItems($, issues);
+
   return { fields: scope.fields, defaults: scope.defaults, issues, stats };
+}
+
+const NOT_CHECKED_FOR_REPEATS = '[data-ks-list],[data-ks-collection],[data-ks-nav],[data-ks-static],form';
+/** Form rows and groups that hold their own lists (mega menus) aren't simple repeated items. */
+const NOT_A_REPEATED_ITEM = 'input,select,textarea,button,[data-ks-list],[data-ks-collection],[data-ks-nav]';
+
+/**
+ * Siblings that repeat one structure but each carry their own field ids
+ * (stat1Value, stat2Value, …) are usually something the owner will want to add
+ * to or trim, which only a data-ks-list allows. This is a hint, never an
+ * error: the agent leaves it when the count is part of the design.
+ */
+function checkRepeatedItems($: CheerioAPI, issues: CompileIssue[]): void {
+  let reported = 0;
+  $('*').each((_, node) => {
+    if (reported >= 3) return false;
+    const parent = node as Element;
+    if ($(parent).closest(NOT_CHECKED_FOR_REPEATS).length) return;
+
+    const groups = new Map<string, Element[]>();
+    for (const child of parent.children) {
+      if (child.type !== 'tag') continue;
+      const el = child as Element;
+      if ('data-ks-item' in el.attribs) continue;
+      const classes = (el.attribs.class || '').split(/\s+/).filter(Boolean).sort().join('.');
+      const sig = `${el.tagName}.${classes}`;
+      groups.set(sig, [...(groups.get(sig) || []), el]);
+    }
+
+    for (const els of groups.values()) {
+      if (els.length < 3) continue;
+      // Each one holds its own fields inside it (a run of bound paragraphs is just copy).
+      const shapes = els.map((el) => {
+        if ($(el).find(NOT_A_REPEATED_ITEM).length) return null;
+        const inner = $(el).find('[data-ks]').toArray().filter((f) => !String((f as Element).attribs['data-ks']).trim().startsWith('@')) as Element[];
+        return inner.length ? inner.map((f) => f.tagName).join(',') : null;
+      });
+      if (shapes.some((s) => s === null) || new Set(shapes).size !== 1) continue;
+      const ids = els.slice(0, 3).map((el) => $(el).find('[data-ks]').first().attr('data-ks')).join(', ');
+      issues.push({
+        level: 'warning',
+        rule: 'repeated-items',
+        message: `${els.length} <${els[0].tagName}> elements here repeat the same structure with separate fields (${ids}, …). The owner can edit them but can't add or remove one.`,
+        snippet: snippetOf($, parent),
+        fix: 'If the owner might want more or fewer of these, put data-ks-list="<id>" on the container and data-ks-item on each one, with the same field ids inside every item (e.g. value, label). The design stays the same. If the count is part of the design, leave it.',
+      });
+      reported++;
+    }
+  });
 }
 
 function newScope(): Scope {

@@ -296,8 +296,11 @@ async function siteOverview(ctx: ToolContext, siteId: string, sectionKey: string
 
 function describeTarget(target: ArchieTarget): string {
   const clip = (s: string | null | undefined, n: number) => (s ? String(s).slice(0, n) : '');
+  const wholeSection = target.tag === 'section' && !target.selector;
   const lines = [
-    'The owner clicked this spot on the page (something they could not edit themselves):',
+    wholeSection
+      ? 'The owner opened you from a section\'s toolbar: their request is about this whole section (its layout, look or content), not one element.'
+      : 'The owner clicked this spot on the page (something they could not edit themselves):',
     target.instance ? `- Section instance: "${clip(target.instance, 80)}" (section design "${clip(target.section, 80) || 'unknown'}")` : '- Not inside a section (page chrome or global theme).',
     target.tag ? `- Element: <${clip(target.tag, 30)}>` : '',
     target.selector ? `- CSS path inside the section: ${clip(target.selector, 400)}` : '',

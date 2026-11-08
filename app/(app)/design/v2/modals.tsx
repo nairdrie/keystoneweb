@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { History, ImageIcon, Link2, Loader2, MessageSquare, RotateCcw, Search, Upload, X } from 'lucide-react';
-import { editorOp, type PageInfo } from './api';
+import { History, ImageIcon, Link2, List, Loader2, MessageSquare, Plus, RotateCcw, Search, Upload, X } from 'lucide-react';
+import ArchieAIIcon from '@/app/components/ArchieAIIcon';
+import { editorOp, type InstanceContent, type PageInfo } from './api';
+import { ContentForm, type PanelActions } from './panels';
 
 export function Modal({ title, icon, onClose, children, wide }: { title: string; icon?: React.ReactNode; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
   useEffect(() => {
@@ -340,6 +342,51 @@ export function HistoryModal({ siteId, onClose, onRestored }: { siteId: string; 
         ))}
         {versions?.length === 0 && <li className="py-3 text-sm text-slate-500">No saved versions yet.</li>}
       </ul>
+    </Modal>
+  );
+}
+
+// ── Add a section ────────────────────────────────────────────────────────────
+
+export function AddSectionModal({
+  designs,
+  usedOnPage,
+  onClose,
+  onChoose,
+  onAskArchie,
+}: {
+  designs: Array<{ key: string; name: string }>;
+  usedOnPage: Set<string>;
+  onClose: () => void;
+  onChoose: (sectionKey: string) => void;
+  onAskArchie: () => void;
+}) {
+  return (
+    <Modal title="Add a section" icon={<Plus className="h-4 w-4 text-slate-500" />} onClose={onClose}>
+      <p className="mb-3 text-sm text-slate-500">These sections were designed for your site. Pick one to add it here, then change its words and pictures on the page.</p>
+      <div className="grid gap-1.5">
+        {designs.map((s) => (
+          <button key={s.key} onClick={() => onChoose(s.key)} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2.5 text-left text-sm font-medium text-slate-800 hover:border-blue-400 hover:bg-blue-50/50">
+            {s.name}
+            {usedOnPage.has(s.key) && <span className="text-xs font-normal text-slate-400">On this page</span>}
+          </button>
+        ))}
+        {designs.length === 0 && <p className="py-4 text-center text-sm text-slate-400">No section designs yet.</p>}
+      </div>
+      <button onClick={onAskArchie} className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-violet-50 px-3 py-2.5 text-sm font-medium text-violet-700 hover:bg-violet-100">
+        <ArchieAIIcon className="h-4 w-4" /> Need something different? Ask Archie to design it
+      </button>
+    </Modal>
+  );
+}
+
+// ── All content of one section (for things you can't click on the page) ────
+
+export function SectionContentModal({ name, content, actions, onClose }: { name: string; content: InstanceContent; actions: PanelActions; onClose: () => void }) {
+  return (
+    <Modal title={name} icon={<List className="h-4 w-4 text-slate-500" />} onClose={onClose}>
+      <p className="mb-4 text-xs text-slate-500">Everything you can change in this section, including things that only show on phones, in menus or in slideshows. Changes save as you go.</p>
+      <ContentForm content={content} actions={actions} />
     </Modal>
   );
 }
