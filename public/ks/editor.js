@@ -209,10 +209,13 @@
     clearAsk();
     if (el) { askEl = el; el.setAttribute('data-ks-ask', ''); }
     var text = el ? (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 200) : '';
+    var r = el ? el.getBoundingClientRect() : null;
     post({
       type: 'ask',
       x: e.clientX,
       y: e.clientY,
+      // The editor places Archie beside this box (iframe viewport coordinates).
+      rect: r ? { top: r.top, left: r.left, right: r.right, bottom: r.bottom } : null,
       scrollY: Math.round(window.scrollY),
       target: {
         instance: wrapper ? wrapper.getAttribute('data-ks-instance') : null,
@@ -513,7 +516,15 @@
     var inst = secWrap.getAttribute('data-ks-instance');
     if (op === 'ask') {
       var br = b.getBoundingClientRect();
-      post({ type: 'section-ask', instance: inst, section: secWrap.getAttribute('data-ks-section'), x: br.right, y: br.top + br.height / 2, scrollY: Math.round(window.scrollY) });
+      post({
+        type: 'section-ask',
+        instance: inst,
+        section: secWrap.getAttribute('data-ks-section'),
+        x: br.right,
+        y: br.top + br.height / 2,
+        rect: { top: br.top, left: br.left, right: br.right, bottom: br.bottom },
+        scrollY: Math.round(window.scrollY),
+      });
       return;
     }
     if (op === 'content') { post({ type: 'section-content', instance: inst }); return; }

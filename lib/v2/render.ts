@@ -648,7 +648,7 @@ ${body}
 ${footer}
 ${modules.join('\n')}
 <script src="${assetBase}/ks/runtime.js?v=3" defer></script>
-${mode === 'edit' ? `<script src="${assetBase}/ks/editor.js?v=5" defer></script>` : ''}
+${mode === 'edit' ? `<script src="${assetBase}/ks/editor.js?v=6" defer></script>` : ''}
 </body>
 </html>`;
 

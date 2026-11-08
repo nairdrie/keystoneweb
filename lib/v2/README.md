@@ -79,11 +79,15 @@ Owners get Archie inside the v2 editor (`app/(app)/design/v2/archie.tsx`):
 
 `POST /api/v2/archie` (NDJSON stream) runs a Claude tool loop (`lib/v2/archie.ts`) over the MCP tools, locked to the
 site (site_id injected, no publish / other sites / staff tools). The clicked section's code is preloaded. A restore
-point is taken before Archie's first write and returned as **Undo**. Each request counts as one AI prompt against the
+point is taken before Archie's first write and returned as **Undo**. Every request is saved as a run in `v2_activity`
+(action `archie`: prompt, target, progress, reply, undo point), so the docked panel shows recent work after a refresh,
+and runs keep going (`after()`) if the editor is closed; the editor polls a running one and reloads when it finishes.
+One run at a time per site; Stop is checked between model turns. Archie sees only the last 6 runs from the past 24h,
+trimmed, so the prompt never grows. Each request counts as one AI prompt against the
 classic AI Builder limits (staff exempt; refunded if nothing happened). Env: `AI_BUILDER_API_KEY` (or
 `ARCHIE_API_KEY`), optional `ARCHIE_MODEL` (default `claude-sonnet-5-5`).
 
-Try it locally without Supabase: `npx tsx scripts/dev-v2-archie.ts` (prints the editor URL and a session cookie).
+Try it locally without Supabase: `npx tsx scripts/dev-v2-archie.ts` (port 3200; prints the editor URL and a session cookie).
 
 ## Agent screenshots
 
