@@ -8,8 +8,10 @@
  *                    global, list (item ops), scroll, navigate,
  *                    ask (a click on something the owner can't edit → Archie),
  *                    section (move/hide/show/duplicate/remove), section-ask,
- *                    section-content, add-section, visibility (show/hide optional parts)
- *   parent → iframe: ks:scrollTo, ks:highlight, ks:preview-field, ks:ask-clear, ks:meta
+ *                    section-content, add-section, remove (a field, list or background)
+ *                    reload (a change couldn't be applied in place)
+ *   parent → iframe: ks:scrollTo, ks:highlight, ks:preview-field, ks:ask-clear, ks:meta,
+ *                    ks:apply (show an edit right away while it saves)
  */
 (function () {
   'use strict';
@@ -19,6 +21,16 @@
   if (cfg.mode !== 'edit' || window.parent === window) return;
 
   var target = cfg.editorOrigin || '*';
+
+  // The formatting editor (ProseMirror, public/ks/text-editor.js) loads in the
+  // background; until it's there, text is edited as plain contenteditable.
+  var here = document.currentScript && document.currentScript.src;
+  if (here) {
+    var te = document.createElement('script');
+    te.src = here.replace(/editor\.js(\?.*)?$/, 'text-editor.js?v=2');
+    te.defer = true;
+    document.head.appendChild(te);
+  }
   function post(msg) {
     msg.source = 'ks-editor';
     msg.pageId = cfg.pageId;
@@ -41,7 +53,8 @@
     '#ks-item-bar button:hover{background:#334155}',
     '#ks-item-bar span{color:#94a3b8;padding:6px 6px 6px 8px}',
     '[data-ks-ask]{outline:2px dashed #8b5cf6!important;outline-offset:2px}',
-    '#ks-item-bar.ks-ghost button:not([data-op="add"]){display:none}',
+    '#ks-item-bar.ks-ghost button:not([data-op="add"]):not([data-op="remove-list"]){display:none}',
+    '#ks-item-bar .ks-sep{width:1px;align-self:stretch;margin:3px 2px;background:#334155;padding:0}',
     '.ks-ui{position:fixed;z-index:2147483647;display:none;align-items:center;gap:1px;padding:3px;background:#0f172a;border-radius:9px;box-shadow:0 6px 20px rgba(0,0,0,.28);font:600 12px/1 system-ui,sans-serif;color:#fff}',
     '.ks-ui button{all:unset;display:inline-flex;align-items:center;gap:5px;color:#e2e8f0;padding:6px 7px;border-radius:6px;cursor:pointer}',
     '.ks-ui button:hover{background:#334155;color:#fff}',
@@ -52,8 +65,8 @@
     '.ks-add{padding:0;border-radius:999px;background:#2563eb}',
     '.ks-add button{color:#fff;padding:6px 12px 6px 9px;border-radius:999px}',
     '.ks-add button:hover{background:#1d4ed8}',
-    '#ks-opt-chip{padding:2px}',
-    '#ks-opt-chip button{padding:4px 8px}',
+    '#ks-rm-chip{padding:2px}',
+    '#ks-rm-chip button{padding:4px 8px}',
     '[data-ks-instance].ks-hover>*{box-shadow:inset 0 0 0 2px rgba(37,99,235,.35)}',
     '#ks-empty-page{display:flex;justify-content:center;padding:96px 16px}',
   ].join('\n');
@@ -81,13 +94,37 @@
   // ── Inline text editing ──────────────────────────────────────────────────
   var editing = null;
   var original = '';
+  var textEd = null; // KsText handle while the formatting editor runs
 
-  function startEditing(el) {
+  function inTextBar(node) {
+    return !!(textEd && node && textEd.toolbar.contains(node));
+  }
+
+  function startEditing(el, point) {
     if (editing === el) return;
     if (editing) finishEditing(true);
     editing = el;
     original = el.innerHTML;
     el.setAttribute('data-ks-editing', '');
+    if (window.KsText) {
+      var styles = [];
+      try { styles = JSON.parse(el.getAttribute('data-ks-st') || '[]'); } catch (e) { styles = []; }
+      try {
+        textEd = window.KsText.edit(el, {
+          rich: el.getAttribute('data-ks-t') === 'richtext',
+          styles: styles,
+          colors: colors,
+          // No links inside a link or button the designer made.
+          allowLinks: !(el.closest('a,button') || el.querySelector('a[data-ks-f]')),
+          point: point || null,
+          onRemove: function () { finishEditing(false); removePart(el); },
+        });
+        return;
+      } catch (err) {
+        textEd = null;
+        el.innerHTML = original;
+      }
+    }
     el.setAttribute('contenteditable', 'true');
     el.setAttribute('spellcheck', 'true');
     el.focus();
@@ -105,6 +142,18 @@
     var el = editing;
     if (!el) return;
     editing = null;
+    if (textEd) {
+      var ed = textEd;
+      textEd = null;
+      var changed = save && ed.changed();
+      var out = changed ? ed.html() : '';
+      ed.destroy();
+      el.removeAttribute('data-ks-editing');
+      // Unchanged: put the designer's exact markup back.
+      el.innerHTML = changed ? out : original;
+      if (changed) sendField(el);
+      return;
+    }
     el.removeAttribute('contenteditable');
     el.removeAttribute('data-ks-editing');
     if (!save) {
@@ -112,6 +161,10 @@
       return;
     }
     if (el.innerHTML === original) return;
+    sendField(el);
+  }
+
+  function sendField(el) {
     var max = Number(el.getAttribute('data-ks-max')) || 0;
     if (max && el.textContent.length > max) {
       post({ type: 'notice', level: 'warning', message: 'That text is longer than this spot was designed for (' + max + ' characters). It may not fit well.' });
@@ -120,10 +173,11 @@
   }
 
   document.addEventListener('keydown', function (e) {
-    if (!editing) return;
+    if (!editing || inTextBar(e.target)) return;
     var rich = editing.getAttribute('data-ks-t') === 'richtext';
     if (e.key === 'Escape') { e.preventDefault(); finishEditing(false); }
     else if (e.key === 'Enter' && !rich && !e.shiftKey) { e.preventDefault(); finishEditing(true); }
+    else if (textEd) return; // the formatting editor handles its own shortcuts
     else if ((e.metaKey || e.ctrlKey) && (e.key === 'b' || e.key === 'i')) {
       e.preventDefault();
       document.execCommand(e.key === 'b' ? 'bold' : 'italic');
@@ -131,20 +185,26 @@
   }, true);
 
   document.addEventListener('paste', function (e) {
-    if (!editing) return;
+    if (!editing || textEd) return; // the formatting editor cleans pasted text itself
     e.preventDefault();
     var text = (e.clipboardData || window.clipboardData).getData('text/plain');
     document.execCommand('insertText', false, text);
   }, true);
 
   document.addEventListener('focusout', function (e) {
-    if (editing && e.target === editing) setTimeout(function () { if (editing && document.activeElement !== editing) finishEditing(true); }, 0);
+    if (!editing || (e.target !== editing && !inTextBar(e.target))) return;
+    setTimeout(function () {
+      if (!editing) return;
+      var a = document.activeElement;
+      if (a === editing || (a && editing.contains(a)) || inTextBar(a)) return;
+      finishEditing(true);
+    }, 0);
   }, true);
 
   // ── Ask Archie: describe exactly what was clicked ────────────────────────
   // Clicks that only end a text edit (mousedown blurred the field) don't ask.
   var downWhileEditing = false;
-  document.addEventListener('mousedown', function () { downWhileEditing = !!editing; }, true);
+  document.addEventListener('mousedown', function (e) { downWhileEditing = !!editing && !inTextBar(e.target); }, true);
 
   var askEl = null;
   function clearAsk() {
@@ -231,7 +291,7 @@
 
   // ── Clicks ───────────────────────────────────────────────────────────────
   document.addEventListener('click', function (e) {
-    if (e.target.closest && e.target.closest('#ks-item-bar,.ks-ui,#ks-empty-page')) return;
+    if (e.target.closest && e.target.closest('#ks-item-bar,.ks-ui,#ks-empty-page,#ks-text-bar')) return;
     var link = e.target.closest ? e.target.closest('a[href]') : null;
     var field = e.target.closest ? e.target.closest('[data-ks-f]') : null;
 
@@ -243,14 +303,7 @@
       post({ type: 'list', op: 'add', instance: instanceOf(gl), path: gl.getAttribute('data-ks-l'), index: 0 });
       return;
     }
-    // Something the owner hid (not a whole section): a click shows it again.
-    var hiddenPart = e.target.closest ? e.target.closest('[data-ks-hidden]:not([data-ks-instance])') : null;
-    if (hiddenPart && !(editing && hiddenPart.contains(editing))) {
-      e.preventDefault();
-      setVisibility(hiddenPart, false);
-      return;
-    }
-    // A show/hide switch is flipped from its chip, not by clicking the area.
+    // An older design's show/hide switch is just an area that can be removed from its chip.
     if (field && field.getAttribute('data-ks-t') === 'toggle') field = null;
     var global = e.target.closest ? e.target.closest('[data-ks-g]') : null;
 
@@ -275,7 +328,7 @@
     if (field) {
       e.preventDefault();
       var t = field.getAttribute('data-ks-t');
-      if (t === 'text' || t === 'richtext') { startEditing(field); return; }
+      if (t === 'text' || t === 'richtext') { startEditing(field, { x: e.clientX, y: e.clientY }); return; }
       post({
         type: 'pick',
         instance: inst,
@@ -301,7 +354,7 @@
   // ── List item toolbar ────────────────────────────────────────────────────
   var bar = document.createElement('div');
   bar.id = 'ks-item-bar';
-  bar.innerHTML = '<span>Item</span><button data-op="up" title="Move up">↑</button><button data-op="down" title="Move down">↓</button><button data-op="duplicate" title="Duplicate">Copy</button><button data-op="add" title="Add new after">+ Add</button><button data-op="remove" title="Remove">Remove</button>';
+  bar.innerHTML = '<span>Item</span><button data-op="up" title="Move up">↑</button><button data-op="down" title="Move down">↓</button><button data-op="duplicate" title="Duplicate">Copy</button><button data-op="add" title="Add new after">+ Add</button><button data-op="remove" title="Remove this item">Remove</button><span class="ks-sep"></span><button data-op="remove-list" title="Remove the whole list">Remove list</button>';
   document.body.appendChild(bar);
   var barItem = null;
   var hideTimer = null;
@@ -336,6 +389,11 @@
     var index = Number(barItem.getAttribute('data-ks-i'));
     var count = list.querySelectorAll(':scope > [data-ks-i]').length;
     var op = btn.getAttribute('data-op');
+    if (btn.getAttribute('data-op') === 'remove-list') {
+      bar.style.display = 'none';
+      removePart(list);
+      return;
+    }
     var msg = { type: 'list', instance: instanceOf(list), path: list.getAttribute('data-ks-l'), index: index };
     if (op === 'up') { if (index === 0) return; msg.op = 'move'; msg.to = index - 1; }
     else if (op === 'down') { if (index >= count - 1) return; msg.op = 'move'; msg.to = index + 1; }
@@ -345,13 +403,19 @@
     post(msg);
   });
 
-  // ── Show / hide optional parts ───────────────────────────────────────────
-  function setVisibility(el, hidden) {
+  // ── Remove ───────────────────────────────────────────────────────────────
+  // Anything the owner can edit can be removed (stored as hidden: true; the
+  // editor offers Undo). A background only loses its image: its content stays.
+  function removeKind(el) {
+    if (el.hasAttribute('data-ks-l')) return 'list';
+    var t = el.getAttribute('data-ks-t');
+    return t === 'toggle' ? 'toggle' : t === 'bg' ? 'bg' : 'field';
+  }
+  function removePart(el) {
     var isList = el.hasAttribute('data-ks-l');
     var path = isList ? el.getAttribute('data-ks-l') : el.getAttribute('data-ks-f');
     if (!path) return;
-    var kind = isList ? 'list' : el.getAttribute('data-ks-t') === 'toggle' ? 'toggle' : 'field';
-    post({ type: 'visibility', instance: instanceOf(el), path: path, kind: kind, hidden: hidden });
+    post({ type: 'remove', instance: instanceOf(el), path: path, kind: removeKind(el) });
   }
 
   var ICONS = {
@@ -381,12 +445,27 @@
     return el;
   }
 
-  var optChip = ui('ks-opt-chip');
+  // Text has Remove in its formatting bar; images, links, backgrounds and lists get this chip.
+  var optChip = ui('ks-rm-chip');
   var optEl = null;
+  function removableAt(t) {
+    var el = t.closest('[data-ks-f],[data-ks-l]');
+    if (!el) return null;
+    var type = el.getAttribute('data-ks-t');
+    if (type === 'text' || type === 'richtext') return null;
+    if (type === 'bg') {
+      // Only when there's an image to remove.
+      var bg = getComputedStyle(el).backgroundImage;
+      if (!bg || bg === 'none' || bg.indexOf('url(') === -1) return null;
+    }
+    return el;
+  }
   function placeOptChip(el) {
     optEl = el;
-    var hidden = el.hasAttribute('data-ks-hidden');
-    optChip.innerHTML = '<button type="button" title="' + (hidden ? 'Show this again' : 'Hide this on your site') + '">' + icon(hidden ? 'eye' : 'eyeOff') + (hidden ? 'Show' : 'Hide') + '</button>';
+    var kind = removeKind(el);
+    var label = kind === 'bg' ? 'Remove background' : kind === 'list' ? 'Remove list' : 'Remove';
+    var title = kind === 'bg' ? 'Remove the background image (the content stays)' : 'Remove this from your site';
+    optChip.innerHTML = '<button type="button" title="' + title + '">' + icon('trash') + label + '</button>';
     optChip.style.display = 'flex';
     var r = el.getBoundingClientRect();
     optChip.style.top = Math.max(4, r.top + 4) + 'px';
@@ -397,12 +476,14 @@
     e.preventDefault();
     e.stopPropagation();
     if (!optEl) return;
-    setVisibility(optEl, !optEl.hasAttribute('data-ks-hidden'));
+    var el = optEl;
     hideOptChip();
+    removePart(el);
   });
 
   // ── Section toolbar and "Add section" buttons ────────────────────────────
   var names = {};
+  var colors = [];
   var secBar = ui('ks-section-bar');
   var addTop = ui('ks-add-top', 'ks-add');
   var addBottom = ui('ks-add-bottom', 'ks-add');
@@ -450,7 +531,7 @@
         var i = list.indexOf(wrap);
         h += btn('up', 'Move up', icon('up'), i <= 0)
           + btn('down', 'Move down', icon('down'), i === -1 || i >= list.length - 1)
-          + btn(hidden ? 'show' : 'hide', hidden ? 'Show this section' : 'Hide this section', icon(hidden ? 'eye' : 'eyeOff'))
+          + (hidden ? btn('show', 'Show this section', icon('eye')) : '')
           + btn('duplicate', 'Duplicate', icon('copy'))
           + btn('remove', 'Delete', icon('trash'));
       }
@@ -540,8 +621,8 @@
     if (!t.closest) return;
     if (t.closest('.ks-ui')) { clearTimeout(secTimer); return; }
     if (editing) return;
-    var opt = t.closest('[data-ks-opt], [data-ks-t="toggle"]');
-    if (opt) placeOptChip(opt); else hideOptChip();
+    var opt = removableAt(t);
+    if (opt) { if (opt !== optEl) placeOptChip(opt); } else hideOptChip();
     var wrap = t.closest('[data-ks-instance]');
     clearTimeout(secTimer);
     if (wrap) showSection(wrap);
@@ -555,15 +636,162 @@
   window.addEventListener('resize', placeSection, { passive: true });
 
   // A page with no sections yet still needs a way to add one.
-  if (!bodySections().length) {
+  function ensureEmptyPage() {
     var mainEl = document.getElementById('main');
-    if (mainEl) {
-      var empty = document.createElement('div');
-      empty.id = 'ks-empty-page';
-      empty.innerHTML = '<div class="ks-ui ks-add" style="position:static;display:flex"><button type="button">' + icon('plus') + 'Add your first section</button></div>';
-      empty.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); post({ type: 'add-section', index: 0 }); });
-      mainEl.appendChild(empty);
+    if (!mainEl || bodySections().length || document.getElementById('ks-empty-page')) return;
+    var empty = document.createElement('div');
+    empty.id = 'ks-empty-page';
+    empty.innerHTML = '<div class="ks-ui ks-add" style="position:static;display:flex"><button type="button">' + icon('plus') + 'Add your first section</button></div>';
+    empty.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); post({ type: 'add-section', index: 0 }); });
+    mainEl.appendChild(empty);
+  }
+  ensureEmptyPage();
+
+  // ── Changes applied in place (ks:apply) ──────────────────────────────────
+  // The editor saves in the background; the page only re-renders when a
+  // change can't be shown here (then we ask for it with "reload").
+  function instEl(id) {
+    return id ? document.querySelector('[data-ks-instance="' + CSS.escape(id) + '"]') : null;
+  }
+  function inInstance(id, selector) {
+    var wrap = instEl(id);
+    return wrap ? wrap.querySelector(selector) : null;
+  }
+  function fieldEl(id, path) { return inInstance(id, '[data-ks-f="' + CSS.escape(path) + '"]'); }
+  function listEl(id, path) { return inInstance(id, '[data-ks-l="' + CSS.escape(path) + '"]'); }
+  function setHidden(el, hidden) { if (hidden) el.setAttribute('data-ks-hidden', ''); else el.removeAttribute('data-ks-hidden'); }
+
+  function refreshUi() {
+    var w = secWrap;
+    hideSectionUi();
+    if (w && document.contains(w)) showSection(w);
+    if (optEl) { if (document.contains(optEl)) placeOptChip(optEl); else hideOptChip(); }
+    bar.style.display = 'none';
+    barItem = null;
+  }
+
+  // List items carry their index in data-ks-i and in every field path inside
+  // them ("stats.2.label"); keep both in step after items move.
+  function reindex(list) {
+    var listPath = list.getAttribute('data-ks-l');
+    Array.prototype.forEach.call(list.querySelectorAll(':scope > [data-ks-i]'), function (item, i) {
+      var old = item.getAttribute('data-ks-i');
+      if (old === String(i)) return;
+      var from = listPath + '.' + old + '.';
+      var to = listPath + '.' + i + '.';
+      Array.prototype.forEach.call(item.querySelectorAll('[data-ks-f],[data-ks-l]'), function (n) {
+        ['data-ks-f', 'data-ks-l'].forEach(function (a) {
+          var v = n.getAttribute(a);
+          if (v && v.indexOf(from) === 0) n.setAttribute(a, to + v.slice(from.length));
+        });
+      });
+      item.setAttribute('data-ks-i', String(i));
+    });
+  }
+
+  function applySection(c) {
+    var wrap = instEl(c.instance);
+    if (!wrap) return false;
+    if (c.action === 'hide' || c.action === 'show') { setHidden(wrap, c.action === 'hide'); return true; }
+    if (c.action === 'remove') {
+      if (editing && wrap.contains(editing)) finishEditing(false);
+      if (selected === wrap) selected = null;
+      wrap.remove();
+      ensureEmptyPage();
+      return true;
     }
+    if (c.action === 'duplicate') {
+      var copy = wrap.cloneNode(true);
+      copy.setAttribute('data-ks-instance', c.created);
+      copy.classList.remove('ks-hover', 'ks-sel');
+      wrap.after(copy);
+      return true;
+    }
+    if (c.action === 'move') {
+      var list = bodySections();
+      var from = list.indexOf(wrap);
+      if (from === -1) return false;
+      list.splice(from, 1);
+      if (!list.length) return true;
+      var to = Math.max(0, Math.min(list.length, Number(c.to)));
+      if (to < list.length) list[to].before(wrap); else list[list.length - 1].after(wrap);
+      if (wrap.firstElementChild) wrap.firstElementChild.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      return true;
+    }
+    return false;
+  }
+
+  function applyList(c) {
+    var list = listEl(c.instance, c.path);
+    if (!list) return false;
+    var items = list.querySelectorAll(':scope > [data-ks-i]');
+    var index = Number(c.index);
+    var item = items[index];
+    if (!item) return false;
+    if (c.action === 'remove') {
+      if (items.length <= 1) return false; // the empty-list placeholder comes from the server
+      if (editing && item.contains(editing)) finishEditing(false);
+      item.remove();
+    } else if (c.action === 'duplicate') {
+      item.after(item.cloneNode(true));
+    } else if (c.action === 'move') {
+      var to = Math.max(0, Math.min(items.length - 1, Number(c.to)));
+      if (to === index) return true;
+      if (to > index) items[to].after(item); else items[to].before(item);
+    } else return false;
+    reindex(list);
+    return true;
+  }
+
+  function applyField(c) {
+    var el = fieldEl(c.instance, c.path);
+    var v = c.value;
+    var obj = v && typeof v === 'object' ? v : null;
+    if (!el) {
+      // Showing/hiding a whole list goes through its path too.
+      var list = listEl(c.instance, c.path);
+      if (list && obj && typeof obj.hidden === 'boolean') { setHidden(list, obj.hidden); return true; }
+      return false;
+    }
+    var t = el.getAttribute('data-ks-t');
+    if (t === 'toggle') { setHidden(el, typeof v === 'boolean' ? !v : !!(obj && obj.hidden)); return true; }
+    if (t === 'bg') {
+      var bgSrc = typeof v === 'string' ? v : obj && obj.src;
+      if (obj && obj.hidden) el.style.backgroundImage = 'none';
+      else el.style.backgroundImage = bgSrc ? 'url("' + String(bgSrc).replace(/["\\\n\r]/g, '') + '")' : '';
+      return true;
+    }
+    if (obj && typeof obj.hidden === 'boolean') setHidden(el, obj.hidden);
+    if (el === editing) return true; // the owner is typing here right now
+    if (t === 'text' || t === 'richtext') {
+      if (typeof v === 'string') el.innerHTML = v;
+      else if (obj && typeof obj.html === 'string') el.innerHTML = obj.html;
+    } else if (t === 'image') {
+      if (obj && obj.src) { el.setAttribute('src', obj.src); el.removeAttribute('srcset'); el.removeAttribute('sizes'); }
+      if (obj && typeof obj.alt === 'string') el.setAttribute('alt', obj.alt);
+    } else if (t === 'link') {
+      if (obj && typeof obj.href === 'string') el.setAttribute('href', obj.href);
+      if (obj && 'newTab' in obj) { if (obj.newTab) el.setAttribute('target', '_blank'); else el.removeAttribute('target'); }
+      // A link wrapping other fields keeps its children; a plain one shows its label.
+      if (obj && typeof obj.label === 'string' && !el.querySelector('[data-ks-f]')) el.innerHTML = obj.label;
+    }
+    return true;
+  }
+
+  function applyChange(c) {
+    if (!c) return;
+    var ok = false;
+    try {
+      if (c.op === 'section') ok = applySection(c);
+      else if (c.op === 'list') ok = applyList(c);
+      else if (c.op === 'field') ok = applyField(c);
+      else if (c.op === 'visibility') {
+        var el = c.kind === 'list' ? listEl(c.instance, c.path) : fieldEl(c.instance, c.path);
+        if (el) { setHidden(el, !!c.hidden); ok = true; }
+      }
+    } catch (err) { ok = false; }
+    refreshUi();
+    if (!ok) post({ type: 'reload' });
   }
 
   // ── Messages from the editor ─────────────────────────────────────────────
@@ -573,7 +801,8 @@
     if (d.type === 'ks:scrollTo') window.scrollTo(0, Number(d.y) || 0);
     if (d.type === 'ks:highlight') select(d.instance, true);
     if (d.type === 'ks:ask-clear') clearAsk();
-    if (d.type === 'ks:meta') { names = d.names || {}; if (secWrap) { var w = secWrap; secWrap = null; showSection(w); } }
+    if (d.type === 'ks:meta') { names = d.names || {}; colors = d.colors || []; if (secWrap) { var w = secWrap; secWrap = null; showSection(w); } }
+    if (d.type === 'ks:apply') applyChange(d.change);
   });
 
   var lastY = -1;

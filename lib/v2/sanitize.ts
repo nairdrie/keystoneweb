@@ -9,10 +9,22 @@ const SAFE_SCHEMES = ['http', 'https', 'mailto', 'tel'];
 const INLINE_TAGS = ['em', 'strong', 'b', 'i', 'u', 's', 'br', 'span', 'mark', 'sup', 'sub', 'small', 'a'];
 const BLOCK_TAGS = ['p', 'h2', 'h3', 'h4', 'ul', 'ol', 'li', 'blockquote'];
 
+/**
+ * Inline formatting that may carry a class: agents style accents with their own
+ * CSS (`<em class="accent">`), and the owner editor offers those classes as
+ * styles (text-styles.ts).
+ */
+export const STYLE_CLASS_TAGS = ['span', 'mark', 'em', 'strong', 'b', 'i', 'u', 's', 'small'];
+
 const ATTRS: sanitizeHtml.IOptions['allowedAttributes'] = {
-  span: ['class'],
-  mark: ['class'],
+  ...Object.fromEntries(STYLE_CLASS_TAGS.map((t) => [t, ['class']])),
+  // The owner's text colour: only the site's own theme colours (var(--token)).
+  span: ['class', 'style'],
   a: ['href', 'target', 'rel'],
+};
+
+const THEME_COLOR_STYLES: sanitizeHtml.IOptions['allowedStyles'] = {
+  span: { color: [/^var\(--[a-z0-9-]+\)$/i] },
 };
 
 /** Inline formatting only — headlines, labels, button text. */
@@ -21,6 +33,7 @@ export function sanitizeInline(html: string): string {
   return sanitizeHtml(String(html), {
     allowedTags: INLINE_TAGS,
     allowedAttributes: ATTRS,
+    allowedStyles: THEME_COLOR_STYLES,
     allowedSchemes: SAFE_SCHEMES,
     transformTags: { a: forceSafeLink },
   }).trim();
@@ -32,6 +45,7 @@ export function sanitizeRich(html: string): string {
   return sanitizeHtml(String(html), {
     allowedTags: [...INLINE_TAGS, ...BLOCK_TAGS],
     allowedAttributes: ATTRS,
+    allowedStyles: THEME_COLOR_STYLES,
     allowedSchemes: SAFE_SCHEMES,
     transformTags: { a: forceSafeLink },
   }).trim();

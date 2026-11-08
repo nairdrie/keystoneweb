@@ -10,7 +10,8 @@ import { applyFieldChange, normalizeFieldValue } from '../lib/v2/content';
 import { sampleBundle, SAMPLE_SECTIONS } from './fixtures/v2-sample-site';
 import { renderChrome, platformPalette } from '../lib/v2/render';
 import { featuresIn } from '../lib/v2/collections';
-import { sanitizeArticle, toPlainText } from '../lib/v2/sanitize';
+import { sanitizeArticle, sanitizeInline, sanitizeRich, toPlainText } from '../lib/v2/sanitize';
+import { textStylesFor } from '../lib/v2/text-styles';
 import { validateBundle } from '../lib/v2/validate';
 
 let passed = 0;
@@ -45,11 +46,10 @@ test('extracts fields, types, hints and defaults', () => {
   assert.equal(byId.title.max, 70);
   assert.equal(byId.intro.type, 'richtext');
   assert.equal(byId.cta.type, 'link');
-  assert.equal(byId.cta2.optional, true);
   assert.equal(byId.badges.type, 'list');
   assert.equal(byId.badges.maxItems, 4);
   assert.deepEqual(byId.badges.item?.map((f) => f.id), ['label']);
-  assert.equal((c.defaults.title as { html: string }).html, 'Roofs done <em>right</em>, the first time.'.replace('<em>', '<em>'));
+  assert.equal((c.defaults.title as { html: string }).html, 'Roofs done <em class="accent">right</em>, the first time.');
   assert.equal((c.defaults.badges as { items: unknown[] }).items.length, 2);
   assert.deepEqual(c.defaults.bg, { src: 'https://example.com/roof.jpg' });
 });
@@ -143,7 +143,7 @@ test('applies stored content, list values, hidden optionals and owner token over
   assert.match(html, /--color-brand:#111111/);
 });
 
-test('edit mode marks fields, lists, items and keeps hidden elements visible-but-dimmed', () => {
+test('edit mode marks fields, lists and items; removed fields are gone from the canvas too', () => {
   const b = bundleWithSplitSources();
   b.content['i-hero'] = { cta2: { href: '/work', label: 'See our work', hidden: true } };
   const page = findPageByPath(b, '/')!;
@@ -152,23 +152,87 @@ test('edit mode marks fields, lists, items and keeps hidden elements visible-but
   assert.match(html, /data-ks-l="badges"/);
   assert.match(html, /data-ks-f="badges.1.label"/);
   assert.match(html, /data-ks-f="items.0.photo" data-ks-t="image"/);
-  assert.match(html, /data-ks-hidden=""[^>]*>See our work|data-ks-f="cta2"[^>]*data-ks-hidden/);
+  assert.doesNotMatch(html, /See our work|data-ks-f="cta2"/);
   assert.match(html, /href="\/v2r\/draft\/TOKEN\/contact"/);
   assert.match(html, /\/ks\/editor\.js/);
   assert.doesNotMatch(html, /text\/ks-module/); // agent JS is not run while editing
 });
 
-test('edit mode marks optional parts and keeps a placeholder in empty lists', () => {
+test('owner text keeps accent classes and theme colours, nothing else', () => {
+  assert.equal(sanitizeInline('<em class="accent">a</em> <strong class="x">b</strong>'), '<em class="accent">a</em> <strong class="x">b</strong>');
+  assert.equal(sanitizeInline('<span style="color:var(--color-brand)">c</span>'), '<span style="color:var(--color-brand)">c</span>');
+  assert.equal(sanitizeInline('<span style="color:red;font-size:80px">d</span>'), '<span>d</span>');
+  assert.equal(sanitizeInline('<span style="color:var(--x);background:url(javascript:1)">e</span>'), '<span style="color:var(--x)">e</span>');
+  assert.equal(sanitizeRich('<p><mark class="hl">f</mark></p><h2 class="no">g</h2>'), '<p><mark class="hl">f</mark></p><h2>g</h2>');
+});
+
+test('text styles come from the classes the designer used', () => {
+  const styles = textStylesFor(['Roofs <em class="accent">last</em> and <span class="text-gradient">shine</span> <span class="hl">!</span> <em>plain</em>', { html: '<mark>x</mark> <em class="accent">again</em>' }]);
+  assert.deepEqual(styles.map((s) => `${s.t}.${s.c}=${s.l}`), ['em.accent=Accent', 'span.text-gradient=Gradient', 'span.hl=Accent 2', 'mark.=Highlight']);
+});
+
+test('edit mode offers the designer\'s accent classes as text styles', () => {
+  const b = sampleBundle();
+  const html = '<section><h1 data-ks="title">Roofs that <em class="accent">last</em></h1>'
+    + '<ul data-ks-list="tags"><li data-ks-item><span data-ks="label">A <mark>b</mark></span></li><li data-ks-item><span data-ks="label">C <span class="pop">d</span></span></li></ul></section>';
+  b.sections.hero = { ...b.sections.hero, html, css: '', js: '', schema: compileSection(html) as never };
+  b.content['i-hero'] = { title: { html: 'Built <span style="color:var(--color-brand)">to last</span>' } };
+  const page = findPageByPath(b, '/')!;
+  const edit = renderPage(b, page, { mode: 'edit' }).html;
+  const stylesOf = (path: string) => {
+    const m = new RegExp(`data-ks-f="${path.replace(/\./g, '\.')}"[^>]*data-ks-st="([^"]*)"`).exec(edit);
+    assert.ok(m, `no styles on ${path}`);
+    return (JSON.parse(m[1].replace(/&quot;/g, '"')) as Array<{ t: string; c: string; l: string }>).map((s) => `${s.t}.${s.c}=${s.l}`);
+  };
+  // The owner's text has no accent left, but the designer's default did: still offered.
+  assert.deepEqual(stylesOf('title'), ['em.accent=Accent']);
+  // List item fields: the field in every default item counts.
+  assert.deepEqual(stylesOf('tags.0.label'), ['mark.=Highlight', 'span.pop=Pop']);
+  assert.match(edit, /Built <span style="color:var\(--color-brand\)">to last<\/span>/);
+  const pub = renderPage(b, page, { mode: 'published' }).html;
+  assert.doesNotMatch(pub, /data-ks-st/);
+  assert.match(pub, /<em class="accent">last<\/em>|Built <span/);
+  assert.ok(compileSection('<h1 data-ks="t">A <span style="color:red">b</span></h1>').issues.some((i) => i.rule === 'text-inline-style'));
+});
+
+test('edit mode keeps a placeholder in empty lists', () => {
   const b = bundleWithSplitSources();
   b.content['i-hero'] = { badges: { items: [] } };
   const page = findPageByPath(b, '/')!;
   const edit = renderPage(b, page, { mode: 'edit' }).html;
-  assert.match(edit, /data-ks-f="cta2"[^>]*data-ks-opt|data-ks-opt[^>]*data-ks-f="cta2"/);
   assert.match(edit, /data-ks-l="badges"/);
   assert.match(edit, /<li data-ks-item="" data-ks-ghost="">/);
+  assert.doesNotMatch(edit, /data-ks-opt/);
   const pub = renderPage(b, page, { mode: 'published' }).html;
-  assert.doesNotMatch(pub, /data-ks-ghost|data-ks-opt/);
+  assert.doesNotMatch(pub, /data-ks-ghost/);
   assert.doesNotMatch(pub, /Licensed/); // no placeholder item on the live site
+});
+
+test('remove: any field, list or list-item field goes (hidden: true); a background only loses its image', () => {
+  const b = bundleWithSplitSources();
+  b.content['i-hero'] = {
+    title: { html: 'Gone', hidden: true },
+    badges: { items: [{ label: 'One' }, { label: 'Two' }], hidden: true },
+    bg: { src: 'https://cdn.example.com/new.jpg', hidden: true },
+  };
+  const page = findPageByPath(b, '/')!;
+  for (const mode of ['edit', 'published'] as const) {
+    const html = renderPage(b, page, { mode }).html;
+    assert.doesNotMatch(html, />Gone</, mode);
+    assert.doesNotMatch(html, /One|data-ks-l="badges"/, mode);
+    assert.doesNotMatch(html, /new\.jpg|roof\.jpg/, mode);
+    assert.match(html, /background-image:none/, mode);
+    assert.match(html, /eyebrow/, `${mode}: the background's content stays`);
+  }
+  // One item's field, inside a list that stays.
+  b.content['i-hero'] = { badges: { items: [{ label: { html: 'One', hidden: true } }, { label: 'Two' }] } };
+  const html = renderPage(b, page, { mode: 'edit' }).html;
+  assert.doesNotMatch(html, /data-ks-f="badges.0.label"/);
+  assert.match(html, /data-ks-f="badges.1.label"[^>]*>Two</);
+  // Undo: hidden: false brings it back as it was.
+  b.content['i-hero'] = { bg: { src: 'https://cdn.example.com/new.jpg', hidden: false } };
+  assert.match(renderPage(b, page, { mode: 'published' }).html, /background-image:url\('https:\/\/cdn.example.com\/new.jpg'\)/);
+  assert.deepEqual(normalizeFieldValue({ id: 'bg', type: 'bg' }, { src: '', hidden: true }, { src: 'https://x.test/a.jpg' }), { src: '', hidden: true });
 });
 
 test('repeated items with numbered fields get a list hint (warning only)', () => {
