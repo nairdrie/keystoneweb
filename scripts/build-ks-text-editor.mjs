@@ -34,7 +34,9 @@ const code = result.outputFiles[0].text;
 if (check) {
   let current = '';
   try { current = readFileSync(outfile, 'utf8'); } catch { /* missing */ }
-  if (current !== code) {
+  // Compare ignoring line endings (Windows checkouts may convert them).
+  const lf = (s) => s.replace(/\r\n/g, '\n');
+  if (lf(current) !== lf(code)) {
     console.error('public/ks/text-editor.js is out of date. Run: node scripts/build-ks-text-editor.mjs');
     process.exit(1);
   }
