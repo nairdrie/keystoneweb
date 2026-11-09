@@ -12,11 +12,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  Building2, Eye, FileText, History, LayoutDashboard, Loader2, Monitor, Paintbrush, Palette, PenLine, Rocket, Settings, Share2, Smartphone, Tablet,
+  Building2, CheckCircle2, Eye, FileText, History, LayoutDashboard, Loader2, Monitor, Paintbrush, Palette, PenLine, Rocket, Settings, Share2, Smartphone, Tablet,
 } from 'lucide-react';
 import KeystoneLogo from '@/app/components/KeystoneLogo';
 import { hasPaidAccess } from '@/lib/subscription/access';
-import { editorOp, EditorApiError, loadEditorState, pagePath, type EditorState, type FieldInfo } from './api';
+import { editorOp, EditorApiError, loadEditorState, pagePath, type EditorState, type FieldInfo, type PublishStatus } from './api';
 import { BrandPanel, BusinessPanel, PagesPanel, type PanelActions, type RemoveKind } from './panels';
 import { AddSectionModal, ChangeRequestModal, HistoryModal, LinkModal, MediaModal, SectionContentModal, SharePreviewModal } from './modals';
 import ArchiePopover, { useArchie, type ArchieOpen } from './archie';
@@ -126,6 +126,31 @@ export default function V2Editor({ siteId }: { siteId: string }) {
   const archieApi = useArchie(siteId, { onChanged: () => { void refresh(); }, toast });
 
   const page = useMemo(() => state?.pages.find((p) => p.id === pageId) || state?.pages[0] || null, [state, pageId]);
+
+  // Publish is only offered when the draft differs from the live release.
+  const upToDate = !!state?.site.isPublished && state.publish?.hasUnpublishedChanges === false && saving === 0 && !publishing;
+  // Changes can also come from outside this tab (Claude over MCP, another
+  // window): re-check when the owner comes back to it.
+  useEffect(() => {
+    const recheck = () => {
+      if (document.visibilityState !== 'visible' || !stateRef.current) return;
+      editorOp<PublishStatus>(siteId, 'publish-status')
+        .then((publish) => {
+          const current = stateRef.current;
+          if (!current || current.publish?.hasUnpublishedChanges === publish.hasUnpublishedChanges) return;
+          const next = { ...current, publish };
+          stateRef.current = next;
+          setState(next);
+        })
+        .catch(() => { /* keep the last known status */ });
+    };
+    window.addEventListener('focus', recheck);
+    document.addEventListener('visibilitychange', recheck);
+    return () => {
+      window.removeEventListener('focus', recheck);
+      document.removeEventListener('visibilitychange', recheck);
+    };
+  }, [siteId]);
 
   const closeArchie = useCallback(() => {
     setArchie(null);
@@ -464,7 +489,8 @@ export default function V2Editor({ siteId }: { siteId: string }) {
       });
       const body = await pub.json().catch(() => ({}));
       if (!pub.ok) throw new Error(body.error || 'Publishing failed');
-      toast('Your changes are live!');
+      // Live pages are edge-cached for a minute, so give visitors' copies time to refresh.
+      toast('Your changes are live! They can take a minute or two to show up on your site.');
       await refresh({ canvas: false });
     } catch (e) {
       toast((e as Error).message, 'error');
@@ -559,9 +585,15 @@ export default function V2Editor({ siteId }: { siteId: string }) {
         <button onClick={() => setShowShare(true)} className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" title="Share a preview link without publishing">
           <Share2 className="h-4 w-4" /> <span className="hidden lg:inline">Share</span>
         </button>
-        <button onClick={() => void publish()} disabled={publishing} className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50">
-          {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />} Publish
-        </button>
+        {upToDate ? (
+          <button disabled className="flex cursor-default items-center gap-1.5 rounded-lg bg-slate-100 px-3.5 py-2 text-sm font-semibold text-slate-400" title="Your live site matches this draft. Make a change to publish again.">
+            <CheckCircle2 className="h-4 w-4" /> Published
+          </button>
+        ) : (
+          <button onClick={() => void publish()} disabled={publishing} className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50" title={state.site.isPublished ? 'You have changes that aren’t on your live site yet' : undefined}>
+            {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />} Publish
+          </button>
+        )}
       </header>
 
       <div className="flex min-h-0 flex-1">

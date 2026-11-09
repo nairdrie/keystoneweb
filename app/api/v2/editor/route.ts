@@ -13,6 +13,7 @@ import type { Actor } from '@/lib/v2/types';
 import { ENGINE_V2 } from '@/lib/v2/types';
 import { getSiteEngine, copyInstanceContent, saveLayout } from '@/lib/v2/store';
 import { createDraftToken } from '@/lib/v2/preview-token';
+import { getV2PublishStatus } from '@/lib/v2/publish';
 import {
   OpError,
   newInstanceId,
@@ -58,15 +59,17 @@ function errorResponse(e: unknown) {
 export async function GET(request: NextRequest) {
   try {
     const ctx = await context(request, request.nextUrl.searchParams.get('siteId'));
-    const [site, content, editToken, previewToken] = await Promise.all([
+    const [site, content, publish, editToken, previewToken] = await Promise.all([
       opGetSite(ctx),
       opGetContent(ctx),
+      getV2PublishStatus(ctx.db, ctx.siteId),
       createDraftToken(ctx.siteId, 'edit', 12 * 3600),
       createDraftToken(ctx.siteId, 'preview', 12 * 3600),
     ]);
     return NextResponse.json({
       ...site,
       content: content.content,
+      publish,
       canvas: { editBase: `/v2r/draft/${editToken}`, previewBase: `/v2r/draft/${previewToken}` },
       appUrl: APP_URL,
     });
@@ -117,6 +120,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(await opRestoreVersion(ctx, body.versionId));
       case 'validate':
         return NextResponse.json(await opValidate(ctx));
+      case 'publish-status':
+        return NextResponse.json(await getV2PublishStatus(ctx.db, ctx.siteId));
       case 'change-request': {
         const message = toPlainText(String(body.message || '')).slice(0, 4000);
         if (message.length < 5) throw new OpError('Tell us what you would like changed');

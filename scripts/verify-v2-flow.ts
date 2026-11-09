@@ -22,6 +22,7 @@ async function main() {
   const { duplicateSite } = await import('../lib/sites/duplicate');
   const { fetchCollections, collectionsIn, pageSectionHtmls } = await import('../lib/v2/collections');
   const { PUBLISHED_ROOT } = await import('../lib/env/domain');
+  const { getV2PublishStatus } = await import('../lib/v2/publish');
 
   const db = new FakeSupabase();
   const OWNER = '11111111-1111-1111-1111-111111111111';
@@ -403,7 +404,12 @@ async function main() {
     const site = await loadSiteRow(db as never, siteId);
     assert.equal(site?.is_published, true);
     assert.equal(site?.v2_release_id, releaseId);
-    await ok(tokens['owner-agent'], 'set_content', { site_id: siteId, changes: [{ instance: 'home-services', path: 'heading', value: 'Draft-only heading' }] });
+    // The editor's Publish button: nothing to publish right after publishing
+    // (the release was frozen before the domain was set; that mustn't count)…
+    assert.equal((await getV2PublishStatus(db as never, siteId)).hasUnpublishedChanges, false);
+    await ok(tokens['owner-agent'], 'set_content', { site_id: siteId, changes: [{ instance: 'home-services', path: 'heading', value: 'Draft-only heading' }], force: true });
+    // …and an agent edit over MCP makes it publishable again.
+    assert.equal((await getV2PublishStatus(db as never, siteId)).hasUnpublishedChanges, true);
     const live = await loadRelease(db as never, releaseId);
     const liveHtml = renderPage(live!, findPageByPath(live!, '/')!, { mode: 'published', siteUrl: 'https://northline.kswd.ca' }).html;
     assert.doesNotMatch(liveHtml, /Draft-only heading/);
@@ -429,6 +435,8 @@ async function main() {
     const bundle = await loadDraftBundle(db as never, siteId);
     assert.notEqual((bundle!.content['home-services']?.heading as { html: string } | undefined)?.html, 'Draft-only heading');
     assert.ok(bundle!.ownerEdited.includes('home-hero/title'), 'owner locks survive restore');
+    // Back to exactly what's live (new revision numbers don't count as changes).
+    assert.equal((await getV2PublishStatus(db as never, siteId)).hasUnpublishedChanges, false);
   });
 
   await step('preview links are signed and scoped to the site', async () => {
