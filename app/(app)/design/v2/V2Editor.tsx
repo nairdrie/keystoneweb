@@ -20,6 +20,7 @@ import { editorOp, EditorApiError, loadEditorState, pagePath, type EditorState, 
 import { BrandPanel, BusinessPanel, PagesPanel, type PanelActions, type RemoveKind } from './panels';
 import { AddSectionModal, ChangeRequestModal, HistoryModal, LinkModal, MediaModal, SectionContentModal, SharePreviewModal } from './modals';
 import ArchiePopover, { useArchie, type ArchieOpen } from './archie';
+import SiteSwitcher from './site-switcher';
 import ArchieAIIcon from '@/app/components/ArchieAIIcon';
 import EditorLoadingScreen from '@/app/components/EditorLoadingScreen';
 
@@ -165,13 +166,17 @@ export default function V2Editor({ siteId }: { siteId: string }) {
   // Leaving the editor (logo, Admin): let a text field that is still focused
   // send its last edit, and let queued saves finish, before navigating away.
   // Cmd/Ctrl/middle-click still opens a new tab straight away.
-  const leaveTo = useCallback(async (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
-    e.preventDefault();
+  /** Leave the editor once pending saves (incl. a text edit committing on blur) have finished. */
+  const navigateAway = useCallback(async (href: string) => {
     await new Promise((r) => setTimeout(r, 150));
     await queue.current.catch(() => {});
     router.push(href);
   }, [router]);
+  const leaveTo = useCallback(async (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+    e.preventDefault();
+    await navigateAway(href);
+  }, [navigateAway]);
 
   // Versions are read when a queued edit actually runs, so quick successive
   // clicks never look stale to the server — only someone else's change does.
@@ -518,17 +523,15 @@ export default function V2Editor({ siteId }: { siteId: string }) {
             <LayoutDashboard className="h-3 w-3" /> Admin
           </a>
         </div>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-slate-900">{state.site.title}</p>
-          <p className="truncate text-[11px] text-slate-500">{state.site.isPublished && state.site.domain ? state.site.domain : 'Not published yet'}</p>
-        </div>
+        <SiteSwitcher
+          siteId={siteId}
+          title={state.site.title}
+          subtitle={state.site.isPublished && state.site.domain ? state.site.domain : 'Not published yet'}
+          onSwitch={(href) => void navigateAway(href)}
+        />
         <span className={`flex shrink-0 items-center gap-1 text-[11px] font-medium text-slate-500 transition-opacity ${saving > 0 ? 'opacity-100' : 'opacity-0'}`} role="status" aria-live="polite">
           <Loader2 className="h-3 w-3 animate-spin" /> {saving > 0 ? 'Saving…' : ''}
         </span>
-
-        <select value={page.id} onChange={(e) => { setPageId(e.target.value); scrollY.current = 0; setSelected(null); }} className="ml-4 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm" aria-label="Page">
-          {state.pages.map((p) => <option key={p.id} value={p.id}>{p.template === 'post' ? `Blog article layout (${p.navLabel || p.title})` : p.navLabel || p.title}</option>)}
-        </select>
 
         <div className="mx-auto flex items-center gap-1 rounded-lg bg-slate-100 p-1">
           {([['desktop', Monitor], ['tablet', Tablet], ['mobile', Smartphone]] as const).map(([d, Icon]) => (

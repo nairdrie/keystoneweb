@@ -34,6 +34,7 @@ const ARCHIE_TOOLS = [
   'update_business_profile',
   'search_stock_media',
   'import_media',
+  'list_media',
   'screenshot',
   'get_business_data',
   'upsert_services',
@@ -63,7 +64,13 @@ export interface ArchieRequest {
   target?: ArchieTarget | null;
   /** Earlier turns with Archie on this site (plain text only, already trimmed to a window). */
   history?: Array<{ role: 'user' | 'assistant'; text: string }>;
+  /** Images the owner attached, already in the site's media library (see ARCHIE_MAX_IMAGES). */
+  images?: ArchieImage[];
 }
+
+export interface ArchieImage { url: string; name?: string | null }
+
+export const ARCHIE_MAX_IMAGES = 4;
 
 export type ArchieEvent =
   | { type: 'run'; id: string }
@@ -90,6 +97,8 @@ export interface ArchieRun {
   reply: string | null;
   changed: boolean;
   undoVersionId: string | null;
+  /** Images attached to the request (media library URLs). */
+  images?: ArchieImage[];
   /** The owner pressed Undo on this run. */
   undone?: boolean;
   stopRequested?: boolean;
@@ -123,6 +132,7 @@ function rowToRun(row: { id: string; created_at: string; detail: unknown }): Arc
     reply,
     changed: !!d.changed,
     undoVersionId: d.undoVersionId ?? null,
+    images: Array.isArray(d.images) ? d.images.filter((i) => i && typeof i.url === 'string').slice(0, ARCHIE_MAX_IMAGES) : [],
     undone: !!d.undone,
     stopRequested: !!d.stopRequested,
   };
@@ -171,7 +181,12 @@ export function runsToHistory(runs: ArchieRun[], excludeId?: string): ArchieRequ
     .filter((r) => r.id !== excludeId && r.status !== 'running' && r.reply && new Date(r.createdAt).getTime() >= since)
     .slice(-HISTORY_RUNS);
   return recent.flatMap((r) => [
-    { role: 'user' as const, text: `[Earlier request${r.target?.label ? `, about ${r.target.label}` : ''}${r.pageSlug ? ` on page "${r.pageSlug}"` : ''}]\n${r.prompt.slice(0, 1200)}` },
+    {
+      role: 'user' as const,
+      text: `[Earlier request${r.target?.label ? `, about ${r.target.label}` : ''}${r.pageSlug ? ` on page "${r.pageSlug}"` : ''}]\n${r.prompt.slice(0, 1200)}${
+        r.images?.length ? `\n[Images the owner attached (in the media library): ${r.images.map((i) => i.url).join(' , ')}]` : ''
+      }`,
+    },
     { role: 'assistant' as const, text: `${(r.reply || '').slice(0, 800)}${r.status === 'stopped' ? ' (stopped by the owner)' : ''}` },
   ]);
 }
@@ -190,6 +205,7 @@ const TOOL_LABELS: Record<string, string> = {
   update_business_profile: 'Updating business info',
   search_stock_media: 'Searching for photos',
   import_media: 'Adding an image',
+  list_media: 'Looking through your photos',
   screenshot: 'Checking how it looks',
   get_business_data: 'Checking products and services',
   upsert_services: 'Updating services',
@@ -296,6 +312,15 @@ async function siteOverview(ctx: ToolContext, siteId: string, sectionKey: string
   return JSON.stringify(site);
 }
 
+function attachedImagesNote(images: ArchieImage[]): string {
+  const list = images.slice(0, ARCHIE_MAX_IMAGES).map((img, i) => `${i + 1}. ${img.url}${img.name ? ` (file "${String(img.name).slice(0, 80)}")` : ''}`);
+  return [
+    `The owner attached ${images.length === 1 ? 'an image' : `${images.length} images`} (shown above, in this order). ${images.length === 1 ? "It is" : 'They are'} already in the site's media library:`,
+    ...list,
+    "Use these URLs as they are in content and HTML (no import_media needed). If the owner didn't say where an image goes, pick the obvious spot (a logo goes in the header/footer and business profile; a photo replaces the image they pointed at, or the most fitting one) and say where you put it. If an image is just a reference (\"make it look like this\"), use it as inspiration and don't put it on the site.",
+  ].join('\n');
+}
+
 function describeTarget(target: ArchieTarget): string {
   const clip = (s: string | null | undefined, n: number) => (s ? String(s).slice(0, n) : '');
   const wholeSection = target.tag === 'section' && !target.selector;
@@ -348,6 +373,7 @@ export async function runArchie(opts: {
     `Site overview (get_site):\n${overview}`,
     request.pageSlug ? `The owner is looking at the page with slug "${request.pageSlug}".` : '',
     request.target ? describeTarget(request.target) : '',
+    request.images?.length ? attachedImagesNote(request.images) : '',
     `The owner's request:\n${request.prompt}`,
   ].filter(Boolean);
 
@@ -357,7 +383,16 @@ export async function runArchie(opts: {
     if (text) messages.push({ role: turn.role === 'assistant' ? 'assistant' : 'user', content: text });
   }
   if (messages[0]?.role === 'assistant') messages.shift();
-  messages.push({ role: 'user', content: parts.join('\n\n') });
+  const images = (request.images || []).slice(0, ARCHIE_MAX_IMAGES);
+  messages.push({
+    role: 'user',
+    content: images.length
+      ? [
+        ...images.map((img) => ({ type: 'image' as const, source: { type: 'url' as const, url: img.url } })),
+        { type: 'text' as const, text: parts.join('\n\n') },
+      ]
+      : parts.join('\n\n'),
+  });
 
   const client = new Anthropic({ apiKey: opts.apiKey });
   const tools = toolDefs();

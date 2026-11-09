@@ -31,7 +31,8 @@ import {
 import { loadDraftBundle, loadSiteRow, type Db } from './store';
 import { draftUrl } from './preview-token';
 import { checkPublishEligibility, publishV2Site, resolveSubdomain } from './publish';
-import { importImageFromUrl, searchStockPhotos } from './media';
+import { importImageBuffer, importImageFromUrl, listSiteImages, searchStockPhotos } from './media';
+import { createUploadToken, uploadUrl, UPLOAD_TTL_DEFAULT, UPLOAD_TTL_MAX } from './upload-token';
 import { exportLegacySite } from './legacy';
 import { escapeHtml, safeSrc, toPlainText } from './sanitize';
 import { captureScreenshots, type ViewportName } from './screenshot';
@@ -116,6 +117,16 @@ const businessSchema = {
     favicon: str('Favicon image URL.'),
   },
 };
+
+const MAX_BASE64_BYTES = 3 * 1024 * 1024;
+
+/** import_media's data_base64: plain base64 or a data: URL, size-capped (MCP requests are small). */
+function decodeBase64Image(raw: string): Buffer {
+  const body = raw.trim().replace(/^data:[^;,]*;base64,/i, '').replace(/\s+/g, '');
+  if (!/^[A-Za-z0-9+/_-]+={0,2}$/.test(body)) throw new OpError('data_base64 is not valid base64');
+  if (body.length * 0.75 > MAX_BASE64_BYTES + 4) throw new OpError('data_base64 is over 3 MB: use create_upload_link for bigger files');
+  return Buffer.from(body, 'base64');
+}
 
 // ── tools ───────────────────────────────────────────────────────────────────
 
@@ -458,22 +469,84 @@ export const TOOLS: ToolDef[] = [
   {
     name: 'import_media',
     title: 'Import an image',
-    description: 'Download an image (https URL) into the site\'s media library: re-encoded, resized to ≤2400px, moderated. Use the returned URL in your HTML/content.',
+    description: 'Add an image to the site\'s media library: re-encoded, resized to ≤2400px, moderated. Use the returned URL in your HTML/content. Pass url (https) for an image already online, or data_base64 (the file\'s bytes, base64, ≤3 MB decoded) if your client gives you the file itself. Most chat apps do not pass attached images to tools: if you only see the owner\'s image in the conversation and have neither, use create_upload_link.',
     scope: 'sites:write',
     inputSchema: {
       type: 'object',
-      properties: { ...siteIdProp, url: { type: 'string' }, name: { type: 'string' }, unsplash_download_location: { type: 'string' } },
-      required: ['site_id', 'url'],
+      properties: {
+        ...siteIdProp,
+        url: str('https URL of the image. Give url or data_base64.'),
+        data_base64: str('The image file itself, base64-encoded (a data: URL is also accepted). Max 3 MB decoded; larger files go through create_upload_link.'),
+        name: str('File name, e.g. "storefront.jpg".'),
+        unsplash_download_location: { type: 'string' },
+      },
+      required: ['site_id'],
     },
     run: async (args, ctx) => {
       const { site } = await siteContext(args, ctx);
+      const ownerUserId = site.user_id || ctx.auth.userId;
+      if (typeof args.data_base64 === 'string' && args.data_base64) {
+        return importImageBuffer(ctx.db, { siteId: site.id, ownerUserId, data: decodeBase64Image(args.data_base64), name: args.name as string | undefined });
+      }
+      if (!args.url) throw new OpError('Pass url (https) or data_base64');
       return importImageFromUrl(ctx.db, {
         siteId: site.id,
-        ownerUserId: site.user_id || ctx.auth.userId,
+        ownerUserId,
         url: String(args.url),
         name: args.name as string | undefined,
         unsplashDownloadLocation: args.unsplash_download_location as string | undefined,
       });
+    },
+  },
+  {
+    name: 'create_upload_link',
+    title: 'Get an image upload link',
+    description: 'For images that are not online yet — a photo or logo the owner attached in this chat, or has on their phone/computer. Tool calls cannot carry attachments, so give the owner the returned upload_page_url to open and drop their images into; or, if you can run shell commands and have the file, POST it yourself (see curl_example). Uploads are re-encoded, resized and moderated like import_media and land in the site\'s media library; then call list_media (pass since = created_at) to get their URLs.',
+    scope: 'sites:write',
+    inputSchema: {
+      type: 'object',
+      properties: { ...siteIdProp, hours: { type: 'number', description: `Link lifetime in hours (default ${UPLOAD_TTL_DEFAULT / 3600}, max ${UPLOAD_TTL_MAX / 3600}).` } },
+      required: ['site_id'],
+    },
+    run: async (args, ctx) => {
+      const { site } = await siteContext(args, ctx, { requireV2: false });
+      const ownerUserId = site.user_id || ctx.auth.userId;
+      const hours = Number(args.hours);
+      const ttl = Number.isFinite(hours) && hours > 0 ? hours * 3600 : UPLOAD_TTL_DEFAULT;
+      const createdAt = new Date().toISOString();
+      const { token, expiresAt } = await createUploadToken(site.id, ownerUserId, ttl);
+      const url = uploadUrl(APP_URL, token);
+      return {
+        upload_page_url: url,
+        api_upload_url: url,
+        curl_example: `curl -sS -F "file=@photo.jpg" -F "file=@logo.png" "${url}"`,
+        created_at: createdAt,
+        expires_at: expiresAt.toISOString(),
+        max_files_per_request: 10,
+        max_request_bytes: 4_000_000,
+        note: 'Share upload_page_url with the owner (it works on phones too) and ask them to tell you when they are done, then call list_media with since = created_at. A POST to api_upload_url returns the image URLs directly; keep each request under ~4 MB (send files one at a time, or shrink large photos first).',
+      };
+    },
+  },
+  {
+    name: 'list_media',
+    title: 'List the site\'s images',
+    description: 'Images in the site\'s media library, newest first: ones the owner uploaded (in the editor or through create_upload_link) and ones imported with import_media. Use the returned URLs directly in content and HTML; no need to import them again.',
+    scope: 'sites:read',
+    readOnly: true,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        ...siteIdProp,
+        since: str('Only images added after this ISO date-time (e.g. create_upload_link\'s created_at).'),
+        limit: { type: 'number', description: 'Max results (default 30, max 100).' },
+      },
+      required: ['site_id'],
+    },
+    run: async (args, ctx) => {
+      const { site } = await siteContext(args, ctx, { requireV2: false });
+      const images = await listSiteImages(ctx.db, site.id, { since: args.since ? String(args.since) : undefined, limit: Number(args.limit) || undefined });
+      return { images, count: images.length };
     },
   },
   {

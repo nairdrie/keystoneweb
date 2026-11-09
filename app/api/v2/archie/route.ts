@@ -2,7 +2,8 @@
  * Archie v2 — the in-editor AI designer for agent-built sites.
  *
  * GET  /api/v2/archie?siteId=…                          → { runs }  (recent Archie work, oldest first)
- * POST /api/v2/archie { siteId, prompt, pageSlug?, target? } → NDJSON stream of ArchieEvent lines
+ * POST /api/v2/archie { siteId, prompt, pageSlug?, target?, images? } → NDJSON stream of ArchieEvent lines
+ *      images: [{ url, name? }] uploaded first with POST /api/v2/archie/upload
  * POST /api/v2/archie { siteId, op: "stop", runId }      → { ok }
  * POST /api/v2/archie { siteId, op: "undo", runId }      → { ok }  (latest run only)
  *
@@ -19,6 +20,7 @@ import { getSiteEngine } from '@/lib/v2/store';
 import { OpError, opRestoreVersion } from '@/lib/v2/ops';
 import { ENGINE_V2, type Actor } from '@/lib/v2/types';
 import {
+  ARCHIE_MAX_IMAGES,
   getArchieRun,
   listArchieRuns,
   runArchie,
@@ -26,6 +28,7 @@ import {
   startArchieRun,
   updateArchieRun,
   type ArchieEvent,
+  type ArchieImage,
   type ArchieTarget,
 } from '@/lib/v2/archie';
 import { checkAndRecordUsage, refundLastUsage, type UserPlan } from '@/app/api/ai/builder/rate-limit';
@@ -56,6 +59,20 @@ function cleanTarget(raw: unknown): ArchieTarget | null {
     html: str(t.html, 4000),
     hints: Array.isArray(t.hints) ? t.hints.filter((h): h is string => typeof h === 'string').slice(0, 8).map((h) => h.slice(0, 160)) : [],
   };
+}
+
+/** Attached images must already be in this site's media storage (uploaded via /api/v2/archie/upload). */
+function cleanImages(raw: unknown, db: ReturnType<typeof createAdminClient>, siteId: string): ArchieImage[] | null {
+  if (raw === undefined || raw === null) return [];
+  if (!Array.isArray(raw) || raw.length > ARCHIE_MAX_IMAGES) return null;
+  const prefix = db.storage.from('site-assets').getPublicUrl(`${siteId}/`).data.publicUrl;
+  const out: ArchieImage[] = [];
+  for (const item of raw) {
+    const url = item && typeof item === 'object' ? (item as Record<string, unknown>).url : null;
+    if (typeof url !== 'string' || !url.startsWith(prefix) || url.length > 1000 || url.includes('..') || /[\s"'<>]/.test(url)) return null;
+    out.push({ url, name: str((item as Record<string, unknown>).name, 120) });
+  }
+  return out;
 }
 
 async function v2Access(request: NextRequest, siteId: string | null): Promise<SiteAccess | NextResponse> {
@@ -115,7 +132,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
-  const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : '';
+  const images = cleanImages(body.images, db, access.siteId);
+  if (!images) return NextResponse.json({ error: `Attach up to ${ARCHIE_MAX_IMAGES} images, uploaded from the editor.` }, { status: 400 });
+  let prompt = typeof body.prompt === 'string' ? body.prompt.trim() : '';
+  if (prompt.length < 2 && images.length) prompt = images.length === 1 ? 'Here’s an image for my site.' : 'Here are some images for my site.';
   if (prompt.length < 2) return NextResponse.json({ error: 'Tell Archie what you would like to change.' }, { status: 400 });
   if (prompt.length > MAX_PROMPT) return NextResponse.json({ error: `Please keep it under ${MAX_PROMPT} characters.` }, { status: 400 });
 
@@ -165,6 +185,7 @@ export async function POST(request: NextRequest) {
     reply: null,
     changed: false,
     undoVersionId: null,
+    images,
   });
 
   // The stream is only a live view: the run itself carries on (via after())
@@ -188,7 +209,7 @@ export async function POST(request: NextRequest) {
         db,
         siteId: access.siteId,
         user: { id: access.user.id, email, isStaff },
-        request: { prompt, pageSlug, target, history: runsToHistory(runs, runId) },
+        request: { prompt, pageSlug, target, images, history: runsToHistory(runs, runId) },
         apiKey,
         shouldStop: async () => !!(await getArchieRun(db, access.siteId, runId))?.stopRequested,
         emit: (event) => {

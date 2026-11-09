@@ -1,6 +1,7 @@
 /**
- * Media for agent-built sites: import an image by URL into the site's media
- * library (re-encoded, size-limited, moderated) and search stock photos.
+ * Media for agent-built sites: import an image (by URL, or as uploaded bytes)
+ * into the site's media library (re-encoded, size-limited, moderated), list
+ * the library, and search stock photos.
  */
 import sharp from 'sharp';
 import { scanImage } from '@/lib/moderation/image-scan';
@@ -8,7 +9,8 @@ import { handleModerationResult } from '@/lib/moderation/report';
 import { OpError } from './ops';
 import type { Db } from './store';
 
-const MAX_BYTES = 12 * 1024 * 1024;
+export const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
+const MAX_BYTES = MAX_IMAGE_BYTES;
 const MAX_WIDTH = 2400;
 
 function assertFetchableUrl(raw: string): URL {
@@ -32,10 +34,17 @@ function assertFetchableUrl(raw: string): URL {
   return url;
 }
 
+export interface ImportedImage {
+  url: string;
+  width: number | null;
+  height: number | null;
+  bytes: number;
+}
+
 export async function importImageFromUrl(
   db: Db,
   input: { siteId: string; ownerUserId: string; url: string; name?: string; unsplashDownloadLocation?: string },
-): Promise<{ url: string; width: number | null; height: number | null; bytes: number }> {
+): Promise<ImportedImage> {
   const url = assertFetchableUrl(input.url);
   const res = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(20_000) });
   if (!res.ok) throw new OpError(`Could not download the image (HTTP ${res.status})`);
@@ -44,6 +53,39 @@ export async function importImageFromUrl(
   const length = Number(res.headers.get('content-length') || 0);
   if (length > MAX_BYTES) throw new OpError('Image is larger than 12MB');
   const input0 = Buffer.from(await res.arrayBuffer());
+  if (input0.length > MAX_BYTES) throw new OpError('Image is larger than 12MB');
+
+  const result = await importImageBuffer(db, {
+    siteId: input.siteId,
+    ownerUserId: input.ownerUserId,
+    data: input0,
+    name: input.name || url.pathname.split('/').pop() || undefined,
+  });
+
+  // Unsplash API terms: register the download when a photo is used.
+  if (input.unsplashDownloadLocation && process.env.UNSPLASH_ACCESS_KEY) {
+    try {
+      const dl = new URL(input.unsplashDownloadLocation);
+      if (dl.hostname === 'api.unsplash.com') {
+        await fetch(dl, { headers: { Authorization: `Client-ID ${process.env.UNSPLASH_ACCESS_KEY}` }, signal: AbortSignal.timeout(5000) });
+      }
+    } catch { /* best effort */ }
+  }
+
+  return result;
+}
+
+/**
+ * Store image bytes (an upload, or a downloaded file) in the site's media
+ * library: re-encoded (strips metadata and anything hidden in the file),
+ * resized to ≤2400px and moderated before upload.
+ */
+export async function importImageBuffer(
+  db: Db,
+  input: { siteId: string; ownerUserId: string; data: Buffer; name?: string },
+): Promise<ImportedImage> {
+  const input0 = input.data;
+  if (!input0.length) throw new OpError('The file is empty');
   if (input0.length > MAX_BYTES) throw new OpError('Image is larger than 12MB');
 
   let buffer: Buffer;
@@ -87,7 +129,7 @@ export async function importImageFromUrl(
     throw new OpError('Content policy violation', 422);
   }
 
-  const base = (input.name || url.pathname.split('/').pop() || 'image').replace(/\.[^.]+$/, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40) || 'image';
+  const base = (input.name || 'image').replace(/\.[^.]+$/, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40) || 'image';
   const path = `${input.siteId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${base}.${ext}`;
   const { data, error } = await db.storage.from('site-assets').upload(path, buffer, { contentType, cacheControl: '31536000', upsert: false });
   if (error || !data) throw new OpError(`Upload failed: ${error?.message || 'unknown error'}`, 500);
@@ -104,17 +146,33 @@ export async function importImageFromUrl(
     size_bytes: buffer.length,
   }, { onConflict: 'storage_path', ignoreDuplicates: true });
 
-  // Unsplash API terms: register the download when a photo is used.
-  if (input.unsplashDownloadLocation && process.env.UNSPLASH_ACCESS_KEY) {
-    try {
-      const dl = new URL(input.unsplashDownloadLocation);
-      if (dl.hostname === 'api.unsplash.com') {
-        await fetch(dl, { headers: { Authorization: `Client-ID ${process.env.UNSPLASH_ACCESS_KEY}` }, signal: AbortSignal.timeout(5000) });
-      }
-    } catch { /* best effort */ }
-  }
-
   return { url: publicUrl, width, height, bytes: buffer.length };
+}
+
+/** The site's image library, newest first (owner uploads and agent imports alike). */
+export async function listSiteImages(db: Db, siteId: string, opts: { limit?: number; since?: string } = {}) {
+  const limit = Math.max(1, Math.min(100, opts.limit || 30));
+  let query = db
+    .from('site_media')
+    .select('public_url, file_name, mime_type, size_bytes, created_at')
+    .eq('site_id', siteId)
+    .eq('media_type', 'image')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (opts.since) {
+    const since = new Date(opts.since);
+    if (Number.isNaN(since.getTime())) throw new OpError('since must be an ISO date-time');
+    query = query.gt('created_at', since.toISOString());
+  }
+  const { data, error } = await query;
+  if (error) throw new OpError(`Could not list media: ${error.message}`, 500);
+  return (data || []).map((row) => ({
+    url: row.public_url as string,
+    name: row.file_name as string,
+    mime_type: row.mime_type as string,
+    bytes: Number(row.size_bytes) || 0,
+    uploaded_at: row.created_at as string,
+  }));
 }
 
 interface UnsplashPhoto {
