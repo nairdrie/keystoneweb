@@ -299,11 +299,11 @@ to one site, and this site has its own.
   \`ks:member\` event. This is cosmetic: use it for chrome, never for members-only content.
 
 ## Members-only pages and sections — enforced on the server
-- \`put_page { slug: "members", access: { members: true } }\` — any active member. Limit to packages with
+- \`put_page { slug: "members", access: { members: true } }\` — any active member with a package. Limit to packages with
   \`access: { members: true, packages: ["<id>", …] }\` (ids from get_membership). \`access: null\` makes it public.
 - On a members-only page, sections are for members by default. Set \`audience\` per section in put_page:
   \`"everyone"\` (e.g. the page hero), \`"members"\`, or \`"guests"\` (people without access: signed out, unverified,
-  unpaid or the wrong package — e.g. your designed sign-in/join panel). Without a "guests" section Keystone shows a
+  without a package yet, lapsed, or the wrong package — e.g. your designed sign-in/join panel). Without a "guests" section Keystone shows a
   plain sign-in panel. Visitors without access never receive the members' sections.
 - \`audience\` works on public pages too (a "Welcome back" band for members, a join pitch for guests).
 - Members-only pages are left out of the sitemap and search (noindex) and aren't cached publicly. Drafts show every

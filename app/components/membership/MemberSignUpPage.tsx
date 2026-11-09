@@ -211,6 +211,7 @@ export default function MemberSignUpPage({ siteId, siteName, palette, branding }
             siteId,
             memberId: data.memberId,
             packageId: selectedPackage,
+            checkoutToken: data.checkoutToken,
             successUrl: `${window.location.origin}/signin?verified=true`,
             cancelUrl: `${window.location.origin}/signup`,
           }),

@@ -57,16 +57,39 @@ async function main() {
     const paid = { id: 'p-year', price_cents: 5000, billing_interval: 'year' };
     assert.equal(evaluateAccess(null, null).hasAccess, false);
     assert.equal(evaluateAccess(m, paid).hasAccess, true);
-    assert.equal(evaluateAccess({ ...m, subscription_status: 'past_due' }, paid).hasAccess, true);
-    assert.deepEqual([evaluateAccess({ ...m, subscription_status: 'cancelled' }, paid).reason, evaluateAccess({ ...m, subscription_status: 'none' }, paid).reason], ['unpaid', 'unpaid']);
+    assert.equal(evaluateAccess({ ...m, subscription_status: 'past_due' }, paid).hasAccess, true, 'past due keeps access while Stripe retries');
+    assert.equal(evaluateAccess({ ...m, subscription_status: 'cancelled' }, paid).reason, 'unpaid', 'an ended subscription loses access');
+    assert.equal(evaluateAccess({ ...m, subscription_status: 'none' }, paid).hasAccess, true, 'owner-assigned / imported memberships have no Stripe subscription');
     assert.equal(evaluateAccess({ ...m, status: 'pending' }, paid).reason, 'inactive');
     assert.equal(evaluateAccess({ ...m, status: 'guest' }, paid).reason, 'inactive');
     assert.equal(evaluateAccess({ ...m, status: 'cancelled' }, paid).signedIn, false);
     assert.equal(evaluateAccess({ ...m, is_archived: true }, paid).signedIn, false);
     assert.equal(evaluateAccess(m, paid, ['p-other']).reason, 'wrong-package');
     assert.equal(evaluateAccess(m, paid, ['p-other', 'p-year']).hasAccess, true);
-    assert.equal(evaluateAccess({ ...m, package_id: null }, null).hasAccess, true, 'any-member pages accept members without a package');
-    assert.equal(evaluateAccess({ ...m, package_id: null }, null, ['p-year']).reason, 'wrong-package');
+    assert.equal(evaluateAccess({ ...m, package_id: null }, null).hasAccess, true, 'sites without packages: any active account is a member');
+    assert.equal(evaluateAccess({ ...m, package_id: null }, null, null, { siteHasPackages: true }).reason, 'no-package', 'an account alone is not a membership');
+    assert.equal(evaluateAccess({ ...m, package_id: null }, null, ['p-year']).reason, 'no-package');
+  });
+
+  await step('checkout: only the member being charged, only back to the same site', async () => {
+    const { signCheckoutToken, verifyMemberToken, signMemberToken } = await import('../lib/membership/auth');
+    const { isCheckoutAuthorized, sameHostUrl } = await import('../lib/membership/checkout-auth');
+    const site = '55555555-5555-5555-5555-555555555555';
+    const tok = await signCheckoutToken({ memberId: 'm1', siteId: site, packageId: 'p1' });
+    assert.equal(await isCheckoutAuthorized({ siteId: site, memberId: 'm1', packageId: 'p1', checkoutToken: tok }), true);
+    assert.equal(await isCheckoutAuthorized({ siteId: site, memberId: 'm2', packageId: 'p1', checkoutToken: tok }), false, 'another member');
+    assert.equal(await isCheckoutAuthorized({ siteId: site, memberId: 'm1', packageId: 'p2', checkoutToken: tok }), false, 'another package');
+    assert.equal(await isCheckoutAuthorized({ siteId: '66666666-6666-6666-6666-666666666666', memberId: 'm1', packageId: 'p1', checkoutToken: tok }), false, 'another site');
+    assert.equal(await isCheckoutAuthorized({ siteId: site, memberId: 'm1', packageId: 'p1' }), false, 'no token, not signed in');
+    assert.equal(await isCheckoutAuthorized({ siteId: site, memberId: 'm1', packageId: 'p9', sessionMemberId: 'm1' }), true, 'signed-in member pays for themself');
+    assert.equal(await isCheckoutAuthorized({ siteId: site, memberId: 'm1', packageId: 'p1', sessionMemberId: 'm2' }), false);
+    const session = await signMemberToken({ memberId: 'm1', siteId: site, email: 'a@b.c' });
+    assert.equal(await isCheckoutAuthorized({ siteId: site, memberId: 'm1', packageId: 'p1', checkoutToken: session }), false, 'a session token is not a checkout token');
+    assert.equal(await verifyMemberToken(tok, site), null, 'a checkout token is never a session');
+    assert.equal(sameHostUrl('https://acme.kswd.ca/signin?verified=true', 'acme.kswd.ca'), 'https://acme.kswd.ca/signin?verified=true');
+    assert.equal(sameHostUrl('https://evil.example/phish', 'acme.kswd.ca'), null);
+    assert.equal(sameHostUrl('javascript:alert(1)', 'acme.kswd.ca'), null);
+    assert.equal(sameHostUrl('/signin', 'acme.kswd.ca'), null);
   });
 
   let siteId = '';
@@ -236,13 +259,19 @@ async function main() {
     const visitor = await resolveMemberVisitor(db as never, siteId, jwt, [freeId]);
     assert.equal(visitor.hasAccess, true);
     assert.equal((await resolveMemberVisitor(db as never, siteId, jwt, ['another-package'])).reason, 'wrong-package');
+    assert.equal((await resolveMemberVisitor(db as never, siteId, jwt)).hasAccess, true, 'any-member page');
+    // An account without a package (e.g. an abandoned paid checkout) on a site that has packages.
+    db.table('members').push({ id: 'mem-2', site_id: siteId, email: 'nopkg@example.org', status: 'active', is_archived: false, package_id: null, subscription_status: 'none' });
+    const jwt2 = await signMemberToken({ memberId: 'mem-2', siteId, email: 'nopkg@example.org' });
+    db.table('member_sessions').push({ id: 'sess-2', member_id: 'mem-2', site_id: siteId, token_hash: hashMemberToken(jwt2), expires_at: new Date(Date.now() + 86400e3).toISOString() });
+    assert.equal((await resolveMemberVisitor(db as never, siteId, jwt2)).reason, 'no-package');
     assert.equal((await resolveMemberVisitor(db as never, '99999999-9999-9999-9999-999999999999', jwt)).signedIn, false, 'a token for another site never counts');
     assert.equal((await resolveMemberVisitor(db as never, siteId, 'not-a-jwt')).signedIn, false);
     db.table('member_sessions').length = 0;
     assert.equal((await resolveMemberVisitor(db as never, siteId, jwt)).signedIn, false, 'signed-out sessions are revoked');
 
     const counts = await ok('get_membership', { site_id: siteId });
-    assert.equal(counts.members.total, 1);
+    assert.equal(counts.members.total, 2);
     assert.doesNotMatch(JSON.stringify(counts), /nurse@example\.org/, 'agents never see members\' personal data');
   });
 

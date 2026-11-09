@@ -44,6 +44,8 @@ export async function verifyMemberToken(token: string, siteId: string): Promise<
     const key = getSigningKey(siteId);
     const { payload } = await jwtVerify(token, key);
     if (payload.siteId !== siteId) return null;
+    // Purpose-bound tokens (e.g. checkout) are never sessions.
+    if (payload.purpose) return null;
     return {
       memberId: payload.memberId as string,
       siteId: payload.siteId as string,
@@ -66,6 +68,32 @@ export async function verifyMemberTokenAny(token: string): Promise<MemberTokenPa
     if (!decoded.siteId) return null;
     // Now verify with the correct key
     return verifyMemberToken(token, decoded.siteId);
+  } catch {
+    return null;
+  }
+}
+
+// ─── Checkout tokens ────────────────────────────────────────────────────────
+// Returned by /api/membership/signup so the new member (who isn't signed in yet,
+// e.g. before verifying their email) can pay for the package they chose — and
+// nobody else can start a checkout bound to their account.
+
+const CHECKOUT_PURPOSE = 'membership-checkout';
+
+export async function signCheckoutToken(input: { memberId: string; siteId: string; packageId: string }): Promise<string> {
+  return new SignJWT({ memberId: input.memberId, siteId: input.siteId, packageId: input.packageId, purpose: CHECKOUT_PURPOSE })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime('2h')
+    .sign(getSigningKey(input.siteId));
+}
+
+export async function verifyCheckoutToken(token: string, siteId: string): Promise<{ memberId: string; packageId: string } | null> {
+  try {
+    const { payload } = await jwtVerify(token, getSigningKey(siteId));
+    if (payload.purpose !== CHECKOUT_PURPOSE || payload.siteId !== siteId) return null;
+    if (typeof payload.memberId !== 'string' || typeof payload.packageId !== 'string') return null;
+    return { memberId: payload.memberId, packageId: payload.packageId };
   } catch {
     return null;
   }

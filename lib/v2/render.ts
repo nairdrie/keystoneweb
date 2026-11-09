@@ -925,11 +925,14 @@ function defaultMembersOnlyHtml(bundle: SiteBundle, options: RenderOptions): str
     text = 'Sign in with your membership to see this page.';
     primary = { label: 'Sign in', href: `/signin?returnTo=${encodeURIComponent(returnTo)}` };
     secondary = { label: 'Become a member', href: '/signup' };
+  } else if (visitor.reason === 'no-package') {
+    title = 'Choose your membership';
+    text = 'Your account is set up. Pick a membership in your account to see this page.';
+    primary = { label: 'Choose a membership', href: '/member' };
   } else if (visitor.reason === 'wrong-package') {
     title = 'Not included in your membership';
     text = 'This page is for a different membership level.';
     primary = { label: 'Your account', href: '/member' };
-    secondary = { label: 'See memberships', href: '/signup' };
   } else if (visitor.reason === 'unpaid') {
     title = 'Membership payment needed';
     text = "Your membership isn't active right now. Update your payment details in your account to get access again.";

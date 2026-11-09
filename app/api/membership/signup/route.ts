@@ -4,7 +4,9 @@ import {
   hashPassword,
   generateSecureToken,
   getVerificationExpiresAt,
+  signCheckoutToken,
 } from '@/lib/membership/auth';
+import { isPaidPackage } from '@/lib/membership/stripe-packages';
 import {
   sendMemberVerificationEmail,
   sendMemberSignupNotification,
@@ -43,15 +45,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Site not found' }, { status: 404 });
     }
 
-    // Fetch selected package to check geo restrictions
+    // Fetch the selected package: it must be this site's, and its geo rules apply.
+    let paidPackage = false;
     if (packageId) {
       const { data: pkg } = await supabase
         .from('membership_packages')
-        .select('geo_restriction')
+        .select('id, geo_restriction, price_cents, billing_interval, is_active')
         .eq('id', packageId)
         .eq('site_id', siteId)
         .eq('is_archived', false)
-        .single();
+        .maybeSingle();
+
+      if (!pkg || pkg.is_active === false) {
+        return NextResponse.json({ error: 'That membership is no longer available' }, { status: 400 });
+      }
+      paidPackage = isPaidPackage(pkg.price_cents, pkg.billing_interval);
 
       if (pkg?.geo_restriction?.allowed_countries?.length) {
         const memberCountry = customFields?.country || body.country;
@@ -61,6 +69,12 @@ export async function POST(request: NextRequest) {
         }
       }
     }
+
+    // Free packages apply right away; paid ones only once Stripe confirms payment
+    // (checkout.session.completed sets package_id), so abandoning checkout grants nothing.
+    const grantedPackageId = packageId && !paidPackage ? packageId : null;
+    const checkoutTokenFor = async (memberId: string) =>
+      packageId && paidPackage ? signCheckoutToken({ memberId, siteId, packageId }) : undefined;
 
     // Check for existing member
     const { data: existing } = await supabase
@@ -86,7 +100,7 @@ export async function POST(request: NextRequest) {
             email_verified: false,
             email_verification_token: verificationToken,
             email_verification_expires_at: getVerificationExpiresAt().toISOString(),
-            package_id: packageId || null,
+            package_id: grantedPackageId,
             marketing_opt_in: !!marketingOptIn,
             signed_up_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
@@ -122,7 +136,12 @@ export async function POST(request: NextRequest) {
           });
         }
 
-        return NextResponse.json({ success: true, requiresVerification: true });
+        return NextResponse.json({
+          success: true,
+          memberId: existing.id,
+          requiresVerification: true,
+          checkoutToken: await checkoutTokenFor(existing.id),
+        });
       }
       return NextResponse.json({ error: 'An account with this email already exists' }, { status: 409 });
     }
@@ -161,7 +180,7 @@ export async function POST(request: NextRequest) {
         email_verification_expires_at: requireVerification
           ? getVerificationExpiresAt().toISOString()
           : null,
-        package_id: packageId || null,
+        package_id: grantedPackageId,
         marketing_opt_in: !!marketingOptIn,
         marketing_campaign_id: marketingCampaignId,
       })
@@ -203,6 +222,7 @@ export async function POST(request: NextRequest) {
       success: true,
       memberId: member.id,
       requiresVerification: requireVerification,
+      checkoutToken: await checkoutTokenFor(member.id),
     });
   } catch (error: any) {
     console.error('Membership signup error:', error);

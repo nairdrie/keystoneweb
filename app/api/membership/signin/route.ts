@@ -34,6 +34,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
     }
 
+    // Accounts made at checkout ("guest") have no password yet: bcrypt would throw on null.
+    if (!member.password_hash) {
+      return NextResponse.json(
+        { error: 'This account doesn\'t have a password yet. Use "Forgot password?" to set one.', code: 'no_password' },
+        { status: 401 },
+      );
+    }
+
     // Check password
     const valid = await verifyPassword(password, member.password_hash);
     if (!valid) {
