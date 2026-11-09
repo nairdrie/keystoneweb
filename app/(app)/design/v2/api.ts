@@ -42,6 +42,12 @@ export interface PageInfo {
   template?: 'post';
 }
 
+export interface PublishStatus {
+  hasUnpublishedChanges: boolean;
+  liveReleaseId: string | null;
+  publishedAt: string | null;
+}
+
 export interface EditorState {
   site: {
     id: string;
@@ -63,6 +69,8 @@ export interface EditorState {
   pages: PageInfo[];
   ownerEditedFields: string[];
   content: InstanceContent[];
+  /** Draft vs. live release (computed on the server). */
+  publish: PublishStatus;
   canvas: { editBase: string; previewBase: string };
   appUrl: string;
 }

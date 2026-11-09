@@ -360,11 +360,13 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         }
         // Agent-built (v2) sites have no blocks: map the platform features their
         // design uses onto the block types the admin tabs and pages look for.
+        let isV2 = false;
         try {
           const engineRes = await fetch(`/api/v2/engine?siteId=${id}`, { credentials: 'include' });
           if (engineRes.ok) {
             const engine = await engineRes.json() as { engine?: string; features?: { ecommerce?: boolean; booking?: boolean; blog?: boolean } };
             if (engine.engine === 'sections_v2') {
+              isV2 = true;
               if (engine.features?.ecommerce) blockTypes.add('productGrid');
               if (engine.features?.booking) blockTypes.add('booking');
               if (engine.features?.blog) blockTypes.add('blog');
@@ -386,7 +388,21 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         };
         const sameJson = (a: unknown, b: unknown) =>
           JSON.stringify(stripMeta(a) ?? {}) === JSON.stringify(stripMeta(b) ?? {});
-        if (data.isPublished) {
+        if (data.isPublished && isV2) {
+          // v2 drafts live in their own tables; the server compares them to the live release.
+          try {
+            const statusRes = await fetch('/api/v2/editor', {
+              method: 'POST',
+              credentials: 'include',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ siteId: id, op: 'publish-status' }),
+            });
+            const status = statusRes.ok ? await statusRes.json() as { hasUnpublishedChanges?: boolean } : null;
+            setHasUnpublishedChanges(!!status?.hasUnpublishedChanges);
+          } catch {
+            setHasUnpublishedChanges(false);
+          }
+        } else if (data.isPublished) {
           let differs = !sameJson(data.designData, data.publishedData);
           if (!differs) {
             for (const p of pages) {

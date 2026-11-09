@@ -6,9 +6,10 @@ import { PUBLISHED_ROOT } from '@/lib/env/domain';
 import { ensureKswdInboxAddress } from '@/lib/email/inbox-addresses';
 import { getUserEffectiveLimits } from '@/lib/addons';
 import { hasPaidAccess } from '@/lib/subscription/access';
-import type { Actor } from './types';
+import { createHash } from 'crypto';
+import type { Actor, SiteBundle } from './types';
 import { opPublishRelease, OpError } from './ops';
-import { loadSiteRow, type Db } from './store';
+import { loadDraftBundle, loadRelease, loadSiteRow, type Db } from './store';
 
 export interface V2PublishResult {
   releaseId: string;
@@ -41,6 +42,65 @@ export async function publishV2Site(
 
   const host = site?.custom_domain || `${input.subdomain}.${PUBLISHED_ROOT}`;
   return { releaseId, publishedDomain: input.subdomain, publicUrl: `https://${host}`, warnings };
+}
+
+/**
+ * What the visitor sees, minus bookkeeping: revision counters, who-edited-what
+ * and the domain (set after the first release is frozen) don't change the page.
+ */
+function renderedFingerprint(bundle: SiteBundle): string {
+  const { id: _id, domain: _domain, ...site } = bundle.site;
+  void _id; void _domain;
+  const { version: _tv, platform, ...theme } = bundle.theme;
+  void _tv;
+  const sections = Object.fromEntries(
+    Object.entries(bundle.sections || {}).map(([key, s]) => [key, { key: s.key, name: s.name, html: s.html, css: s.css, js: s.js, schema: s.schema }]),
+  );
+  const pages = [...(bundle.pages || [])]
+    .map(({ layoutVersion: _lv, ...p }) => { void _lv; return p; })
+    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const normalized = {
+    site,
+    theme: { ...theme, ...(platform && Object.keys(platform).length ? { platform } : {}) },
+    sections,
+    pages,
+    content: bundle.content || {},
+  };
+  return createHash('sha256').update(canonicalJson(normalized)).digest('hex');
+}
+
+/** JSON with sorted keys; null/undefined object values dropped (both mean "not set"). */
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map((v) => (v === undefined ? 'null' : canonicalJson(v))).join(',')}]`;
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([, v]) => v !== null && v !== undefined)
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+    return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonicalJson(v)}`).join(',')}}`;
+  }
+  return JSON.stringify(value ?? null);
+}
+
+export interface V2PublishStatus {
+  /** True when the draft would publish something different from what's live (or nothing is live yet). */
+  hasUnpublishedChanges: boolean;
+  liveReleaseId: string | null;
+  publishedAt: string | null;
+}
+
+/** Does the draft differ from the live release? Drives the editor's Publish button. */
+export async function getV2PublishStatus(db: Db, siteId: string): Promise<V2PublishStatus> {
+  const [row, draft, { data: meta }] = await Promise.all([
+    loadSiteRow(db, siteId),
+    loadDraftBundle(db, siteId),
+    db.from('sites').select('published_at').eq('id', siteId).maybeSingle(),
+  ]);
+  const liveReleaseId = row?.is_published ? row.v2_release_id || null : null;
+  const publishedAt = (meta?.published_at as string | null) || null;
+  if (!liveReleaseId || !draft) return { hasUnpublishedChanges: true, liveReleaseId, publishedAt };
+  const live = await loadRelease(db, liveReleaseId);
+  if (!live) return { hasUnpublishedChanges: true, liveReleaseId, publishedAt };
+  return { hasUnpublishedChanges: renderedFingerprint(draft) !== renderedFingerprint(live), liveReleaseId, publishedAt };
 }
 
 /** Billing + plan-limit checks for publishing on behalf of the owner (MCP path). */
