@@ -12,8 +12,9 @@
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowUp, Loader2, RotateCcw, Square, X } from 'lucide-react';
+import { ArrowUp, ImagePlus, Loader2, RotateCcw, Square, X } from 'lucide-react';
 import ArchieAIIcon from '@/app/components/ArchieAIIcon';
+import { isImageFile, shrinkImage } from './shrink-image';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -51,10 +52,17 @@ export interface ArchieRun {
   reply: string | null;
   changed: boolean;
   undoVersionId: string | null;
+  images?: ArchieImage[];
   undone?: boolean;
 }
 
-interface LiveRun { id: string | null; prompt: string; target: ArchieRun['target']; progress: string }
+/** An image attached to a request, already uploaded to the site's media library. */
+export interface ArchieImage { url: string; name?: string | null }
+
+/** Same cap as the server (lib/v2/archie.ts ARCHIE_MAX_IMAGES). */
+const MAX_IMAGES = 4;
+
+interface LiveRun { id: string | null; prompt: string; target: ArchieRun['target']; progress: string; images: ArchieImage[] }
 
 // ── State hook ───────────────────────────────────────────────────────────────
 
@@ -99,9 +107,9 @@ export function useArchie(siteId: string, opts: { onChanged: () => void; toast: 
 
   const setLiveBoth = (v: LiveRun | null) => { liveRef.current = v; setLive(v); };
 
-  const send = useCallback(async (prompt: string, target: ArchieTarget | null, pageSlug: string): Promise<{ runId?: string; error?: string; upgrade?: boolean }> => {
+  const send = useCallback(async (prompt: string, target: ArchieTarget | null, pageSlug: string, images: ArchieImage[] = []): Promise<{ runId?: string; error?: string; upgrade?: boolean }> => {
     const summary = target ? { label: target.label ?? null, instance: target.instance, section: target.section } : null;
-    setLiveBoth({ id: null, prompt, target: summary, progress: 'Taking a look…' });
+    setLiveBoth({ id: null, prompt, target: summary, progress: 'Taking a look…', images });
     let runId: string | undefined;
     let changed = false;
     try {
@@ -109,7 +117,7 @@ export function useArchie(siteId: string, opts: { onChanged: () => void; toast: 
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ siteId, prompt, pageSlug, target }),
+        body: JSON.stringify({ siteId, prompt, pageSlug, target, images }),
       });
       if (!res.ok || !res.body) {
         const body = await res.json().catch(() => ({}));
@@ -168,7 +176,19 @@ export function useArchie(siteId: string, opts: { onChanged: () => void; toast: 
   }, [reload, siteId]);
 
   const running = runs.find((r) => r.status === 'running') || null;
-  return { runs, live, running, busy: !!live || !!running, send, stop, undo };
+  /** Upload an image picked, pasted or dropped in the chat box. */
+  const upload = useCallback(async (file: File): Promise<ArchieImage> => {
+    const small = await shrinkImage(file);
+    const form = new FormData();
+    form.append('siteId', siteId);
+    form.append('file', small, small.name);
+    const res = await fetch('/api/v2/archie/upload', { method: 'POST', credentials: 'include', body: form });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body.url) throw new Error(body.error || `Upload failed (${res.status})`);
+    return { url: body.url, name: file.name };
+  }, [siteId]);
+
+  return { runs, live, running, busy: !!live || !!running, send, stop, undo, upload };
 }
 
 export type ArchieApi = ReturnType<typeof useArchie>;
@@ -242,6 +262,9 @@ export default function ArchiePopover({
   const [target, setTarget] = useState<ArchieTarget | null>(() => (open.target ? { ...open.target, label: describeTarget(open.target, sectionName) } : null));
   const [threadIds, setThreadIds] = useState<string[]>([]);
   const [notice, setNotice] = useState<{ text: string; upgrade?: boolean } | null>(null);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [dragging, setDragging] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number; maxHeight: number } | null>(null);
   const sideRef = useRef<Side | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -274,7 +297,7 @@ export default function ArchiePopover({
     compute();
     window.addEventListener('resize', compute);
     return () => window.removeEventListener('resize', compute);
-  }, [open.rect, open.point, shown.length, api.live, notice]);
+  }, [open.rect, open.point, shown.length, api.live, notice, attachments.length]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ block: 'nearest' }); }, [shown.length, api.live?.progress, notice]);
 
@@ -282,25 +305,61 @@ export default function ArchiePopover({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     const onDown = (e: MouseEvent) => {
-      if (input.trim() || cardRef.current?.contains(e.target as Node)) return;
+      if (input.trim() || attachments.length || cardRef.current?.contains(e.target as Node)) return;
       if ((e.target as HTMLElement | null)?.closest?.('[data-archie-trigger]')) return;
       onClose();
     };
     window.addEventListener('keydown', onKey);
     window.addEventListener('mousedown', onDown);
     return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('mousedown', onDown); };
-  }, [input, onClose]);
+  }, [input, attachments.length, onClose]);
+
+  // Revoke thumbnail object URLs when the popover goes away.
+  const attachmentsRef = useRef(attachments);
+  useEffect(() => { attachmentsRef.current = attachments; }, [attachments]);
+  useEffect(() => () => { for (const a of attachmentsRef.current) URL.revokeObjectURL(a.preview); }, []);
+
+  const addFiles = useCallback((list: FileList | File[] | null | undefined) => {
+    const files = Array.from(list || []).filter(isImageFile);
+    if (!files.length) return;
+    const room = MAX_IMAGES - attachmentsRef.current.length;
+    if (room <= 0) { setNotice({ text: `You can attach up to ${MAX_IMAGES} images at a time.` }); return; }
+    if (files.length > room) setNotice({ text: `Only the first ${room} image${room === 1 ? '' : 's'} were added (up to ${MAX_IMAGES} at a time).` });
+    for (const file of files.slice(0, room)) {
+      const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      setAttachments((a) => [...a, { id, name: file.name, preview: URL.createObjectURL(file), status: 'uploading' }]);
+      api.upload(file).then(
+        (image) => setAttachments((a) => a.map((x) => (x.id === id ? { ...x, status: 'ready', image } : x))),
+        (e: Error) => setAttachments((a) => a.map((x) => (x.id === id ? { ...x, status: 'error', error: e.message || 'Upload failed' } : x))),
+      );
+    }
+    setTimeout(() => inputRef.current?.focus(), 30);
+  }, [api]);
+
+  const removeAttachment = (id: string) => setAttachments((a) => {
+    const gone = a.find((x) => x.id === id);
+    if (gone) URL.revokeObjectURL(gone.preview);
+    return a.filter((x) => x.id !== id);
+  });
+
+  const uploading = attachments.some((a) => a.status === 'uploading');
+  const ready = attachments.filter((a) => a.status === 'ready' && a.image).map((a) => a.image!);
 
   const send = useCallback(async () => {
-    const prompt = input.trim();
-    if (!prompt || api.busy) return;
+    const typed = input.trim();
+    if ((!typed && !ready.length) || api.busy || uploading) return;
+    // Images on their own still need words in the chat (the server uses the same default).
+    const prompt = typed || (ready.length === 1 ? 'Here’s an image for my site.' : 'Here are some images for my site.');
+    const sent = attachments;
     setInput('');
+    setAttachments([]);
     setNotice(null);
-    const r = await api.send(prompt, target, pageSlug);
+    const r = await api.send(prompt, target, pageSlug, ready);
     if (r.runId) setThreadIds((ids) => [...ids, r.runId!]);
-    if (r.error) { setNotice({ text: r.error, upgrade: r.upgrade }); setInput(prompt); }
+    if (r.error) { setNotice({ text: r.error, upgrade: r.upgrade }); setInput(typed); setAttachments(sent); }
+    else for (const a of sent) URL.revokeObjectURL(a.preview);
     setTimeout(() => inputRef.current?.focus(), 30);
-  }, [api, input, pageSlug, target]);
+  }, [api, attachments, input, pageSlug, ready, target, uploading]);
 
   const activeId = api.live?.id || api.running?.id || null;
   const placeholder = api.busy
@@ -309,11 +368,26 @@ export default function ArchiePopover({
 
   if (!pos) return null;
   return (
-    <div ref={cardRef} className="fixed z-[110] animate-in fade-in zoom-in-95" style={{ left: pos.left, top: pos.top, width: CARD_W }} role="dialog" aria-label="Ask Archie">
+    <div
+      ref={cardRef}
+      className="fixed z-[110] animate-in fade-in zoom-in-95"
+      style={{ left: pos.left, top: pos.top, width: CARD_W }}
+      role="dialog"
+      aria-label="Ask Archie"
+      onDragEnter={(e) => { if (!api.busy && e.dataTransfer.types.includes('Files')) { e.preventDefault(); setDragging(true); } }}
+      onDragOver={(e) => { if (!api.busy && e.dataTransfer.types.includes('Files')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } }}
+      onDragLeave={(e) => { if (!cardRef.current?.contains(e.relatedTarget as Node)) setDragging(false); }}
+      onDrop={(e) => { e.preventDefault(); setDragging(false); if (!api.busy) addFiles(e.dataTransfer.files); }}
+    >
       {/* Archie peeks out from behind the left edge of the card. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/assets/archie.png" alt="" aria-hidden="true" draggable={false} className="pointer-events-none absolute top-1 -left-[50px] w-[58px] select-none drop-shadow-sm" />
       <div className="relative flex flex-col overflow-hidden rounded-2xl border border-violet-100 bg-white shadow-2xl ring-1 ring-black/5" style={{ maxHeight: pos.maxHeight }}>
+        {dragging && (
+          <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-violet-400 bg-violet-50/90 text-[12.5px] font-semibold text-violet-700">
+            <ImagePlus className="h-6 w-6" /> Drop images for Archie
+          </div>
+        )}
         <div className="flex items-center gap-2 border-b border-violet-100 bg-gradient-to-r from-violet-50 to-fuchsia-50 px-3.5 py-2">
           <ArchieAIIcon className="h-4 w-4 shrink-0" />
           <span className="text-[12px] font-bold text-violet-800">Archie</span>
@@ -349,6 +423,7 @@ export default function ArchiePopover({
                     {timeLabel(r.createdAt)}{r.target?.label ? ` · ${r.target.label}` : r.pageSlug ? ` · ${r.pageSlug === 'home' ? 'Home' : `/${r.pageSlug}`}` : ''}
                   </span>
                 )}
+                <SentImages images={r.images} />
                 <div className="max-w-[88%] whitespace-pre-wrap rounded-xl rounded-br-sm bg-violet-600 px-3 py-2 text-[12.5px] leading-relaxed text-white">{r.prompt}</div>
               </div>
               <div className="flex flex-col items-start">
@@ -376,7 +451,8 @@ export default function ArchiePopover({
           ))}
           {api.live && (
             <div className="space-y-1.5">
-              <div className="flex justify-end">
+              <div className="flex flex-col items-end">
+                <SentImages images={api.live.images} />
                 <div className="max-w-[88%] whitespace-pre-wrap rounded-xl rounded-br-sm bg-violet-600 px-3 py-2 text-[12.5px] leading-relaxed text-white">{api.live.prompt}</div>
               </div>
               <Working text={api.live.progress} onStop={() => void api.stop(api.live?.id || null)} />
@@ -392,23 +468,53 @@ export default function ArchiePopover({
         </div>
 
         <form className="border-t border-slate-100 p-2.5" onSubmit={(e) => { e.preventDefault(); void send(); }}>
+          {attachments.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              {attachments.map((a) => (
+                <div key={a.id} className={`relative h-14 w-14 overflow-hidden rounded-lg ring-1 ${a.status === 'error' ? 'ring-red-300' : 'ring-slate-200'}`} title={a.error || a.name}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={a.preview} alt={a.name} className={`h-full w-full object-cover ${a.status === 'ready' ? '' : 'opacity-50'}`} />
+                  {a.status === 'uploading' && <Loader2 className="absolute inset-0 m-auto h-4 w-4 animate-spin text-violet-600" aria-label="Uploading" />}
+                  {a.status === 'error' && <span className="absolute inset-x-0 bottom-0 bg-red-600/90 px-0.5 text-center text-[9px] font-semibold text-white">Failed</span>}
+                  <button type="button" onClick={() => removeAttachment(a.id)} className="absolute right-0.5 top-0.5 rounded-full bg-black/60 p-0.5 text-white hover:bg-black/80" aria-label={`Remove ${a.name}`}>
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="relative">
             <textarea
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value.slice(0, 2000))}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send(); } }}
+              onPaste={(e) => {
+                const files = Array.from(e.clipboardData?.files || []).filter(isImageFile);
+                if (files.length) { e.preventDefault(); addFiles(files); }
+              }}
               placeholder={placeholder}
               rows={2}
               disabled={api.busy}
-              className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 pr-10 text-[12.5px] text-slate-800 placeholder-slate-400 focus:border-violet-300 focus:outline-none focus:ring-2 focus:ring-violet-200 disabled:opacity-60"
+              className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 pl-9 pr-10 text-[12.5px] text-slate-800 placeholder-slate-400 focus:border-violet-300 focus:outline-none focus:ring-2 focus:ring-violet-200 disabled:opacity-60"
             />
+            <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }} />
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={api.busy || attachments.length >= MAX_IMAGES}
+              className="absolute bottom-2.5 left-2 rounded-lg p-1 text-slate-400 hover:bg-violet-50 hover:text-violet-700 disabled:opacity-30"
+              title="Attach images (or paste / drop them here)"
+              aria-label="Attach images"
+            >
+              <ImagePlus className="h-4 w-4" />
+            </button>
             {api.busy ? (
               <button type="button" onClick={() => void api.stop(activeId)} className="absolute bottom-2.5 right-2 rounded-lg bg-slate-700 p-1.5 text-white hover:bg-slate-800" title="Stop Archie">
                 <Square className="h-3 w-3 fill-current" />
               </button>
             ) : (
-              <button type="submit" disabled={!input.trim()} className="absolute bottom-2.5 right-2 rounded-lg bg-violet-600 p-1.5 text-white hover:bg-violet-700 disabled:opacity-30" aria-label="Send">
+              <button type="submit" disabled={(!input.trim() && !ready.length) || uploading} title={uploading ? 'Waiting for images to upload' : undefined} className="absolute bottom-2.5 right-2 rounded-lg bg-violet-600 p-1.5 text-white hover:bg-violet-700 disabled:opacity-30" aria-label="Send">
                 <ArrowUp className="h-3.5 w-3.5" />
               </button>
             )}
@@ -419,6 +525,30 @@ export default function ArchiePopover({
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+interface Attachment {
+  id: string;
+  name: string;
+  /** Local object URL for the thumbnail. */
+  preview: string;
+  status: 'uploading' | 'ready' | 'error';
+  image?: ArchieImage;
+  error?: string;
+}
+
+function SentImages({ images }: { images?: ArchieImage[] }) {
+  if (!images?.length) return null;
+  return (
+    <div className="mb-1 flex max-w-[88%] flex-wrap justify-end gap-1">
+      {images.map((img) => (
+        <a key={img.url} href={img.url} target="_blank" rel="noreferrer" className="block h-14 w-14 overflow-hidden rounded-lg ring-1 ring-slate-200">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={img.url} alt={img.name || 'Attached image'} className="h-full w-full object-cover" />
+        </a>
+      ))}
     </div>
   );
 }

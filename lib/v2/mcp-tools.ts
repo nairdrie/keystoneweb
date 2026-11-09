@@ -31,7 +31,7 @@ import {
 import { loadDraftBundle, loadSiteRow, type Db } from './store';
 import { draftUrl } from './preview-token';
 import { checkPublishEligibility, publishV2Site, resolveSubdomain } from './publish';
-import { importImageFromUrl, listSiteImages, searchStockPhotos } from './media';
+import { importImageBuffer, importImageFromUrl, listSiteImages, searchStockPhotos } from './media';
 import { createUploadToken, uploadUrl, UPLOAD_TTL_DEFAULT, UPLOAD_TTL_MAX } from './upload-token';
 import { exportLegacySite } from './legacy';
 import { escapeHtml, safeSrc, toPlainText } from './sanitize';
@@ -117,6 +117,16 @@ const businessSchema = {
     favicon: str('Favicon image URL.'),
   },
 };
+
+const MAX_BASE64_BYTES = 3 * 1024 * 1024;
+
+/** import_media's data_base64: plain base64 or a data: URL, size-capped (MCP requests are small). */
+function decodeBase64Image(raw: string): Buffer {
+  const body = raw.trim().replace(/^data:[^;,]*;base64,/i, '').replace(/\s+/g, '');
+  if (!/^[A-Za-z0-9+/_-]+={0,2}$/.test(body)) throw new OpError('data_base64 is not valid base64');
+  if (body.length * 0.75 > MAX_BASE64_BYTES + 4) throw new OpError('data_base64 is over 3 MB: use create_upload_link for bigger files');
+  return Buffer.from(body, 'base64');
+}
 
 // ── tools ───────────────────────────────────────────────────────────────────
 
@@ -459,18 +469,29 @@ export const TOOLS: ToolDef[] = [
   {
     name: 'import_media',
     title: 'Import an image',
-    description: 'Download an image (https URL) into the site\'s media library: re-encoded, resized to ≤2400px, moderated. Use the returned URL in your HTML/content. Only for images already online: for a photo the owner attached in your chat or has on their device, use create_upload_link instead (tools cannot receive attachments).',
+    description: 'Add an image to the site\'s media library: re-encoded, resized to ≤2400px, moderated. Use the returned URL in your HTML/content. Pass url (https) for an image already online, or data_base64 (the file\'s bytes, base64, ≤3 MB decoded) if your client gives you the file itself. Most chat apps do not pass attached images to tools: if you only see the owner\'s image in the conversation and have neither, use create_upload_link.',
     scope: 'sites:write',
     inputSchema: {
       type: 'object',
-      properties: { ...siteIdProp, url: { type: 'string' }, name: { type: 'string' }, unsplash_download_location: { type: 'string' } },
-      required: ['site_id', 'url'],
+      properties: {
+        ...siteIdProp,
+        url: str('https URL of the image. Give url or data_base64.'),
+        data_base64: str('The image file itself, base64-encoded (a data: URL is also accepted). Max 3 MB decoded; larger files go through create_upload_link.'),
+        name: str('File name, e.g. "storefront.jpg".'),
+        unsplash_download_location: { type: 'string' },
+      },
+      required: ['site_id'],
     },
     run: async (args, ctx) => {
       const { site } = await siteContext(args, ctx);
+      const ownerUserId = site.user_id || ctx.auth.userId;
+      if (typeof args.data_base64 === 'string' && args.data_base64) {
+        return importImageBuffer(ctx.db, { siteId: site.id, ownerUserId, data: decodeBase64Image(args.data_base64), name: args.name as string | undefined });
+      }
+      if (!args.url) throw new OpError('Pass url (https) or data_base64');
       return importImageFromUrl(ctx.db, {
         siteId: site.id,
-        ownerUserId: site.user_id || ctx.auth.userId,
+        ownerUserId,
         url: String(args.url),
         name: args.name as string | undefined,
         unsplashDownloadLocation: args.unsplash_download_location as string | undefined,
