@@ -596,6 +596,8 @@ export default function V2Editor({ siteId }: { siteId: string }) {
                 state={state}
                 onSave={(overrides) => run(() => editorOp(siteId, 'brand', { overrides }), { success: 'Brand updated' })}
                 onLogo={() => setPick({ kind: 'image', instance: '@site', path: 'logo', field: { id: 'logo', type: 'image' }, current: { src: state.site.logo || '' } })}
+                onFavicon={() => setPick({ kind: 'image', instance: '@site', path: 'favicon', field: { id: 'favicon', type: 'image' }, current: { src: state.site.favicon || '' } })}
+                onFaviconReset={() => run(() => editorOp(siteId, 'business', { business: { favicon: null } }), { success: 'Favicon removed — your logo is used instead' })}
               />
             )}
             {tab === 'business' && (
@@ -665,12 +667,19 @@ export default function V2Editor({ siteId }: { siteId: string }) {
           current={{ src: String(pick.current.src || ''), alt: String(pick.current.alt || '') }}
           aspect={pick.field.aspect}
           withAlt={pick.field.type === 'image' && pick.instance !== '@site'}
+          {...(pick.instance === '@site' && pick.path === 'favicon' ? {
+            title: 'Choose a favicon',
+            square: true,
+            uploadHint: 'Click to upload an icon (PNG, ICO, JPG or WebP — square works best)',
+            note: 'Shown at 16–32px in browser tabs, so a simple mark or initial reads better than a full logo.',
+          } : {})}
           onClose={() => setPick(null)}
           onChoose={async (value) => {
             const target = pick;
             setPick(null);
             if (target.instance === '@site') {
-              await run(() => editorOp(siteId, 'business', { business: { logo: value.src } }), { success: 'Logo updated' });
+              const favicon = target.path === 'favicon';
+              await run(() => editorOp(siteId, 'business', { business: favicon ? { favicon: value.src } : { logo: value.src } }), { success: favicon ? 'Favicon updated' : 'Logo updated' });
               return;
             }
             // A new background image brings a removed background back.
