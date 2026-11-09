@@ -39,6 +39,7 @@ import { captureScreenshots, type ViewportName } from './screenshot';
 import { COLLECTION_FIELDS } from './collections';
 import { listPosts, opUpsertPosts, type PostInput } from './posts';
 import { articleTemplate, postIndexPage } from './articles';
+import { opConfigureMembership, opGetMembership, opUpsertMembershipPackages, type MembershipSettingsInput, type PackageInput } from './membership';
 
 type Json = Record<string, unknown>;
 
@@ -355,6 +356,11 @@ export const TOOLS: ToolDef[] = [
           enum: ['post', 'none'],
           description: '"post" makes this page the article layout used for every blog post at /blog/<slug> (see get_guide topic "business"). "none" turns that off.',
         },
+        access: {
+          type: ['object', 'null'],
+          description: 'Members-only page (Keystone membership, get_guide topic "membership"): { "members": true } for any active member, or add "packages": [package ids] to limit it. null makes the page public again. Enforced on the server; the page leaves the sitemap.',
+          properties: { members: { type: 'boolean' }, packages: { type: 'array', items: { type: 'string' } } },
+        },
         sections: {
           type: 'array',
           items: {
@@ -363,6 +369,11 @@ export const TOOLS: ToolDef[] = [
               section: str('Section design key.'),
               id: str('Stable instance id, e.g. "home-hero". Reuse it to keep content.'),
               hidden: { type: 'boolean' },
+              audience: {
+                type: 'string',
+                enum: ['everyone', 'members', 'guests'],
+                description: 'Who receives this section (server-side). Default: everyone on public pages, members on members-only pages. "guests" = visitors without access (e.g. a sign-in panel).',
+              },
               content: { type: 'object', description: 'path → value, e.g. { "title": "…", "items": [ { "name": "…" } ] }' },
             },
             required: ['section'],
@@ -376,7 +387,11 @@ export const TOOLS: ToolDef[] = [
     run: async (args, ctx) => {
       const { ops } = await siteContext(args, ctx);
       const slug = String(args.slug);
-      const input = { ...args, ...(args.template !== undefined ? { template: args.template === 'post' ? 'post' : null } : {}) };
+      const input = {
+        ...args,
+        ...(args.template !== undefined ? { template: args.template === 'post' ? 'post' : null } : {}),
+        ...(args.access !== undefined ? { access: args.access && typeof args.access === 'object' ? args.access : null } : {}),
+      };
       return withPreview(ops.siteId, await opPutPage(ops, input as never, { force: !!args.force }), slug === 'home' ? '/' : `/${slug}`);
     },
   },
@@ -805,6 +820,97 @@ export const TOOLS: ToolDef[] = [
     run: async (args, ctx) => {
       const { ops, site } = await siteContext(args, ctx);
       return opUpsertPosts(ops, site.user_id || ctx.auth.userId, (Array.isArray(args.posts) ? args.posts : []) as PostInput[]);
+    },
+  },
+  {
+    name: 'get_membership',
+    title: 'Get membership setup',
+    description: 'Keystone membership for the site: packages (ids for put_page access and /signup?package=<id> links), sign-up form, settings, whether Stripe is connected, member counts (never personal data), which pages and sections are members-only, and the hosted /signin, /signup, /member and /forgot-password pages. See get_guide topic "membership".',
+    scope: 'sites:read',
+    readOnly: true,
+    inputSchema: { type: 'object', properties: siteIdProp, required: ['site_id'] },
+    run: async (args, ctx) => {
+      const { ops } = await siteContext(args, ctx);
+      return opGetMembership(ops);
+    },
+  },
+  {
+    name: 'configure_membership',
+    title: 'Set up membership sign-up',
+    description: 'Turn on Keystone membership and set the sign-up form (stages of fields; email and password are always included), email verification, the owner\'s notification email, privacy policy link and marketing opt-in text. Only change settings the owner asked for once they run it; members, emails and payments are theirs in Admin → Users.',
+    scope: 'sites:write',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        ...siteIdProp,
+        require_email_verification: { type: 'boolean', description: 'Members confirm their email before they get access (default true).' },
+        notification_email: str('Where the owner is told about new members.'),
+        privacy_policy_url: str('https:// or /path, linked from the sign-up form.'),
+        marketing_opt_in_label: str('Checkbox text for email updates, e.g. "Send me CAPN news and events".'),
+        signup_form: {
+          type: 'array',
+          description: 'Replaces the sign-up form. Stages are steps of the form.',
+          items: {
+            type: 'object',
+            properties: {
+              title: { type: 'string' },
+              fields: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    key: str('"email", "password", "name", "country", "province" are built in; anything else is saved as a custom field.'),
+                    label: { type: 'string' },
+                    type: { type: 'string', enum: ['text', 'email', 'password', 'tel', 'number', 'date', 'url', 'textarea', 'select', 'multiselect', 'checkbox'] },
+                    required: { type: 'boolean' },
+                    options: { type: 'array', items: { type: 'string' }, description: 'For select / multiselect.' },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      required: ['site_id'],
+    },
+    run: async (args, ctx) => {
+      const { ops } = await siteContext(args, ctx);
+      return opConfigureMembership(ops, args as MembershipSettingsInput);
+    },
+  },
+  {
+    name: 'upsert_membership_packages',
+    title: 'Add or update membership packages',
+    description: 'Create or update the membership packages people join (e.g. Regular, Student, Associate): name, description, price, billing (month / year / one_time / free), trial days, feature bullets. Paid packages are created on the owner\'s connected Stripe account (free ones need no Stripe). A package\'s price can\'t change later: create a new one and set active: false on the old. Pass id to update.',
+    scope: 'sites:write',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        ...siteIdProp,
+        packages: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: str('Existing package id to update.'),
+              name: { type: 'string' },
+              description: { type: 'string' },
+              price_cents: { type: 'number', description: '0 = free.' },
+              currency: str('ISO code, default CAD.'),
+              billing_interval: { type: 'string', enum: ['month', 'year', 'one_time', 'free'] },
+              trial_days: { type: 'number' },
+              features: { type: 'array', items: { type: 'string' } },
+              active: { type: 'boolean', description: 'false hides it from sign-up (existing members keep it).' },
+              sort_order: { type: 'number' },
+            },
+          },
+        },
+      },
+      required: ['site_id', 'packages'],
+    },
+    run: async (args, ctx) => {
+      const { ops } = await siteContext(args, ctx);
+      return opUpsertMembershipPackages(ops, (Array.isArray(args.packages) ? args.packages : []) as PackageInput[]);
     },
   },
   {

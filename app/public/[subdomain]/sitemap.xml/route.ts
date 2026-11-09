@@ -53,7 +53,9 @@ export async function GET(
 
   for (const page of pages || []) {
     // An agent-built site's article layout isn't a page of its own (its posts are listed below).
-    if ((page.design_data as { v2Template?: string } | null)?.v2Template) continue;
+    // The article layout and members-only pages are not public pages.
+    const pageDesign = page.design_data as { v2Template?: string; v2Access?: { members?: boolean } } | null;
+    if (pageDesign?.v2Template || pageDesign?.v2Access?.members) continue;
     const pageUrl = page.slug === 'home' ? siteBase : `${siteBase}/${page.slug}`;
     const lastMod = page.updated_at
       ? new Date(page.updated_at).toISOString().split('T')[0]

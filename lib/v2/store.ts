@@ -4,8 +4,8 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { PUBLISHED_ROOT } from '@/lib/env/domain';
-import type { Actor, PageRecord, SectionInstance, SectionRecord, SiteBundle, SiteEngine, SiteMeta, ThemeRecord } from './types';
-import { ENGINE_V1, ENGINE_V2 } from './types';
+import type { Actor, PageAccess, PageRecord, SectionInstance, SectionRecord, SiteBundle, SiteEngine, SiteMeta, ThemeRecord } from './types';
+import { AUDIENCES, ENGINE_V1, ENGINE_V2 } from './types';
 
 export type Db = SupabaseClient;
 
@@ -90,7 +90,16 @@ export function pageFromRow(row: PageRow, instances: SectionInstance[]): PageRec
     seo: { title: s(dd.seoTitle), description: s(dd.seoDescription), ogImage: s(dd.ogImage) },
     instances,
     ...(dd.v2Template === 'post' ? { template: 'post' as const } : {}),
+    ...(accessFromDesignData(dd.v2Access) ? { access: accessFromDesignData(dd.v2Access)! } : {}),
   };
+}
+
+/** pages.design_data.v2Access → PageAccess (members-only page), else null. */
+export function accessFromDesignData(raw: unknown): PageAccess | null {
+  if (!raw || typeof raw !== 'object' || (raw as { members?: unknown }).members !== true) return null;
+  const packages = (raw as { packages?: unknown }).packages;
+  const list = Array.isArray(packages) ? packages.filter((p): p is string => typeof p === 'string' && /^[0-9a-f-]{36}$/i.test(p)) : [];
+  return { members: true, ...(list.length ? { packages: list } : {}) };
 }
 
 export async function loadDraftBundle(db: Db, siteId: string): Promise<SiteBundle | null> {
@@ -195,7 +204,12 @@ export async function saveTheme(db: Db, siteId: string, patch: Partial<ThemeReco
  * the write only lands if the layout is still at that version.
  */
 export async function saveLayout(db: Db, siteId: string, pageId: string, instances: SectionInstance[], expectedVersion?: number): Promise<number> {
-  const clean = instances.map((i) => ({ id: i.id, section: i.section, ...(i.hidden ? { hidden: true } : {}) }));
+  const clean = instances.map((i) => ({
+    id: i.id,
+    section: i.section,
+    ...(i.hidden ? { hidden: true } : {}),
+    ...(i.audience && (AUDIENCES as readonly string[]).includes(i.audience) ? { audience: i.audience } : {}),
+  }));
   const now = new Date().toISOString();
   if (expectedVersion === undefined) {
     const { data: current } = await db.from('v2_page_layouts').select('version').eq('page_id', pageId).maybeSingle();
@@ -375,7 +389,7 @@ export async function restoreBundle(db: Db, siteId: string, bundle: SiteBundle, 
   const { data: existing } = await db.from('pages').select('id, design_data').eq('site_id', siteId);
   const existingIds = new Map((existing || []).map((p) => [p.id, p.design_data || {}]));
   for (const page of bundle.pages) {
-    const seo = { seoTitle: page.seo.title || null, seoDescription: page.seo.description || null, ogImage: page.seo.ogImage || null, v2Template: page.template || null };
+    const seo = { seoTitle: page.seo.title || null, seoDescription: page.seo.description || null, ogImage: page.seo.ogImage || null, v2Template: page.template || null, v2Access: page.access || null };
     const row = {
       id: page.id,
       site_id: siteId,

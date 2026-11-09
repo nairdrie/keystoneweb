@@ -103,8 +103,13 @@ export default function MemberSignUpPage({ siteId, siteName, palette, branding }
         setStages(rawToStages(settingsData.settings?.signup_form_fields));
         setPackages(packagesData.packages || []);
 
-        if (packagesData.packages?.length === 1) {
-          setSelectedPackage(packagesData.packages[0].id);
+        // ?package=<id> (e.g. a "Join as a student" button) preselects that package.
+        const requested = new URLSearchParams(window.location.search).get('package');
+        const list: Package[] = packagesData.packages || [];
+        if (requested && list.some((p) => p.id === requested)) {
+          setSelectedPackage(requested);
+        } else if (list.length === 1) {
+          setSelectedPackage(list[0].id);
         }
       } catch (err) {
         console.error('Failed to load signup config:', err);

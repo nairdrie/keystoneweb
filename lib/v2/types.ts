@@ -92,6 +92,21 @@ export interface SectionInstance {
   id: string;
   section: string;
   hidden?: boolean;
+  /**
+   * Who sees this section (enforced on the server). Unset: everyone on a public
+   * page, members on a members-only page. "guests" = visitors who don't have
+   * access (signed out, or the wrong membership package).
+   */
+  audience?: Audience;
+}
+
+export const AUDIENCES = ['everyone', 'members', 'guests'] as const;
+export type Audience = (typeof AUDIENCES)[number];
+
+/** A members-only page. `packages` empty/absent = any active member. */
+export interface PageAccess {
+  members: true;
+  packages?: string[];
 }
 
 export interface PageRecord {
@@ -107,6 +122,8 @@ export interface PageRecord {
   layoutVersion?: number;
   /** "post": the agent's article layout, used for every /blog/<slug> (not a page of its own). */
   template?: PageTemplate;
+  /** Members-only page (Keystone membership). */
+  access?: PageAccess;
 }
 
 export type PageTemplate = 'post';

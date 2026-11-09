@@ -43,7 +43,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ dom
     businessName,
     description,
     businessProfile,
-    pages: (pages || []).filter(p => !(p.design_data as { v2Template?: string } | null)?.v2Template).map(p => ({
+    pages: (pages || []).filter(p => {
+      const d = p.design_data as { v2Template?: string; v2Access?: { members?: boolean } } | null;
+      return !d?.v2Template && !d?.v2Access?.members; // article layout + members-only pages stay out
+    }).map(p => ({
       slug: p.slug,
       title: p.title,
       displayName: p.display_name,

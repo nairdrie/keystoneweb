@@ -295,9 +295,11 @@ export function collectionsIn(htmls: string[]): Set<CollectionKind> {
 }
 
 /** Platform features a v2 site uses, from its markup (for admin tabs, header cart, etc.). */
-export function featuresIn(htmls: string[]): { ecommerce: boolean; booking: boolean; blog: boolean } {
+export function featuresIn(htmls: string[]): { ecommerce: boolean; booking: boolean; blog: boolean; membership?: boolean } {
   const all = htmls.join('\n');
+  const membership = /data-ks-show\s*=\s*["'](members|guests)["']|data-ks-member-field|data-ks-action\s*=\s*["'](signin|signup|account|signout)["']|href\s*=\s*["']\/(signin|signup|member)\b/.test(all);
   return {
+    ...(membership ? { membership } : {}),
     ecommerce: /data-ks-collection\s*=\s*["']products["']|data-ks-action\s*=\s*["'](add-to-cart|open-cart)["']|href\s*=\s*["']\/(cart|product\/)/.test(all),
     booking: /data-ks-collection\s*=\s*["']services["']|data-ks-action\s*=\s*["']book["']|href\s*=\s*["']\/book\b/.test(all),
     blog: /data-ks-collection\s*=\s*["']posts?["']/.test(all),
