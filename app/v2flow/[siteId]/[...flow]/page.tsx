@@ -1,7 +1,8 @@
 /**
  * Keystone-hosted pages for agent-built (v2) sites, wearing the site's own
  * header, footer and design tokens:
- *   /cart, /book[?service=id], /product/<id>, /order-confirmation
+ *   /cart, /book[?service=id], /product/<id>, /order-confirmation,
+ *   and membership: /signin, /signup[?package=id], /member, /forgot-password
  * Reached through the middleware rewrite for the site's own domain.
  */
 import { headers } from 'next/headers';
@@ -20,13 +21,25 @@ export const dynamic = 'force-dynamic';
 
 type Params = { siteId: string; flow: string[] };
 
-const TITLES: Record<FlowKind, string> = { cart: 'Cart', product: 'Product', book: 'Book an appointment', 'order-confirmation': 'Order confirmation' };
+const TITLES: Record<FlowKind, string> = {
+  cart: 'Cart',
+  product: 'Product',
+  book: 'Book an appointment',
+  'order-confirmation': 'Order confirmation',
+  signin: 'Sign in',
+  signup: 'Become a member',
+  member: 'Your account',
+  'forgot-password': 'Reset your password',
+};
+
+const MEMBER_FLOWS = new Set<string>(['signin', 'signup', 'member', 'forgot-password']);
 
 function flowKind(flow: string[]): FlowKind | null {
   const [first, second] = flow;
   if (first === 'cart' && !second) return 'cart';
   if (first === 'book' && !second) return 'book';
   if (first === 'order-confirmation' && !second) return 'order-confirmation';
+  if (MEMBER_FLOWS.has(first) && !second) return first as FlowKind;
   if (first === 'product' && second && flow.length === 2) return 'product';
   return null;
 }
@@ -87,12 +100,13 @@ export default async function V2FlowPage({ params, searchParams }: { params: Pro
         siteName={bundle.site.title}
         palette={chrome.palette}
         serviceId={typeof query.service === 'string' ? query.service : undefined}
+        logo={bundle.site.logo || undefined}
         product={product}
         allProducts={allProducts}
       />
       <div dangerouslySetInnerHTML={{ __html: chrome.footer }} />
       {onSiteHost && <div dangerouslySetInnerHTML={{ __html: chrome.modules }} />}
-      <Script src="/ks/runtime.js?v=4" strategy="afterInteractive" />
+      <Script src="/ks/runtime.js?v=5" strategy="afterInteractive" />
     </>
   );
 }

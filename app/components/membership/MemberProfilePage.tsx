@@ -170,6 +170,9 @@ export default function MemberProfilePage({ siteId, siteName, palette }: MemberP
             </div>
           </div>
 
+          {/* No membership yet (e.g. checkout was abandoned): choose one */}
+          {!member.package && <ChooseMembership siteId={siteId} memberId={member.id} primary={primary} onJoined={fetchProfile} />}
+
           {/* Subscription info */}
           {member.package && (
             <div className="bg-slate-50 rounded-xl p-4 mb-6">
@@ -277,6 +280,104 @@ export default function MemberProfilePage({ siteId, siteName, palette }: MemberP
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+interface PackageOption {
+  id: string;
+  name: string;
+  description: string | null;
+  price_cents: number;
+  currency: string;
+  billing_interval: string;
+  stripe_price_id?: string | null;
+}
+
+/**
+ * Packages the member can take: paid ones open Stripe checkout (authorized by the
+ * member's own session), free ones are added to the account directly.
+ */
+function ChooseMembership({ siteId, memberId, primary, onJoined }: { siteId: string; memberId: string; primary: string; onJoined: () => void }) {
+  const [packages, setPackages] = useState<PackageOption[]>([]);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    fetch(`/api/membership/packages?siteId=${encodeURIComponent(siteId)}`)
+      .then((r) => r.json())
+      .then((d) => setPackages((d.packages || []).filter((p: PackageOption) => !(p.price_cents > 0) || p.stripe_price_id)))
+      .catch(() => setPackages([]));
+  }, [siteId]);
+
+  if (!packages.length) return null;
+
+  const priceLabel = (p: PackageOption) => {
+    if (!(p.price_cents > 0) || p.billing_interval === 'free') return 'Free';
+    const amount = new Intl.NumberFormat('en-CA', { style: 'currency', currency: p.currency || 'CAD' }).format(p.price_cents / 100);
+    return p.billing_interval === 'month' ? `${amount} / month` : p.billing_interval === 'year' ? `${amount} / year` : amount;
+  };
+
+  async function choose(p: PackageOption) {
+    setBusy(p.id);
+    setError('');
+    try {
+      if (!(p.price_cents > 0) || p.billing_interval === 'free') {
+        const res = await fetch('/api/membership/me', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ joinFreePackageId: p.id }),
+        });
+        if (!res.ok) throw new Error((await res.json()).error || 'Could not add that membership');
+        onJoined();
+        return;
+      }
+      const res = await fetch('/api/membership/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          siteId,
+          memberId,
+          packageId: p.id,
+          successUrl: `${window.location.origin}/member?joined=true`,
+          cancelUrl: `${window.location.origin}/member`,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.url) throw new Error(data.error || 'Could not start checkout');
+      window.location.href = data.url;
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div className="bg-slate-50 rounded-xl p-4 mb-6">
+      <h2 className="text-sm font-semibold text-slate-900 mb-1">Choose your membership</h2>
+      <p className="text-xs text-slate-500 mb-3">Your account is ready. Pick a membership to get members-only access.</p>
+      <div className="space-y-2">
+        {packages.map((p) => (
+          <div key={p.id} className="flex items-center justify-between gap-3 bg-white rounded-lg border border-slate-200 px-3 py-2">
+            <div>
+              <p className="text-sm font-medium text-slate-900">{p.name}</p>
+              <p className="text-xs text-slate-500">{priceLabel(p)}</p>
+            </div>
+            <button
+              onClick={() => choose(p)}
+              disabled={!!busy}
+              className="px-3 py-1.5 text-xs font-semibold rounded-lg text-white disabled:opacity-60"
+              style={{ backgroundColor: primary }}
+            >
+              {busy === p.id ? '…' : p.price_cents > 0 && p.billing_interval !== 'free' ? 'Join & pay' : 'Join'}
+            </button>
+          </div>
+        ))}
+      </div>
+      {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
     </div>
   );
 }

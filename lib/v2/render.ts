@@ -20,6 +20,7 @@ import type {
   ThemeRecord,
 } from './types';
 import { GLOBAL_INSTANCE_FOOTER, GLOBAL_INSTANCE_HEADER } from './types';
+import type { MemberVisitor } from '@/lib/membership/access';
 import { compileSection } from './compile';
 import { scopeCss, sectionScopeSelector } from './css-scope';
 import { escapeHtml, safeHref, safeSrc, safeTokenValue, sanitizeInline, sanitizeRich, toPlainText } from './sanitize';
@@ -79,6 +80,15 @@ export interface RenderOptions {
   article?: ArticleMeta;
   /** Trusted body HTML used instead of a page's sections (Keystone's default article layout). */
   bodyOverride?: string;
+  /**
+   * Published: the member visiting (resolved on the server from the session cookie). Without it,
+   * a members-only page or section renders as for a signed-out visitor.
+   */
+  visitor?: MemberVisitor | null;
+  /** Drafts: preview as a member or a guest. Unset shows every section (members and guests alike). */
+  viewAs?: 'member' | 'guest';
+  /** Path being rendered (for the sign-in link's return address on the default members-only panel). */
+  path?: string;
 }
 
 interface GlobalValues {
@@ -174,6 +184,7 @@ export function renderInstance(
     `data-ks-section="${escapeHtml(section.key)}"`,
     `data-ks-instance="${escapeHtml(instance.id)}"`,
     mode === 'edit' && instance.hidden ? 'data-ks-hidden=""' : '',
+    mode !== 'published' && instance.audience && instance.audience !== 'everyone' ? `data-ks-audience="${escapeHtml(instance.audience)}"` : '',
   ].filter(Boolean).join(' ');
   return `<div ${attrs} style="display:contents">${$.html()}</div>`;
 }
@@ -526,6 +537,7 @@ function stripEditorAttributes($: CheerioAPI) {
       if (!name.startsWith('data-ks')) continue;
       if (name.startsWith('data-ks-form') || name === 'data-ks-action' || name.startsWith('data-ks-action-')) continue;
       if (name === 'data-ks-product' || name === 'data-ks-service' || name === 'data-ks-cart-count') continue;
+      if (name === 'data-ks-show' || name === 'data-ks-member-field' || name === 'data-ks-package') continue; // runtime.js member state
       if (name.startsWith('data-ks-attribution')) continue; // runtime.js checks it stays visible
       delete el.attribs[name];
     }
@@ -567,12 +579,26 @@ export function renderPage(bundle: SiteBundle, page: PageRecord | null, options:
   const renderedInstances: Array<{ section: SectionRecord; instance: SectionInstance }> = [];
   const attribution = { found: false };
 
+  // Members-only pages and sections: decided here, on the server, so visitors
+  // without access never receive the members' content.
+  const showEveryAudience = mode !== 'published' && !options.viewAs;
+  const hasAccess = mode === 'published' ? !!options.visitor?.hasAccess : options.viewAs === 'member';
+  let guestSections = 0;
+  const audienceSees = (instance: SectionInstance): boolean => {
+    if (instance.id === GLOBAL_INSTANCE_HEADER || instance.id === GLOBAL_INSTANCE_FOOTER) return true;
+    const audience = effectiveAudience(page, instance);
+    if (audience === 'guests') guestSections++;
+    if (showEveryAudience || audience === 'everyone') return true;
+    return audience === 'members' ? hasAccess : !hasAccess;
+  };
+
   const renderOne = (instance: SectionInstance): string => {
     const section = bundle.sections[instance.section];
     if (!section) {
       return mode === 'published' ? '' : `<div data-ks-instance="${escapeHtml(instance.id)}" style="padding:2rem;border:2px dashed #f59e0b;font:14px system-ui">Missing section design "${escapeHtml(instance.section)}"</div>`;
     }
     if (instance.hidden && mode !== 'edit') return '';
+    if (!audienceSees(instance)) return '';
     used.set(section.key, section);
     renderedInstances.push({ section, instance });
     return renderInstance(bundle, section, instance, page, mode, options.collections, attribution);
@@ -583,7 +609,7 @@ export function renderPage(bundle: SiteBundle, page: PageRecord | null, options:
   const body = options.bodyOverride !== undefined
     ? options.bodyOverride
     : page
-    ? page.instances.map(renderOne).join('\n')
+    ? page.instances.map(renderOne).join('\n') + (page.access && !hasAccess && !showEveryAudience && !guestSections ? defaultMembersOnlyHtml(bundle, options) : '')
     : `<section style="min-height:50vh;display:grid;place-items:center;text-align:center;padding:4rem 1rem"><div><h1>Page not found</h1><p><a href="/">Go to the home page</a></p></div></section>`;
   const footerWithAttribution = withAttribution(footer, attribution.found);
 
@@ -672,6 +698,7 @@ export function renderPage(bundle: SiteBundle, page: PageRecord | null, options:
     mode,
     editorOrigin: options.editorOrigin || null,
     version: options.version || 'draft',
+    ...(options.viewAs ? { viewAs: options.viewAs } : {}),
   };
 
   const head = [
@@ -687,7 +714,8 @@ export function renderPage(bundle: SiteBundle, page: PageRecord | null, options:
     `<meta property="og:type" content="${article ? 'article' : 'website'}">`,
     article?.datePublished ? `<meta property="article:published_time" content="${escapeHtml(article.datePublished)}">` : '',
     favicon ? `<link rel="icon" href="${escapeHtml(safeSrc(favicon) || favicon)}">` : '',
-    mode !== 'published' ? '<meta name="robots" content="noindex, nofollow">' : '',
+    mode !== 'published' || page?.access ? '<meta name="robots" content="noindex, nofollow">' : '',
+    mode !== 'edit' ? `<style>${MEMBER_STATE_CSS}</style>` : '',
     fontsHref ? `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="${escapeHtml(fontsHref)}">` : '',
     css ? `<style>${css.replace(/<\/style/gi, '<\\/style')}</style>` : '',
     jsonLd,
@@ -705,7 +733,7 @@ ${body}
 </main>
 ${footerWithAttribution}
 ${modules.join('\n')}
-<script src="${assetBase}/ks/runtime.js?v=4" defer></script>
+<script src="${assetBase}/ks/runtime.js?v=5" defer></script>
 ${mode === 'edit' ? `<script src="${assetBase}/ks/editor.js?v=8" defer></script>` : ''}
 </body>
 </html>`;
@@ -749,6 +777,14 @@ function googleFontsHref(theme: ThemeRecord, tokens: Array<{ name: string; value
 const URL_ESCAPES: Record<string, string> = { "'": '%27', '"': '%22', '(': '%28', ')': '%29', '\\': '%5C' };
 
 const GENERIC_FONTS = new Set(['serif', 'sans-serif', 'monospace', 'cursive', 'system-ui', 'ui-sans-serif', 'ui-serif', 'inherit', 'georgia', 'arial', 'helvetica']);
+
+/**
+ * Member state in agent markup (public/ks/runtime.js sets html[data-ks-member]):
+ * data-ks-show="members" only while signed in, data-ks-show="guests" only while
+ * signed out (so without JS, visitors see the signed-out version). Cosmetic: real
+ * members-only content is filtered on the server (page access / section audience).
+ */
+export const MEMBER_STATE_CSS = 'html:not([data-ks-member="in"]) [data-ks-show="members"],html[data-ks-member="in"] [data-ks-show="guests"]{display:none!important}';
 
 const EDIT_MODE_CSS = `
 [data-ks-instance][data-ks-hidden]{opacity:.35!important;outline:2px dashed #94a3b8!important;outline-offset:-2px}
@@ -850,6 +886,7 @@ export function renderChrome(bundle: SiteBundle, options: { siteUrl?: string; co
     head: [
       fontsHref ? `<link rel="stylesheet" href="${escapeHtml(fontsHref)}">` : '',
       css ? `<style>${css.replace(/<\/style/gi, '<\\/style')}</style>` : '',
+      `<style>${MEMBER_STATE_CSS}</style>`,
     ].filter(Boolean).join('\n'),
     header,
     footer,
@@ -857,4 +894,68 @@ export function renderChrome(bundle: SiteBundle, options: { siteUrl?: string; co
     config,
     palette: platformPalette(theme),
   };
+}
+
+
+/** Who a section on a page is for: its own audience, else members on members-only pages, else everyone. */
+export function effectiveAudience(page: Pick<PageRecord, 'access'> | null, instance: SectionInstance): 'everyone' | 'members' | 'guests' {
+  if (instance.audience) return instance.audience;
+  return page?.access ? 'members' : 'everyone';
+}
+
+/** True when a page's HTML depends on who is visiting (so it must never be cached publicly). */
+export function pageIsPersonalized(page: PageRecord | null): boolean {
+  if (!page) return false;
+  return !!page.access || page.instances.some((i) => i.audience === 'members' || i.audience === 'guests');
+}
+
+/** Keystone's sign-in panel for a members-only page whose design has no "guests" section. */
+function defaultMembersOnlyHtml(bundle: SiteBundle, options: RenderOptions): string {
+  const palette = platformPalette(bundle.theme);
+  const visitor = options.visitor;
+  const color = (v: string) => (/^[#a-z0-9(),.\s%-]+$/i.test(v) ? v : 'currentColor');
+  const returnTo = options.path && options.path.startsWith('/') && !options.path.startsWith('//') ? options.path : '/';
+  type Cta = { label: string; href: string } | null;
+  let title: string;
+  let text: string;
+  let primary: Cta;
+  let secondary: Cta = null;
+  if (!visitor?.signedIn) {
+    title = 'Members only';
+    text = 'Sign in with your membership to see this page.';
+    primary = { label: 'Sign in', href: `/signin?returnTo=${encodeURIComponent(returnTo)}` };
+    secondary = { label: 'Become a member', href: '/signup' };
+  } else if (visitor.reason === 'no-package') {
+    title = 'Choose your membership';
+    text = 'Your account is set up. Pick a membership in your account to see this page.';
+    primary = { label: 'Choose a membership', href: '/member' };
+  } else if (visitor.reason === 'wrong-package') {
+    title = 'Not included in your membership';
+    text = 'This page is for a different membership level.';
+    primary = { label: 'Your account', href: '/member' };
+  } else if (visitor.reason === 'unpaid') {
+    title = 'Membership payment needed';
+    text = "Your membership isn't active right now. Update your payment details in your account to get access again.";
+    primary = { label: 'Your account', href: '/member' };
+  } else {
+    title = 'Membership not active yet';
+    text = 'Check your email to confirm your address, or contact us if you think this is a mistake.';
+    primary = { label: 'Your account', href: '/member' };
+  }
+  const css = `.ks-members-only{max-width:34rem;margin:0 auto;padding:clamp(3rem,8vw,6rem) 1.25rem;text-align:center}
+.ks-members-only h2{margin:0 0 .75rem;font-size:clamp(1.6rem,4vw,2.2rem);line-height:1.2}
+.ks-members-only p{margin:0 0 1.75rem;opacity:.8;line-height:1.6}
+.ks-members-only__actions{display:flex;flex-wrap:wrap;gap:.75rem;justify-content:center}
+.ks-members-only a{display:inline-block;padding:.8rem 1.5rem;border-radius:999px;font-weight:600;text-decoration:none}
+.ks-members-only__primary{background:${color(palette.primary)};color:#fff}
+.ks-members-only__secondary{border:1px solid currentColor;color:${color(palette.secondary)}}`;
+  const link = (cta: Cta, cls: string) => (cta ? `<a class="${cls}" href="${escapeHtml(cta.href)}">${escapeHtml(cta.label)}</a>` : '');
+  return [
+    `<style>${css}</style>`,
+    '<section class="ks-members-only" data-ks-members-only>',
+    `<h2>${escapeHtml(title)}</h2>`,
+    `<p>${escapeHtml(text)}</p>`,
+    `<div class="ks-members-only__actions">${link(primary, 'ks-members-only__primary')}${link(secondary, 'ks-members-only__secondary')}</div>`,
+    '</section>',
+  ].join('');
 }

@@ -36,8 +36,19 @@ export async function GET(request: NextRequest) {
     const engine = await getSiteEngine(db, access.siteId);
     if (engine !== ENGINE_V2) return NextResponse.json({ siteId: access.siteId, engine });
     // Platform features the agent's design uses (drives admin tabs).
-    const { data: sections } = await db.from('v2_sections').select('html').eq('site_id', access.siteId);
+    const [{ data: sections }, { data: pages }, { data: layouts }] = await Promise.all([
+      db.from('v2_sections').select('html').eq('site_id', access.siteId),
+      db.from('pages').select('design_data').eq('site_id', access.siteId),
+      db.from('v2_page_layouts').select('instances').eq('site_id', access.siteId),
+    ]);
     const features = featuresIn((sections || []).map((s) => String(s.html || '')));
+    // Members-only pages or sections also count as using membership.
+    if (
+      (pages || []).some((p) => (p.design_data as { v2Access?: { members?: boolean } } | null)?.v2Access?.members) ||
+      (layouts || []).some((l) => Array.isArray(l.instances) && l.instances.some((i: { audience?: string }) => i?.audience === 'members' || i?.audience === 'guests'))
+    ) {
+      features.membership = true;
+    }
     return NextResponse.json({ siteId: access.siteId, engine, features });
   } catch (e) {
     return siteAccessErrorResponse(e);

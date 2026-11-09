@@ -7,8 +7,8 @@
  */
 import { randomBytes } from 'crypto';
 import postcss from 'postcss';
-import type { Actor, CompiledSection, FieldSchema, PageRecord, SectionInstance, SiteBundle, ThemeToken } from './types';
-import { ENGINE_V2, GLOBAL_INSTANCE_FOOTER, GLOBAL_INSTANCE_HEADER } from './types';
+import type { Actor, Audience, CompiledSection, FieldSchema, PageAccess, PageRecord, SectionInstance, SiteBundle, ThemeToken } from './types';
+import { AUDIENCES, ENGINE_V2, GLOBAL_INSTANCE_FOOTER, GLOBAL_INSTANCE_HEADER } from './types';
 import { compileSection } from './compile';
 import { splitSectionSource } from './css-scope';
 import { applyFieldChange, applyListOp, ContentError, defaultListItem, splitPath, type ListOp } from './content';
@@ -240,6 +240,7 @@ export async function opGetSite(ctx: OpsContext, opts: { includeCode?: boolean }
       navOrder: p.nav_order,
       seo: p.seo,
       ...(p.template ? { template: p.template } : {}),
+      ...(p.access ? { access: p.access } : {}),
       sections: p.instances,
       layoutVersion: p.layoutVersion ?? 0,
     })),
@@ -464,7 +465,9 @@ export interface PageInput {
   seo?: { title?: string; description?: string; ogImage?: string };
   /** "post" makes this page the article layout for /blog/<slug>; null turns that off. */
   template?: 'post' | null;
-  sections?: Array<{ id?: string; section: string; hidden?: boolean; content?: Record<string, unknown> }>;
+  /** Members-only page: { members: true, packages?: [ids] }; null/false makes it public again. */
+  access?: { members?: boolean; packages?: string[] } | null | false;
+  sections?: Array<{ id?: string; section: string; hidden?: boolean; audience?: Audience | null; content?: Record<string, unknown> }>;
   /** reject replacing the section list if the page layout changed since this version was read */
   expected_version?: number;
 }
@@ -486,6 +489,24 @@ export async function opPutPage(ctx: OpsContext, input: PageInput, opts: { force
     if (other) throw new OpError(`Page "${other.slug}" is already the article layout. Set template: null on it first, or update that page.`);
   }
   const templateChange = input.template !== undefined ? { v2Template: input.template === 'post' ? 'post' : null } : null;
+  let accessChange: { v2Access: PageAccess | null } | null = null;
+  if (input.access !== undefined) {
+    const wanted = input.access && input.access.members !== false ? input.access : null;
+    if (wanted) {
+      if (slug === 'home') throw new OpError('The home page can\'t be members-only. Make a separate page (e.g. "members") and link to it.');
+      if (input.template === 'post' || (input.template === undefined && page?.template === 'post')) throw new OpError('The article layout can\'t be members-only.');
+      const packages = Array.isArray(wanted.packages) ? [...new Set(wanted.packages.map(String))] : [];
+      if (packages.length) {
+        const { data: found } = await ctx.db.from('membership_packages').select('id').eq('site_id', ctx.siteId).in('id', packages);
+        const known = new Set((found || []).map((r: { id: string }) => r.id));
+        const missing = packages.filter((id) => !known.has(id));
+        if (missing.length) throw new OpError(`Unknown membership package id(s): ${missing.join(', ')}. See get_membership.`);
+      }
+      accessChange = { v2Access: { members: true, ...(packages.length ? { packages } : {}) } };
+    } else {
+      accessChange = { v2Access: null };
+    }
+  }
 
   const title = input.title !== undefined ? toPlainText(input.title).slice(0, 120) : page?.title || titleFromSlug(slug);
   const seo = input.seo ? {
@@ -504,17 +525,17 @@ export async function opPutPage(ctx: OpsContext, input: PageInput, opts: { force
       // The article layout isn't a page of its own, so it stays out of the menu unless asked.
       is_visible_in_nav: input.show_in_nav ?? input.template !== 'post',
       nav_order: navOrder,
-      design_data: { ...(seo || {}), ...(templateChange || {}) },
+      design_data: { ...(seo || {}), ...(templateChange || {}), ...(accessChange || {}) },
     }).select('id').single();
     if (error) throw new OpError(`Failed to create page: ${error.message}`, 500);
-    page = { id: data.id, slug, title, display_name: title, is_visible_in_nav: input.show_in_nav ?? input.template !== 'post', nav_order: navOrder, seo: {}, instances: [], ...(input.template === 'post' ? { template: 'post' as const } : {}) };
+    page = { id: data.id, slug, title, display_name: title, is_visible_in_nav: input.show_in_nav ?? input.template !== 'post', nav_order: navOrder, seo: {}, instances: [], ...(input.template === 'post' ? { template: 'post' as const } : {}), ...(accessChange?.v2Access ? { access: accessChange.v2Access } : {}) };
   } else {
     const { data: row } = await ctx.db.from('pages').select('design_data').eq('id', page.id).single();
     const update: Record<string, unknown> = { title, updated_at: new Date().toISOString() };
     if (input.nav_label !== undefined) update.display_name = toPlainText(input.nav_label).slice(0, 60) || title;
     if (input.show_in_nav !== undefined) update.is_visible_in_nav = !!input.show_in_nav;
     if (input.nav_order !== undefined) update.nav_order = Number(input.nav_order) || 0;
-    if (seo || templateChange) update.design_data = { ...(row?.design_data || {}), ...(seo || {}), ...(templateChange || {}) };
+    if (seo || templateChange || accessChange) update.design_data = { ...(row?.design_data || {}), ...(seo || {}), ...(templateChange || {}), ...(accessChange || {}) };
     if (input.template === 'post' && input.show_in_nav === undefined && page.template !== 'post') update.is_visible_in_nav = false;
     const { error } = await ctx.db.from('pages').update(update).eq('id', page.id);
     if (error) throw new OpError(`Failed to update page: ${error.message}`, 500);
@@ -531,7 +552,8 @@ export async function opPutPage(ctx: OpsContext, input: PageInput, opts: { force
       if (usedElsewhere.has(id)) throw new OpError(`Instance id "${id}" is already used on another page`);
       if (seen.has(id)) id = newInstanceId();
       seen.add(id);
-      return { id, section: s.section, ...(s.hidden ? { hidden: true } : {}) };
+      if (s.audience && !(AUDIENCES as readonly string[]).includes(s.audience)) throw new OpError(`audience must be one of ${AUDIENCES.join(', ')}`);
+      return { id, section: s.section, ...(s.hidden ? { hidden: true } : {}), ...(s.audience ? { audience: s.audience } : {}) };
     });
     if (input.expected_version !== undefined && input.expected_version !== null) {
       await mutateLayout(ctx, page.id, () => instances, input.expected_version);
@@ -551,8 +573,15 @@ export async function opPutPage(ctx: OpsContext, input: PageInput, opts: { force
 
   await logActivity(ctx.db, ctx.siteId, ctx.actor, 'put_page', { slug });
   const isTemplate = input.template !== undefined ? input.template === 'post' : page.template === 'post';
+  const access = accessChange ? accessChange.v2Access : page.access || null;
   return {
-    page: { id: page.id, slug, title, ...(isTemplate ? { template: 'post', note: 'Used for every /blog/<slug> article. Not reachable at its own URL on the live site.' } : {}) },
+    page: {
+      id: page.id,
+      slug,
+      title,
+      ...(isTemplate ? { template: 'post', note: 'Used for every /blog/<slug> article. Not reachable at its own URL on the live site.' } : {}),
+      ...(access ? { access, note: 'Members-only: sections default to members; mark the hero "everyone" and a sign-in panel "guests". Visitors without access never receive the members sections.' } : {}),
+    },
     sections: page.instances,
     content: contentResults,
   };

@@ -17,6 +17,8 @@ import { loadDraftBundle, loadRelease, loadSiteRow } from '@/lib/v2/store';
 import { ENGINE_V2 } from '@/lib/v2/types';
 import { verifyDraftToken } from '@/lib/v2/preview-token';
 import { renderSitePath } from '@/lib/v2/articles';
+import { MEMBER_COOKIE_NAME } from '@/lib/membership/auth';
+import { resolveMemberVisitor } from '@/lib/membership/access';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,7 +49,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const host = (request.headers.get('host') || '').split(':')[0];
     const hostKind = parseHost(host).kind;
     const siteUrl = site.custom_domain ? `https://${site.custom_domain}` : bundle.site.domain ? `https://${bundle.site.domain}` : `https://${host}`;
-    const rendered = await renderSitePath(db, bundle, site.id, pathname, { mode: 'published', siteUrl, version: site.v2_release_id });
+    // The member cookie is host-only on the site's own domain; on the app host there is none.
+    const memberToken = request.cookies.get(MEMBER_COOKIE_NAME)?.value;
+    const rendered = await renderSitePath(db, bundle, site.id, pathname, {
+      mode: 'published',
+      siteUrl,
+      version: site.v2_release_id,
+      resolveVisitor: (access) => resolveMemberVisitor(db, site.id, memberToken, access?.packages),
+    });
 
     const csp = [
       `script-src 'self' blob: ${ALLOWED_SCRIPT_HOSTS_FOR_CSP} https://www.googletagmanager.com`,
@@ -60,7 +69,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (hostKind === 'app' || hostKind === 'ops') csp.push(SANDBOX_CSP);
 
     return htmlResponse(rendered.html, rendered.status, {
-      'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+      // Members-only pages/sections differ per visitor: never cache them publicly.
+      'Cache-Control': rendered.personalized ? 'private, no-store' : 'public, s-maxage=60, stale-while-revalidate=300',
+      ...(rendered.personalized ? { Vary: 'Cookie' } : {}),
       'Content-Security-Policy': csp.join('; '),
     });
   }
@@ -72,8 +83,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (!bundle) return notFound();
     const appOrigin = new URL(APP_URL).origin;
     const requestOrigin = request.nextUrl.origin;
+    const view = request.nextUrl.searchParams.get('ks_view');
     const rendered = await renderSitePath(db, bundle, claims.siteId, pathname, {
       mode: claims.mode,
+      // Preview what members (or signed-out visitors) see on members-only pages.
+      viewAs: claims.mode === 'preview' && (view === 'member' || view === 'guest') ? view : undefined,
       linkBase: `/v2r/draft/${key}`,
       editorOrigin: claims.mode === 'edit' ? requestOrigin || appOrigin : undefined,
       version: 'draft',

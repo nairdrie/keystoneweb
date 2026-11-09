@@ -110,9 +110,19 @@ function isSharedSitePath(pathname: string): boolean {
   );
 }
 
-/** Keystone-hosted flows on v2 sites (cart, booking, product pages, order confirmation). */
+/** Keystone-hosted flows on v2 sites (cart, booking, product pages, order confirmation, membership). */
 function isV2FlowPath(pathname: string): boolean {
-  return pathname === '/cart' || pathname === '/book' || pathname === '/order-confirmation' || /^\/product\/[^/]+$/.test(pathname);
+  return (
+    pathname === '/cart' ||
+    pathname === '/book' ||
+    pathname === '/order-confirmation' ||
+    /^\/product\/[^/]+$/.test(pathname) ||
+    // Membership: sign in, join, account, password reset (same paths as classic sites, so emails link here).
+    pathname === '/signin' ||
+    pathname === '/signup' ||
+    pathname === '/member' ||
+    pathname === '/forgot-password'
+  );
 }
 
 function rewriteToV2(request: NextRequest, siteId: string, pathname: string): NextResponse {
@@ -120,10 +130,10 @@ function rewriteToV2(request: NextRequest, siteId: string, pathname: string): Ne
   const flow = isV2FlowPath(pathname);
   url.pathname = flow ? `/v2flow/${siteId}${pathname}` : `/v2r/pub/${siteId}${pathname === '/' ? '' : pathname}`;
   const response = NextResponse.rewrite(url);
-  response.headers.set(
-    'Cache-Control',
-    flow && !pathname.startsWith('/product/') ? 'private, no-store' : 'public, s-maxage=60, stale-while-revalidate=300',
-  );
+  // Pages (/v2r) set their own Cache-Control: members-only pages must not be cached publicly.
+  if (flow) {
+    response.headers.set('Cache-Control', pathname.startsWith('/product/') ? 'public, s-maxage=60, stale-while-revalidate=300' : 'private, no-store');
+  }
   return response;
 }
 

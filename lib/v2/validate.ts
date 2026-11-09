@@ -6,7 +6,8 @@ import postcss from 'postcss';
 import { load } from 'cheerio';
 import type { CompileIssue, SiteBundle } from './types';
 import { compileSection } from './compile';
-import { renderPage } from './render';
+import { pageIsPersonalized, renderPage } from './render';
+import { SIGNED_OUT, type MemberVisitor } from '@/lib/membership/access';
 import { BUDGETS, SCRIPT_HOST_ALLOWLIST, TOKEN_NAME_RE, isAllowedScriptUrl } from './policy';
 
 export interface SiteIssue extends CompileIssue {
@@ -108,38 +109,58 @@ export function validateBundle(bundle: SiteBundle): ValidationReport {
       issues.push({ level: 'warning', rule: 'article-layout', message: 'This page is the article layout but has no data-ks-collection="post" section, so articles would show no title or text.', page: page.slug });
     }
 
+    if (page.access && page.slug === 'home') {
+      issues.push({ level: 'error', rule: 'members-only', message: 'The home page can\'t be members-only.', page: page.slug });
+    }
+
     // The article layout is checked with its sample article (live posts fill it at request time).
-    const rendered = renderPage(bundle, page, { mode: isArticleLayout ? 'preview' : 'published' });
-    if (rendered.stats.cssBytes > BUDGETS.pageCssBytes) {
-      issues.push({ level: 'warning', rule: 'budget', message: `Page CSS is ${Math.round(rendered.stats.cssBytes / 1000)}KB (budget ${BUDGETS.pageCssBytes / 1000}KB).`, page: page.slug });
-    }
-    if (rendered.stats.jsBytes > BUDGETS.pageJsBytes) {
-      issues.push({ level: 'warning', rule: 'budget', message: `Page JS is ${Math.round(rendered.stats.jsBytes / 1000)}KB (budget ${BUDGETS.pageJsBytes / 1000}KB).`, page: page.slug });
-    }
-
-    const $ = load(rendered.html);
-    const allH1 = $('h1').length;
-    if (allH1 === 0) issues.push({ level: 'warning', rule: 'h1', message: 'Page has no <h1>.', page: page.slug });
-    if (allH1 > 1) issues.push({ level: 'warning', rule: 'h1', message: `Page has ${allH1} <h1> elements; use one.`, page: page.slug });
-
-    $('a[href]').each((_, el) => {
-      const href = $(el).attr('href') || '';
-      if (!href.startsWith('/') || href.startsWith('//')) return;
-      const path = href.split(/[?#]/)[0].replace(/\/+$/, '') || '/';
-      const slug = path === '/' ? 'home' : path.slice(1);
-      if (slug.includes('/') || SYSTEM_PATHS.some((p) => path.startsWith(p))) return;
-      if (!slugs.has(slug)) {
-        issues.push({ level: 'error', rule: 'broken-link', message: `Link to ${href} — there is no page "${slug}".`, page: page.slug });
+    // Members-only pages and sections are checked as both a member and a signed-out visitor.
+    const views: Array<MemberVisitor | null> = pageIsPersonalized(page) ? [MEMBER_VIEW, SIGNED_OUT] : [null];
+    for (const visitor of views) {
+      const viewNote = visitor ? (visitor.hasAccess ? ' (as a member)' : ' (as a signed-out visitor)') : '';
+      const rendered = renderPage(bundle, page, { mode: isArticleLayout ? 'preview' : 'published', visitor });
+      if (rendered.stats.cssBytes > BUDGETS.pageCssBytes) {
+        issues.push({ level: 'warning', rule: 'budget', message: `Page CSS is ${Math.round(rendered.stats.cssBytes / 1000)}KB (budget ${BUDGETS.pageCssBytes / 1000}KB).`, page: page.slug });
       }
-      else if (articleLayoutSlug === slug) {
-        issues.push({ level: 'error', rule: 'broken-link', message: `Link to ${href} — that page is the article layout, which isn't reachable on the live site. Link to a post (/blog/<slug>) or the page listing posts.`, page: page.slug });
+      if (rendered.stats.jsBytes > BUDGETS.pageJsBytes) {
+        issues.push({ level: 'warning', rule: 'budget', message: `Page JS is ${Math.round(rendered.stats.jsBytes / 1000)}KB (budget ${BUDGETS.pageJsBytes / 1000}KB).`, page: page.slug });
       }
-    });
 
-    $('img').each((_, el) => {
-      const alt = $(el).attr('alt');
-      if (alt === undefined) issues.push({ level: 'warning', rule: 'missing-alt', message: `Image ${$(el).attr('src') || ''} has no alt text.`, page: page.slug });
-    });
+      const $ = load(rendered.html);
+      const allH1 = $('h1').length;
+      if (allH1 === 0) issues.push({ level: 'warning', rule: 'h1', message: `Page has no <h1>${viewNote}.`, page: page.slug });
+      if (allH1 > 1) issues.push({ level: 'warning', rule: 'h1', message: `Page has ${allH1} <h1> elements${viewNote}; use one.`, page: page.slug });
+
+      $('a[href]').each((_, el) => {
+        const href = $(el).attr('href') || '';
+        // Members belong to one site: sign-in on another Keystone site (e.g. the old one) doesn't sign them in here.
+        const external = /^https?:\/\/([a-z0-9-]+\.kswd\.ca)\/(signin|signup|member|forgot-password)\b/i.exec(href);
+        if (external && external[1].toLowerCase() !== (bundle.site.domain || '').toLowerCase()) {
+          issues.push({
+            level: 'warning',
+            rule: 'member-link',
+            message: `Link to ${href} — that's another site's member page, and members of this site can't sign in there. Use /${external[2]} (get_guide topic "membership").`,
+            page: page.slug,
+          });
+          return;
+        }
+        if (!href.startsWith('/') || href.startsWith('//')) return;
+        const path = href.split(/[?#]/)[0].replace(/\/+$/, '') || '/';
+        const slug = path === '/' ? 'home' : path.slice(1);
+        if (slug.includes('/') || SYSTEM_PATHS.some((p) => path.startsWith(p))) return;
+        if (!slugs.has(slug)) {
+          issues.push({ level: 'error', rule: 'broken-link', message: `Link to ${href} — there is no page "${slug}".`, page: page.slug });
+        }
+        else if (articleLayoutSlug === slug) {
+          issues.push({ level: 'error', rule: 'broken-link', message: `Link to ${href} — that page is the article layout, which isn't reachable on the live site. Link to a post (/blog/<slug>) or the page listing posts.`, page: page.slug });
+        }
+      });
+
+      $('img').each((_, el) => {
+        const alt = $(el).attr('alt');
+        if (alt === undefined) issues.push({ level: 'warning', rule: 'missing-alt', message: `Image ${$(el).attr('src') || ''} has no alt text.`, page: page.slug });
+      });
+    }
   }
 
   const listsPosts = bundle.pages.some((p) => p.instances.some((i) => /data-ks-collection\s*=\s*["']posts["']/.test(bundle.sections[i.section]?.html || '')));
@@ -164,7 +185,9 @@ export function validateBundle(bundle: SiteBundle): ValidationReport {
   };
 }
 
-const SYSTEM_PATHS = ['/api/', '/product/', '/cart', '/book', '/order-confirmation', '/checkout', '/booking', '/blog/', '/signin', '/signup', '/member'];
+const SYSTEM_PATHS = ['/api/', '/product/', '/cart', '/book', '/order-confirmation', '/checkout', '/booking', '/blog/', '/signin', '/signup', '/member', '/forgot-password'];
+
+const MEMBER_VIEW: MemberVisitor = { signedIn: true, hasAccess: true, reason: null };
 
 function scanJs(js: string, section: string | undefined): SiteIssue[] {
   const out: SiteIssue[] = [];

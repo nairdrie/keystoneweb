@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
+import { createStripePackagePrice, isPaidPackage, StripePackageError } from '@/lib/membership/stripe-packages';
 
 /** GET /api/membership/packages?siteId=xxx — List packages (public for active, all for admin) */
 export async function GET(request: NextRequest) {
@@ -64,46 +65,19 @@ export async function POST(request: NextRequest) {
     let stripePriceId = null;
     let stripeProductId = null;
 
-    if (priceCents > 0 && billingInterval !== 'free') {
-      if (!site.stripe_account_id) {
-        return NextResponse.json({
-          error: 'Please connect your Stripe account before creating paid packages',
-        }, { status: 400 });
-      }
-
+    if (isPaidPackage(priceCents, billingInterval)) {
       try {
-        const Stripe = (await import('stripe')).default;
-        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-          apiVersion: '2026-02-25.clover' as any,
-        });
-
-        // Create product on connected account
-        const product = await stripe.products.create(
-          { name, description: description || undefined },
-          { stripeAccount: site.stripe_account_id }
-        );
-        stripeProductId = product.id;
-
-        // Create price on connected account
-        const priceData: any = {
-          product: product.id,
-          unit_amount: priceCents,
-          currency: (currency || 'CAD').toLowerCase(),
-        };
-
-        if (billingInterval === 'month' || billingInterval === 'year') {
-          priceData.recurring = { interval: billingInterval };
-        }
-
-        const price = await stripe.prices.create(priceData, {
-          stripeAccount: site.stripe_account_id,
-        });
-        stripePriceId = price.id;
-      } catch (stripeError: any) {
-        console.error('Stripe product/price creation error:', stripeError);
-        return NextResponse.json({
-          error: `Stripe error: ${stripeError.message}`,
-        }, { status: 500 });
+        ({ stripePriceId, stripeProductId } = await createStripePackagePrice({
+          stripeAccountId: site.stripe_account_id,
+          name,
+          description,
+          priceCents,
+          currency,
+          billingInterval,
+        }));
+      } catch (e) {
+        const err = e instanceof StripePackageError ? e : new StripePackageError('Stripe error', 500);
+        return NextResponse.json({ error: err.message }, { status: err.status });
       }
     }
 

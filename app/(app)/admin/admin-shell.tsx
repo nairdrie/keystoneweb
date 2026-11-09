@@ -364,12 +364,13 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         try {
           const engineRes = await fetch(`/api/v2/engine?siteId=${id}`, { credentials: 'include' });
           if (engineRes.ok) {
-            const engine = await engineRes.json() as { engine?: string; features?: { ecommerce?: boolean; booking?: boolean; blog?: boolean } };
+            const engine = await engineRes.json() as { engine?: string; features?: { ecommerce?: boolean; booking?: boolean; blog?: boolean; membership?: boolean } };
             if (engine.engine === 'sections_v2') {
               isV2 = true;
               if (engine.features?.ecommerce) blockTypes.add('productGrid');
               if (engine.features?.booking) blockTypes.add('booking');
               if (engine.features?.blog) blockTypes.add('blog');
+              if (engine.features?.membership) blockTypes.add('membershipGate');
             }
           }
         } catch { /* classic behaviour */ }

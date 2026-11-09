@@ -9,9 +9,10 @@
  * site's own header and footer, so post links never break.
  */
 import type { Db } from './store';
-import type { PageRecord, SiteBundle } from './types';
+import type { PageAccess, PageRecord, SiteBundle } from './types';
+import type { MemberVisitor } from '@/lib/membership/access';
 import { collectionsIn, fetchCollections, pageSectionHtmls, POST_PATH_PREFIX, type ArticleMeta, type CollectionData } from './collections';
-import { findPageByPath, pagePath, platformPalette, renderPage, type RenderedPage, type RenderOptions } from './render';
+import { findPageByPath, pageIsPersonalized, pagePath, platformPalette, renderPage, type RenderedPage, type RenderOptions } from './render';
 import { escapeHtml, safeSrc } from './sanitize';
 
 export function articleTemplate(bundle: SiteBundle): PageRecord | null {
@@ -38,10 +39,17 @@ export function postIndexPage(bundle: SiteBundle): PageRecord | null {
   ) || null;
 }
 
-type BaseOptions = Omit<RenderOptions, 'collections' | 'article' | 'bodyOverride'>;
+type BaseOptions = Omit<RenderOptions, 'collections' | 'article' | 'bodyOverride' | 'visitor'> & {
+  /**
+   * Published pages: who is visiting, for members-only pages and sections. Only called
+   * when the page depends on it (the result then must not be cached publicly).
+   */
+  resolveVisitor?: (access: PageAccess | null) => Promise<MemberVisitor>;
+};
 
 /** Render any path of a v2 site: a page, an article, or not found. */
-export async function renderSitePath(db: Db, bundle: SiteBundle, siteId: string, pathname: string, base: BaseOptions): Promise<RenderedPage & { collections?: CollectionData }> {
+export async function renderSitePath(db: Db, bundle: SiteBundle, siteId: string, pathname: string, baseOptions: BaseOptions): Promise<RenderedPage & { collections?: CollectionData; personalized?: boolean }> {
+  const { resolveVisitor, ...base } = baseOptions;
   const postSlug = postSlugFromPath(pathname);
   if (postSlug) {
     const template = articleTemplate(bundle);
@@ -59,8 +67,12 @@ export async function renderSitePath(db: Db, bundle: SiteBundle, siteId: string,
   // The article layout isn't a page of its own on the live site.
   if (page?.template === 'post' && base.mode === 'published') page = null;
   const kinds = collectionsIn(pageSectionHtmls(bundle, page));
-  const collections = kinds.size ? await fetchCollections(db, siteId, kinds) : undefined;
-  return { ...renderPage(bundle, page, { ...base, collections }), collections };
+  const personalized = base.mode === 'published' && pageIsPersonalized(page);
+  const [collections, visitor] = await Promise.all([
+    kinds.size ? fetchCollections(db, siteId, kinds) : Promise.resolve(undefined),
+    personalized && resolveVisitor ? resolveVisitor(page?.access || null) : Promise.resolve(null),
+  ]);
+  return { ...renderPage(bundle, page, { ...base, collections, visitor, path: pathname }), collections, personalized };
 }
 
 /** Keystone's plain article layout, coloured with the agent's platform tokens. */

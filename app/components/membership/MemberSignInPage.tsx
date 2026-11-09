@@ -42,8 +42,10 @@ export default function MemberSignInPage({ siteId, siteName, palette, branding }
       }
 
       // Redirect to member page or returnTo URL
+      // Only paths on this site: ?returnTo must never send members to another domain.
       const params = new URLSearchParams(window.location.search);
-      const returnTo = params.get('returnTo') || '/member';
+      const requested = params.get('returnTo') || '';
+      const returnTo = /^\/(?![/\\])/.test(requested) ? requested : '/member';
       window.location.href = returnTo;
     } catch {
       setError('Something went wrong. Please try again.');

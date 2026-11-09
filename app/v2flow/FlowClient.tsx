@@ -11,10 +11,14 @@ import ProductPageWrapper from '@/app/components/ecommerce/ProductPageWrapper';
 import OrderConfirmation from '@/app/components/checkout/OrderConfirmation';
 import { MemberProvider } from '@/app/components/membership/MemberProvider';
 import { BookingFlow } from '@/app/components/blocks/BookingBlock';
+import MemberSignInPage from '@/app/components/membership/MemberSignInPage';
+import MemberSignUpPage from '@/app/components/membership/MemberSignUpPage';
+import MemberProfilePage from '@/app/components/membership/MemberProfilePage';
+import ForgotPasswordPage from '@/app/components/membership/ForgotPasswordPage';
 
 type Palette = Record<string, string>;
 
-export type FlowKind = 'cart' | 'product' | 'book' | 'order-confirmation';
+export type FlowKind = 'cart' | 'product' | 'book' | 'order-confirmation' | 'signin' | 'signup' | 'member' | 'forgot-password';
 
 interface FlowClientProps {
   kind: FlowKind;
@@ -22,6 +26,7 @@ interface FlowClientProps {
   siteName: string;
   palette: Palette;
   serviceId?: string;
+  logo?: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   product?: any;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -56,7 +61,12 @@ function CartPage({ siteId, palette }: { siteId: string; palette: Palette }) {
   );
 }
 
-export default function FlowClient({ kind, siteId, siteName, palette, serviceId, product, allProducts }: FlowClientProps) {
+// The membership pages were built as full-screen pages; inside the site's own
+// header and footer they become a normal-height band.
+const MEMBER_FLOW_CSS = '.ks-flow-member .min-h-screen{min-height:0!important;padding-top:4rem;padding-bottom:4rem}';
+
+export default function FlowClient({ kind, siteId, siteName, palette, serviceId, logo, product, allProducts }: FlowClientProps) {
+  const branding = { siteLogo: logo || '' };
   return (
     <CartProvider siteId={siteId}>
       <MemberProvider siteId={siteId}>
@@ -80,6 +90,15 @@ export default function FlowClient({ kind, siteId, siteName, palette, serviceId,
           {kind === 'book' && (
             <div className="mx-auto max-w-3xl px-4 py-12">
               <BookingFlow siteId={siteId} palette={palette} initialServiceId={serviceId} />
+            </div>
+          )}
+          {(kind === 'signin' || kind === 'signup' || kind === 'member' || kind === 'forgot-password') && (
+            <div className="ks-flow-member">
+              <style>{MEMBER_FLOW_CSS}</style>
+              {kind === 'signin' && <MemberSignInPage siteId={siteId} siteName={siteName} palette={palette} branding={branding} />}
+              {kind === 'signup' && <MemberSignUpPage siteId={siteId} siteName={siteName} palette={palette} branding={branding} />}
+              {kind === 'member' && <MemberProfilePage siteId={siteId} siteName={siteName} palette={palette} />}
+              {kind === 'forgot-password' && <ForgotPasswordPage siteId={siteId} siteName={siteName} palette={palette} branding={branding} />}
             </div>
           )}
           {kind === 'order-confirmation' && (

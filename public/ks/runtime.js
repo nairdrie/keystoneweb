@@ -76,6 +76,44 @@
     if (String(count) !== (html.getAttribute('data-ks-cart-n') || '')) { html.setAttribute('data-ks-cart-n', String(count)); syncCart(); }
   }, 1500);
 
+  // ── Membership (Keystone members; hosted /signin, /signup, /member) ─────
+  // Sets html[data-ks-member="in"|"out"]: the renderer's CSS shows
+  // data-ks-show="members" / "guests" accordingly, and data-ks-member-field
+  // elements get the member's name/email/package. Members-only *content* is
+  // filtered on the server; this is only for header buttons, greetings, etc.
+  var member = null;
+  var MEMBER_MARKUP = '[data-ks-show],[data-ks-member-field],[data-ks-action="signout"],[data-ks-action="account"]';
+  function memberField(name) {
+    if (!member) return '';
+    if (name === 'name') return member.name || member.email || '';
+    if (name === 'first_name') return String(member.name || '').trim().split(/\s+/)[0] || '';
+    if (name === 'email') return member.email || '';
+    if (name === 'package') return (member.package && member.package.name) || '';
+    return '';
+  }
+  function setMember(next) {
+    member = next || null;
+    html.setAttribute('data-ks-member', member ? 'in' : 'out');
+    Array.prototype.forEach.call(document.querySelectorAll('[data-ks-member-field]'), function (el) {
+      var value = memberField(el.getAttribute('data-ks-member-field'));
+      if (value) el.textContent = value;
+    });
+    try { document.dispatchEvent(new CustomEvent('ks:member', { detail: { signedIn: !!member } })); } catch (e) { /* old browsers */ }
+  }
+  ks.member = {
+    signedIn: function () { return !!member; },
+    get: function () { return member ? { name: member.name || '', email: member.email || '', package: memberField('package') } : null; },
+  };
+  if (published && document.querySelector(MEMBER_MARKUP)) {
+    fetch('/api/membership/me', { credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) { setMember(data && data.member); })
+      .catch(function () { setMember(null); });
+  } else if (cfg.mode === 'preview') {
+    setMember(cfg.viewAs === 'member' ? { name: 'Alex Member', email: 'alex@example.com', package: { name: 'Member' } } : null);
+  }
+  function returnPath() { return location.pathname + location.search; }
+
   var toastTimer;
   function toast(message, linkText, href) {
     var el = document.getElementById('ks-toast');
@@ -128,6 +166,23 @@
       var svc = trigger.getAttribute('data-ks-service') || (trigger.closest('[data-ks-service]') || { getAttribute: function () { return ''; } }).getAttribute('data-ks-service');
       if (published) location.href = '/book' + (svc ? '?service=' + encodeURIComponent(svc) : '');
       else toast('Booking opens on the live site.');
+    } else if (action === 'signin' || action === 'signup' || action === 'account' || action === 'signout') {
+      event.preventDefault();
+      if (!published) { toast('Member sign-in works on the live site.'); return; }
+      if (action === 'signin') {
+        var here = returnPath();
+        var onFlow = /^\/(signin|signup|forgot-password)\b/.test(location.pathname);
+        location.href = '/signin' + (onFlow || here === '/' ? '' : '?returnTo=' + encodeURIComponent(here));
+      } else if (action === 'signup') {
+        var pkg = trigger.getAttribute('data-ks-package');
+        location.href = '/signup' + (pkg ? '?package=' + encodeURIComponent(pkg) : '');
+      } else if (action === 'account') {
+        location.href = '/member';
+      } else {
+        fetch('/api/membership/signout', { method: 'POST', credentials: 'same-origin' })
+          .catch(function () { /* signed out locally anyway */ })
+          .then(function () { location.href = '/'; });
+      }
     }
   });
 

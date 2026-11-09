@@ -5,7 +5,7 @@
  */
 import { GLOBAL_BINDINGS, SCRIPT_HOST_ALLOWLIST, BUDGETS } from './policy';
 
-export const GUIDE_TOPICS = ['overview', 'sections', 'theme', 'content', 'business', 'forms', 'scripts', 'quality', 'workflow', 'example'] as const;
+export const GUIDE_TOPICS = ['overview', 'sections', 'theme', 'content', 'business', 'membership', 'forms', 'scripts', 'quality', 'workflow', 'example'] as const;
 export type GuideTopic = (typeof GUIDE_TOPICS)[number];
 
 const overview = `# Building a Keystone site
@@ -28,7 +28,7 @@ visitor can read or see is editable by the owner (see "sections").
 it visible and legible. Never hide, cover, shrink or remove it, from CSS or JS. If the footer has no slot, Keystone
 adds a plain line below it; if it is hidden, Keystone puts a plain one back.
 
-Call get_guide with topic = sections | theme | content | business | forms | scripts | quality | workflow | example.`;
+Call get_guide with topic = sections | theme | content | business | membership | forms | scripts | quality | workflow | example.`;
 
 const sections = `# Sections (annotated HTML)
 
@@ -269,6 +269,57 @@ const workflow = `# Workflow
 8. publish (if your token has sites:publish and the owner has a plan) or request_approval to send the owner the preview.
 Every write returns issues and a preview link — read them before the next step.`;
 
+const membership = `# Membership (accounts, sign-in, members-only pages)
+
+Keystone runs member accounts for the site: sign-up (free or paid packages through the owner's Stripe),
+email verification, sign-in, password reset, the member's account page and renewals. You design everything
+around it; the owner manages members, packages, emails and payments in Admin → Users.
+**Never link to another site's /signin or /signup** (e.g. the business's old Keystone site): members belong
+to one site, and this site has its own.
+
+## Hosted pages — in your header and footer, coloured with your \`platform\` tokens
+- \`/signin\` (\`/signin?returnTo=/members\` comes back to a page), \`/signup\` (\`/signup?package=<id>\` preselects a
+  package), \`/member\` (account: profile, password, subscription, sign out), \`/forgot-password\`.
+- Actions: \`data-ks-action="signin"\` (returns to the current page), \`"signup"\` (+ optional \`data-ks-package="<id>"\`),
+  \`"account"\`, \`"signout"\`. Plain links to the paths work too.
+
+## Signed-in state in your markup (header buttons, greetings)
+\`\`\`html
+<div class="member-actions">
+  <a class="btn" data-ks-show="guests" data-ks="joinCta" href="/signup">Become a member</a>
+  <a data-ks-show="guests" data-ks-action="signin" data-ks="signinLink" href="/signin">Sign in</a>
+  <a data-ks-show="members" data-ks-action="account" href="/member">
+    <span data-ks="hello">Hi,</span> <span data-ks-member-field="first_name">member</span>
+  </a>
+  <button data-ks-show="members" data-ks-action="signout" data-ks="signoutLabel">Sign out</button>
+</div>
+\`\`\`
+- \`data-ks-show="members"\` shows only while signed in; \`data-ks-show="guests"\` only while signed out (and without JS).
+- \`data-ks-member-field="name|first_name|email|package"\` is replaced with the member's value (keep sample text in it).
+- \`<html data-ks-member="in|out">\` is set for your CSS; agent JS gets \`ks.member.signedIn()\`, \`ks.member.get()\` and the
+  \`ks:member\` event. This is cosmetic: use it for chrome, never for members-only content.
+
+## Members-only pages and sections — enforced on the server
+- \`put_page { slug: "members", access: { members: true } }\` — any active member with a package. Limit to packages with
+  \`access: { members: true, packages: ["<id>", …] }\` (ids from get_membership). \`access: null\` makes it public.
+- On a members-only page, sections are for members by default. Set \`audience\` per section in put_page:
+  \`"everyone"\` (e.g. the page hero), \`"members"\`, or \`"guests"\` (people without access: signed out, unverified,
+  without a package yet, lapsed, or the wrong package — e.g. your designed sign-in/join panel). Without a "guests" section Keystone shows a
+  plain sign-in panel. Visitors without access never receive the members' sections.
+- \`audience\` works on public pages too (a "Welcome back" band for members, a join pitch for guests).
+- Members-only pages are left out of the sitemap and search (noindex) and aren't cached publicly. Drafts show every
+  section; preview as either with \`?ks_view=member\` / \`?ks_view=guest\` on the preview link.
+- Don't put the home page, header or footer behind membership. Put members-only pages in the nav only if guests
+  should see them (they'll get the sign-in panel), or show the link with \`data-ks-show="members"\`.
+
+## Setting it up
+get_membership shows packages, the sign-up form, whether Stripe is connected and member counts (never personal data).
+configure_membership sets the sign-up form (stages of fields: \`name\`, \`country\`, \`province\` are built in; anything else is
+saved on the member) and email verification. upsert_membership_packages creates packages (paid ones need the owner's
+Stripe; tell the owner if it isn't connected). Show packages in your design as owner-editable content and link each to
+its \`signup_url\`. You can't move members from another site; if the business has members on an old Keystone site,
+tell the owner so they can ask Keystone to bring them over.`;
+
 const example = `# Example section
 
 \`\`\`html
@@ -299,7 +350,7 @@ export default (root) => {
 </script>
 \`\`\``;
 
-const TOPICS: Record<GuideTopic, string> = { overview, sections, theme, content, business, forms, scripts, quality, workflow, example };
+const TOPICS: Record<GuideTopic, string> = { overview, sections, theme, content, business, membership, forms, scripts, quality, workflow, example };
 
 export function getGuide(topic?: string): string {
   if (topic === 'all') return GUIDE_TOPICS.map((t) => TOPICS[t]).join('\n\n---\n\n');

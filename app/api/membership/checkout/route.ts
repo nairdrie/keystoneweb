@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import Stripe from 'stripe';
+import { getCurrentMemberFromRequest } from '@/lib/membership/current-member';
+import { isCheckoutAuthorized, sameHostUrl } from '@/lib/membership/checkout-auth';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2026-02-25.clover' as any,
@@ -10,14 +12,37 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
  * POST /api/membership/checkout
  * Creates a Stripe Checkout Session for membership subscription.
  * Uses direct charges on the connected account (site owner is merchant).
+ *
+ * Only for the member being charged: with the checkoutToken that signup returned
+ * for this member + package, or while signed in as that member. Stripe only
+ * redirects back to the site that asked.
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { siteId, memberId, packageId, successUrl, cancelUrl } = body;
+    const { siteId, memberId, packageId, checkoutToken } = body;
 
-    if (!siteId || !memberId || !packageId || !successUrl || !cancelUrl) {
+    if (!siteId || !memberId || !packageId) {
       return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
+    }
+
+    const host = request.headers.get('x-forwarded-host') || request.headers.get('host');
+    const successUrl = sameHostUrl(body.successUrl, host);
+    const cancelUrl = sameHostUrl(body.cancelUrl, host);
+    if (!successUrl || !cancelUrl) {
+      return NextResponse.json({ error: 'Return URLs must be on this site' }, { status: 400 });
+    }
+
+    const session = await getCurrentMemberFromRequest(request, siteId);
+    const authorized = await isCheckoutAuthorized({
+      siteId,
+      memberId,
+      packageId,
+      checkoutToken: typeof checkoutToken === 'string' ? checkoutToken : null,
+      sessionMemberId: session?.memberId ?? null,
+    });
+    if (!authorized) {
+      return NextResponse.json({ error: 'Please sign in to pay for your membership' }, { status: 401 });
     }
 
     const supabase = createAdminClient();
@@ -110,17 +135,19 @@ export async function POST(request: NextRequest) {
       },
     };
 
-    if (isRecurring && pkg.trial_days > 0) {
+    if (isRecurring) {
       sessionParams.subscription_data = {
-        trial_period_days: pkg.trial_days,
+        // Lets the webhook find the member for subscription events directly.
+        metadata: { memberId: member.id, siteId, packageId: pkg.id, type: 'membership' },
+        ...(pkg.trial_days > 0 ? { trial_period_days: pkg.trial_days } : {}),
       };
     }
 
-    const session = await stripe.checkout.sessions.create(sessionParams, {
+    const checkout = await stripe.checkout.sessions.create(sessionParams, {
       stripeAccount: site.stripe_account_id,
     });
 
-    return NextResponse.json({ url: session.url });
+    return NextResponse.json({ url: checkout.url });
   } catch (error: any) {
     console.error('Membership checkout error:', error);
     return NextResponse.json(

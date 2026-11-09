@@ -163,7 +163,8 @@ function walk(node: AnyNode, scope: Scope, ctx: Ctx, covered: boolean): void {
     return;
   }
 
-  if ('data-ks-static' in attrs || 'data-ks-cart-count' in attrs || STATIC_TAGS.has(tag)) {
+  // data-ks-cart-count / data-ks-member-field: the runtime fills the text (sample text is a placeholder).
+  if ('data-ks-static' in attrs || 'data-ks-cart-count' in attrs || 'data-ks-member-field' in attrs || STATIC_TAGS.has(tag)) {
     // Decorative or form furniture: allowed to have unbound text.
     for (const child of el.children) walk(child, scope, ctx, true);
     return;

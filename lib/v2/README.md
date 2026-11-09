@@ -67,6 +67,28 @@ Agents design how business data looks; Keystone runs the logic (`get_guide topic
 - **Agent tools**: `get_business_data`, `upsert_services`, `upsert_products`, `upsert_posts`.
 - **Admin**: the Booking and Ecommerce tabs appear for v2 sites whose design uses those features.
 
+## Membership (accounts, sign-in, members-only pages)
+
+Same split as the business features: Keystone runs accounts and payments, the agent designs around them
+(`get_guide topic=membership`). Members, packages and settings are the classic tables (`members`,
+`membership_packages`, `membership_settings`, session cookie `ks_member_token`, host-only on the site's domain).
+
+- **Hosted pages in the site's design**: `/signin`, `/signup[?package=id]`, `/member` (account) and `/forgot-password`
+  run the existing membership components inside the agent's header/footer (`app/v2flow`, middleware rewrite). Same
+  paths as classic sites, so verification and reset emails land on them.
+- **Members-only pages and sections, enforced on the server**: `put_page { access: { members: true, packages? } }`
+  (stored as `pages.design_data.v2Access`) and per-instance `audience: everyone|members|guests` (in the layout).
+  `renderPage` drops sections the visitor shouldn't get; with no "guests" section it adds a plain sign-in panel.
+  The `/v2r` route resolves the member (`lib/membership/access.ts`: active status, package, paid subscription in good
+  standing) only for such pages and serves them `private, no-store`; they're noindex and left out of sitemap/llms.txt.
+  Drafts show every section; `?ks_view=member|guest` previews one side.
+- **Signed-in state in agent markup** (cosmetic, `public/ks/runtime.js`): `data-ks-show="members|guests"`,
+  `data-ks-member-field="name|first_name|email|package"`, actions `signin|signup|account|signout`, `html[data-ks-member]`.
+- **Agent tools**: `get_membership` (packages, form, settings, counts only — never members' personal data),
+  `configure_membership`, `upsert_membership_packages` (paid packages on the owner's connected Stripe,
+  `lib/membership/stripe-packages.ts`). The validator warns on links to another site's `/signin`.
+- **Admin**: the Users tab appears for v2 sites using any of the above (`featuresIn`, `/api/v2/engine`).
+
 ## Archie v2 (in-editor AI)
 
 Owners get Archie inside the v2 editor (`app/(app)/design/v2/archie.tsx`):
@@ -156,4 +178,5 @@ concurrent edits never lose each other.
 
 ## Not yet in v2
 
-Menu, events, blog lists, membership gating and translations still render only in classic sites.
+Menu, events and translations still render only in classic sites. Member-only product prices (`tier_prices`) aren't
+applied on v2 product lists yet, and owners can't toggle members-only pages in the v2 editor (agents set them).

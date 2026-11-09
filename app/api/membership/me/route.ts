@@ -103,6 +103,30 @@ export async function PATCH(request: NextRequest) {
       updates.password_hash = await hashPassword(newPassword);
     }
 
+    // A member without a membership can pick a free package themselves (paid ones go
+    // through /api/membership/checkout). Never replaces an existing package.
+    if (body.joinFreePackageId !== undefined) {
+      const { data: current } = await supabase
+        .from('members')
+        .select('package_id, country')
+        .eq('id', payload.memberId)
+        .eq('site_id', payload.siteId)
+        .single();
+      const { data: pkg } = await supabase
+        .from('membership_packages')
+        .select('id, price_cents, billing_interval, is_active, geo_restriction')
+        .eq('id', String(body.joinFreePackageId))
+        .eq('site_id', payload.siteId)
+        .eq('is_archived', false)
+        .maybeSingle();
+      const free = pkg && pkg.is_active !== false && (!(pkg.price_cents > 0) || pkg.billing_interval === 'free');
+      const countries: string[] = pkg?.geo_restriction?.allowed_countries || [];
+      if (!current || current.package_id || !free || (countries.length && !countries.includes(current.country))) {
+        return NextResponse.json({ error: 'That membership can\'t be added to your account' }, { status: 400 });
+      }
+      updates.package_id = pkg.id;
+    }
+
     const { error } = await supabase
       .from('members')
       .update(updates)
