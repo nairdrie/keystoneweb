@@ -26,6 +26,7 @@ export default function DesignRouter() {
   }, [siteId]);
 
   if (!resolved) return <EditorLoadingScreen />;
-  if (resolved.engine === 'sections_v2' && resolved.siteId) return <V2Editor siteId={resolved.siteId} />;
+  // Keyed by site so switching sites starts a fresh editor (page, selection, canvas).
+  if (resolved.engine === 'sections_v2' && resolved.siteId) return <V2Editor key={resolved.siteId} siteId={resolved.siteId} />;
   return <EditorContent />;
 }
