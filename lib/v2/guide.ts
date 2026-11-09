@@ -110,7 +110,9 @@ const content = `# Content
 - Fields the owner already edited are skipped (status "skipped_owner_edit"). Only pass force: true if the human asked for it.
 - Write real, specific copy for the business (from research_business / the brief). Never lorem ipsum, never "Service 1".
 - Images: use import_media for every image (stock or the business's own photos) — hotlinked images are flagged.
-  search_stock_media finds photos.
+  search_stock_media finds photos. Images the owner has but that aren't online (attached in your chat, on their
+  phone): tools can't receive attachments, so call create_upload_link, give the owner the link, then list_media.
+  list_media also shows photos the owner already uploaded in the editor.
 - Concurrency: the owner may be editing while you work. get_site returns versions (theme.version, sections[].version,
   pages[].layoutVersion) and get_content returns each field's rev. Pass them back as expected_version / expected_rev
   and the write is rejected (status "conflict" / error reason "stale") if someone changed it since — re-read and retry.
