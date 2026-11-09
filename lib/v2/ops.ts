@@ -207,6 +207,7 @@ export async function opGetSite(ctx: OpsContext, opts: { includeCode?: boolean }
       publishedDomain: row?.published_domain || null,
       domain: bundle.site.domain,
       logo: bundle.site.logo,
+      favicon: bundle.site.favicon,
       contactEmail: bundle.site.contactEmail,
       businessProfile: bundle.site.businessProfile,
     },

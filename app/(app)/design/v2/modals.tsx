@@ -37,6 +37,10 @@ export function MediaModal({
   current,
   aspect,
   withAlt,
+  title = 'Choose an image',
+  square = false,
+  uploadHint = 'Click to upload a photo (JPG, PNG, WebP — up to 10MB)',
+  note,
   onClose,
   onChoose,
 }: {
@@ -44,6 +48,11 @@ export function MediaModal({
   current?: { src?: string; alt?: string };
   aspect?: string;
   withAlt: boolean;
+  title?: string;
+  /** Square preview that shows the whole image (icons). */
+  square?: boolean;
+  uploadHint?: string;
+  note?: string;
   onClose: () => void;
   onChoose: (value: { src: string; alt?: string }) => Promise<void> | void;
 }) {
@@ -114,7 +123,7 @@ export function MediaModal({
   };
 
   return (
-    <Modal title="Choose an image" icon={<ImageIcon className="h-4 w-4 text-slate-500" />} onClose={onClose} wide>
+    <Modal title={title} icon={<ImageIcon className="h-4 w-4 text-slate-500" />} onClose={onClose} wide>
       <div className="mb-4 flex gap-1 rounded-lg bg-slate-100 p-1 text-sm font-medium">
         {(['upload', 'library', 'stock'] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)} className={`flex-1 rounded-md px-3 py-1.5 ${tab === t ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>
@@ -129,7 +138,7 @@ export function MediaModal({
           className="flex w-full flex-col items-center gap-2 rounded-xl border-2 border-dashed border-slate-300 py-10 text-sm text-slate-500 hover:border-blue-400 hover:text-blue-600"
         >
           <Upload className="h-6 w-6" />
-          Click to upload a photo (JPG, PNG, WebP — up to 10MB)
+          {uploadHint}
           <input
             ref={fileRef}
             type="file"
@@ -179,10 +188,10 @@ export function MediaModal({
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
       <div className="mt-5 flex items-start gap-4 border-t border-slate-100 pt-4">
-        <div className="h-20 w-28 shrink-0 overflow-hidden rounded-lg bg-slate-100" style={aspect ? { aspectRatio: aspect.replace('/', ' / '), height: 'auto' } : undefined}>
+        <div className={`${square ? 'h-20 w-20 p-2' : 'h-20 w-28'} shrink-0 overflow-hidden rounded-lg bg-slate-100`} style={aspect && !square ? { aspectRatio: aspect.replace('/', ' / '), height: 'auto' } : undefined}>
           {src && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={src} alt="" className="h-full w-full object-cover" />
+            <img src={src} alt="" className={`h-full w-full ${square ? 'object-contain' : 'object-cover'}`} />
           )}
         </div>
         <div className="flex-1 space-y-2">
@@ -193,6 +202,7 @@ export function MediaModal({
             </label>
           )}
           {aspect && <p className="text-xs text-slate-400">This spot is designed for a {aspect} image; it will be cropped to fit.</p>}
+          {note && <p className="text-xs text-slate-400">{note}</p>}
         </div>
       </div>
 

@@ -257,6 +257,7 @@ const workflow = `# Workflow
 1. get_site (or create_site for a new business). For a real business, research_business gives verified details,
    reviews, photos and brand colours.
 2. update_business_profile (name, phone, email, address, hours, logo) — these feed @business.* bindings and SEO.
+   set_favicon: the business's existing icon (url), or design a simple square SVG mark in the brand colours.
 3. set_theme (tokens, fonts, global CSS).
 4. put_section for header and footer (with the \`<p data-ks-attribution></p>\` "Powered by Keystone" slot) → set_layout.
 5. put_section for each home page section → put_page("home", sections + content).

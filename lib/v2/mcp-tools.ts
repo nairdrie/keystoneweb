@@ -31,7 +31,7 @@ import {
 import { loadDraftBundle, loadSiteRow, type Db } from './store';
 import { draftUrl } from './preview-token';
 import { checkPublishEligibility, publishV2Site, resolveSubdomain } from './publish';
-import { importImageBuffer, importImageFromUrl, listSiteImages, searchStockPhotos } from './media';
+import { importFavicon, importImageBuffer, importImageFromUrl, listSiteImages, searchStockPhotos } from './media';
 import { createUploadToken, uploadUrl, UPLOAD_TTL_DEFAULT, UPLOAD_TTL_MAX } from './upload-token';
 import { exportLegacySite } from './legacy';
 import { escapeHtml, safeSrc, toPlainText } from './sanitize';
@@ -114,7 +114,7 @@ const businessSchema = {
     country: str('ISO country code, e.g. "CA".'),
     hours: { type: 'array', items: { type: 'string' }, description: 'Opening hours lines, e.g. "Mo-Fr 08:00-17:00".' },
     logo: str('Logo image URL (import it with import_media first).'),
-    favicon: str('Favicon image URL.'),
+    favicon: str('Favicon image URL. Prefer set_favicon, which makes any image, SVG or .ico into a proper square icon.'),
   },
 };
 
@@ -547,6 +547,41 @@ export const TOOLS: ToolDef[] = [
       const { site } = await siteContext(args, ctx, { requireV2: false });
       const images = await listSiteImages(ctx.db, site.id, { since: args.since ? String(args.since) : undefined, limit: Number(args.limit) || undefined });
       return { images, count: images.length };
+    },
+  },
+  {
+    name: 'set_favicon',
+    title: 'Set the favicon',
+    description: "Set the icon shown in the browser tab, bookmarks and search results. Pass exactly one source: url (an https PNG/JPG/WebP/GIF/SVG/ICO, e.g. the business's old /favicon.ico), svg (SVG markup you design — a simple mark or initial in the brand colours reads best at 16px), or image_base64 (the bytes of a local image file). The image is made square (padded with transparency, never cropped) and saved as a 512px PNG. use_logo: true removes the custom favicon so the site logo is used instead. Takes effect in the draft right away and on the live site at the next publish.",
+    scope: 'sites:write',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        ...siteIdProp,
+        url: str('https URL of an image or .ico to import.'),
+        svg: str('SVG markup (self-contained: no external images, fonts or links). Use a square viewBox.'),
+        image_base64: str('Base64 file bytes (a data: URI is fine), max 2MB.'),
+        name: str('File name hint, e.g. "favicon".'),
+        use_logo: { type: 'boolean', description: 'Remove the custom favicon and fall back to the site logo.' },
+      },
+      required: ['site_id'],
+    },
+    run: async (args, ctx) => {
+      const { ops, site } = await siteContext(args, ctx);
+      if (args.use_logo === true) {
+        await opUpdateBusiness(ops, { favicon: null });
+        return { ok: true, favicon: null, note: 'The site logo is used as the favicon.' };
+      }
+      const icon = await importFavicon(ctx.db, {
+        siteId: site.id,
+        ownerUserId: site.user_id || ctx.auth.userId,
+        url: args.url as string | undefined,
+        svg: args.svg as string | undefined,
+        base64: args.image_base64 as string | undefined,
+        name: args.name as string | undefined,
+      });
+      await opUpdateBusiness(ops, { favicon: icon.url });
+      return { ok: true, favicon: icon.url, width: icon.width, height: icon.height, format: icon.format };
     },
   },
   {

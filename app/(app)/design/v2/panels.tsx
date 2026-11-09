@@ -337,7 +337,13 @@ function PageSettings({ page, onUpdate, onDelete }: { page: PageInfo; onUpdate: 
 // Brand
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function BrandPanel({ state, onSave, onLogo }: { state: EditorState; onSave: (overrides: Record<string, string | null>) => Promise<void>; onLogo: () => void }) {
+export function BrandPanel({ state, onSave, onLogo, onFavicon, onFaviconReset }: {
+  state: EditorState;
+  onSave: (overrides: Record<string, string | null>) => Promise<void>;
+  onLogo: () => void;
+  onFavicon: () => void;
+  onFaviconReset: () => void;
+}) {
   const editable = state.theme.tokens.filter((t) => t.editable);
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -356,6 +362,27 @@ export function BrandPanel({ state, onSave, onLogo }: { state: EditorState; onSa
           </span>
           Replace logo
         </button>
+      </div>
+
+      <div>
+        <p className="mb-2 text-sm font-semibold text-slate-800">Favicon</p>
+        <button onClick={onFavicon} className="flex w-full items-center gap-3 rounded-lg border border-slate-200 p-2 text-left text-sm text-slate-600 hover:border-blue-300">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded bg-slate-100">
+            {(state.site.favicon || state.site.logo) && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={state.site.favicon || state.site.logo || ''} alt="" className={`h-8 w-8 object-contain ${state.site.favicon ? '' : 'opacity-50'}`} />
+            )}
+          </span>
+          <span>
+            {state.site.favicon ? 'Replace favicon' : 'Upload a favicon'}
+            <span className="block text-[11px] text-slate-400">
+              {state.site.favicon ? 'The icon in browser tabs and bookmarks.' : state.site.logo ? 'Using your logo for now.' : 'The icon in browser tabs and bookmarks.'}
+            </span>
+          </span>
+        </button>
+        {state.site.favicon && (
+          <button onClick={onFaviconReset} className="mt-1 text-[11px] text-slate-400 hover:text-slate-700">Use my logo instead</button>
+        )}
       </div>
 
       {editable.length === 0 && <p className="text-sm text-slate-500">Your designer hasn&apos;t made any colours or fonts adjustable for this site. Ask the Keystone team if you&apos;d like a change.</p>}

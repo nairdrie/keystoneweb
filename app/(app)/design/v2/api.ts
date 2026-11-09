@@ -56,6 +56,8 @@ export interface EditorState {
     publishedDomain: string | null;
     domain: string | null;
     logo: string | null;
+    /** Custom favicon; null means the logo is used. */
+    favicon: string | null;
     contactEmail: string | null;
     businessProfile: Record<string, unknown> | null;
   };

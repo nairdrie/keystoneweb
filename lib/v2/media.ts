@@ -41,6 +41,44 @@ export interface ImportedImage {
   bytes: number;
 }
 
+/** Moderate an already re-encoded image, store it in site-assets and list it in the media library. */
+async function storeSiteImage(
+  db: Db,
+  input: { siteId: string; ownerUserId: string; buffer: Buffer; contentType: string; fileName: string },
+): Promise<string> {
+  const { buffer, contentType, fileName } = input;
+  const scan = await scanImage(buffer);
+  if (scan.blocked) {
+    await handleModerationResult(scan, {
+      siteId: input.siteId,
+      userId: input.ownerUserId,
+      ipAddress: null,
+      contentType: 'image',
+      contentRef: null,
+      contentHash: null,
+    });
+    throw new OpError('Content policy violation', 422);
+  }
+
+  const path = `${input.siteId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${fileName}`;
+  const { data, error } = await db.storage.from('site-assets').upload(path, buffer, { contentType, cacheControl: '31536000', upsert: false });
+  if (error || !data) throw new OpError(`Upload failed: ${error?.message || 'unknown error'}`, 500);
+  const { data: { publicUrl } } = db.storage.from('site-assets').getPublicUrl(data.path);
+
+  await db.from('site_media').upsert({
+    site_id: input.siteId,
+    user_id: input.ownerUserId,
+    storage_path: data.path,
+    public_url: publicUrl,
+    file_name: fileName,
+    media_type: 'image',
+    mime_type: contentType,
+    size_bytes: buffer.length,
+  }, { onConflict: 'storage_path', ignoreDuplicates: true });
+
+  return publicUrl;
+}
+
 export async function importImageFromUrl(
   db: Db,
   input: { siteId: string; ownerUserId: string; url: string; name?: string; unsplashDownloadLocation?: string },
@@ -116,36 +154,8 @@ export async function importImageBuffer(
     throw new OpError('The file could not be read as an image');
   }
 
-  const scan = await scanImage(buffer);
-  if (scan.blocked) {
-    await handleModerationResult(scan, {
-      siteId: input.siteId,
-      userId: input.ownerUserId,
-      ipAddress: null,
-      contentType: 'image',
-      contentRef: null,
-      contentHash: null,
-    });
-    throw new OpError('Content policy violation', 422);
-  }
-
   const base = (input.name || 'image').replace(/\.[^.]+$/, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40) || 'image';
-  const path = `${input.siteId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${base}.${ext}`;
-  const { data, error } = await db.storage.from('site-assets').upload(path, buffer, { contentType, cacheControl: '31536000', upsert: false });
-  if (error || !data) throw new OpError(`Upload failed: ${error?.message || 'unknown error'}`, 500);
-  const { data: { publicUrl } } = db.storage.from('site-assets').getPublicUrl(data.path);
-
-  await db.from('site_media').upsert({
-    site_id: input.siteId,
-    user_id: input.ownerUserId,
-    storage_path: data.path,
-    public_url: publicUrl,
-    file_name: `${base}.${ext}`,
-    media_type: 'image',
-    mime_type: contentType,
-    size_bytes: buffer.length,
-  }, { onConflict: 'storage_path', ignoreDuplicates: true });
-
+  const publicUrl = await storeSiteImage(db, { siteId: input.siteId, ownerUserId: input.ownerUserId, buffer, contentType, fileName: `${base}.${ext}` });
   return { url: publicUrl, width, height, bytes: buffer.length };
 }
 
@@ -173,6 +183,122 @@ export async function listSiteImages(db: Db, siteId: string, opts: { limit?: num
     bytes: Number(row.size_bytes) || 0,
     uploaded_at: row.created_at as string,
   }));
+}
+
+// ── Favicons ────────────────────────────────────────────────────────────────
+
+const FAVICON_MAX_BYTES = 2 * 1024 * 1024;
+const FAVICON_SVG_MAX_BYTES = 200 * 1024;
+const FAVICON_SIZE = 512;
+
+function isIco(buf: Buffer) {
+  return buf.length >= 6 && buf[0] === 0 && buf[1] === 0 && buf[2] === 1 && buf[3] === 0;
+}
+
+function looksLikeSvg(buf: Buffer) {
+  const head = buf.subarray(0, 4096).toString('utf8').replace(/^﻿/, '').trimStart();
+  return head.startsWith('<') && /<svg[\s>]/i.test(head);
+}
+
+/**
+ * The largest PNG frame inside an .ico (most modern icons embed PNGs), or null
+ * when every frame is a legacy BMP — those are kept as the original .ico.
+ */
+function largestPngInIco(buf: Buffer): Buffer | null {
+  const count = buf.readUInt16LE(4);
+  let best: { area: number; data: Buffer } | null = null;
+  for (let i = 0; i < Math.min(count, 64); i++) {
+    const at = 6 + i * 16;
+    if (at + 16 > buf.length) break;
+    const w = buf[at] || 256;
+    const h = buf[at + 1] || 256;
+    const size = buf.readUInt32LE(at + 8);
+    const offset = buf.readUInt32LE(at + 12);
+    if (offset + size > buf.length || size < 8) continue;
+    const data = buf.subarray(offset, offset + size);
+    if (data[0] !== 0x89 || data.toString('latin1', 1, 4) !== 'PNG') continue;
+    if (!best || w * h > best.area) best = { area: w * h, data };
+  }
+  return best?.data ?? null;
+}
+
+/** Rasterising SVG must never reach outside the file. */
+function assertSelfContainedSvg(svg: string) {
+  if (/<!DOCTYPE|<!ENTITY/i.test(svg)) throw new OpError('SVG must not contain a DOCTYPE or entities');
+  if (/(?:href|src)\s*=\s*["']\s*(?!#|data:image\/)/i.test(svg) || /url\(\s*["']?\s*(?!#|data:image\/)/i.test(svg)) {
+    throw new OpError('SVG must be self-contained: no external images, fonts or links (embed images as data: URIs)');
+  }
+}
+
+/**
+ * Turn a URL, raw file bytes or SVG markup into a site favicon: a square
+ * 512px transparent PNG (non-square images are padded, not cropped). Legacy
+ * BMP-only .ico files are kept as-is since they can't be re-encoded.
+ */
+export async function importFavicon(
+  db: Db,
+  input: { siteId: string; ownerUserId: string; url?: string; svg?: string; base64?: string; name?: string },
+): Promise<{ url: string; width: number | null; height: number | null; bytes: number; format: 'png' | 'ico' }> {
+  const given = [input.url, input.svg, input.base64].filter((v) => typeof v === 'string' && v.trim()).length;
+  if (given !== 1) throw new OpError('Pass exactly one of url, svg or image_base64');
+
+  let raw: Buffer;
+  let nameHint = input.name || 'favicon';
+  if (input.url) {
+    const url = assertFetchableUrl(input.url);
+    const res = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(20_000) });
+    if (!res.ok) throw new OpError(`Could not download the favicon (HTTP ${res.status})`);
+    if (Number(res.headers.get('content-length') || 0) > FAVICON_MAX_BYTES) throw new OpError('Favicon is larger than 2MB');
+    raw = Buffer.from(await res.arrayBuffer());
+    if (!input.name) nameHint = url.pathname.split('/').pop() || nameHint;
+  } else if (input.svg) {
+    raw = Buffer.from(input.svg.trim(), 'utf8');
+    if (raw.length > FAVICON_SVG_MAX_BYTES) throw new OpError('SVG is larger than 200KB');
+  } else {
+    const b64 = String(input.base64).replace(/^data:[^,]*,/, '').replace(/\s+/g, '');
+    if (!/^[A-Za-z0-9+/_-]*={0,2}$/.test(b64)) throw new OpError('image_base64 is not valid base64');
+    raw = Buffer.from(b64, 'base64');
+    if (!raw.length) throw new OpError('image_base64 is empty');
+  }
+  if (raw.length > FAVICON_MAX_BYTES) throw new OpError('Favicon is larger than 2MB');
+
+  const base = nameHint.replace(/\.[^.]+$/, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40) || 'favicon';
+  const store = (buffer: Buffer, contentType: string, ext: string) =>
+    storeSiteImage(db, { siteId: input.siteId, ownerUserId: input.ownerUserId, buffer, contentType, fileName: `${base}.${ext}` });
+
+  let source = raw;
+  let isSvg = false;
+  if (isIco(raw)) {
+    const png = largestPngInIco(raw);
+    if (!png) {
+      const url = await store(raw, 'image/x-icon', 'ico');
+      return { url, width: null, height: null, bytes: raw.length, format: 'ico' };
+    }
+    source = png;
+  } else if (looksLikeSvg(raw)) {
+    assertSelfContainedSvg(raw.toString('utf8'));
+    isSvg = true;
+  }
+
+  let buffer: Buffer;
+  try {
+    const image = sharp(source, { failOn: 'error', ...(isSvg ? { density: 300 } : {}) }).rotate();
+    const meta = await image.metadata();
+    if (meta.format === 'svg' && !isSvg) throw new OpError('The file could not be read as an image (use PNG, JPG, WebP, GIF, SVG or ICO)');
+    const longest = Math.max(meta.width || 0, meta.height || 0);
+    if (!isSvg && longest < 16) throw new OpError('Favicon is too small (at least 16×16 px)');
+    const size = isSvg ? FAVICON_SIZE : Math.min(FAVICON_SIZE, longest);
+    buffer = await image
+      .resize(size, size, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .png({ compressionLevel: 9 })
+      .toBuffer();
+  } catch (e) {
+    if (e instanceof OpError) throw e;
+    throw new OpError('The file could not be read as an image (use PNG, JPG, WebP, GIF, SVG or ICO)');
+  }
+  const out = await sharp(buffer).metadata();
+  const url = await store(buffer, 'image/png', 'png');
+  return { url, width: out.width ?? null, height: out.height ?? null, bytes: buffer.length, format: 'png' };
 }
 
 interface UnsplashPhoto {
