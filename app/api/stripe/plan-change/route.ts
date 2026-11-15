@@ -125,11 +125,12 @@ async function loadContext(): Promise<PlanContext | NextResponse> {
   // webhook normally releases it; if that was missed, do it here so it doesn't
   // block the next change (e.g. upgrading back to Pro).
   if (schedule && downgradeScheduleHasTakenEffect(schedule)) {
+    const finishedScheduleId = schedule.id;
     try {
-      await stripe.subscriptionSchedules.release(schedule.id);
+      await stripe.subscriptionSchedules.release(finishedScheduleId);
       schedule = null;
     } catch (err) {
-      console.error(`[plan-change] could not release finished schedule ${schedule.id}:`, err);
+      console.error(`[plan-change] could not release finished schedule ${finishedScheduleId}:`, err);
     }
   }
 
