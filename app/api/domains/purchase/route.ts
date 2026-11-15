@@ -115,9 +115,11 @@ async function buyDomainFromVercel(
         years: priceData.years || 1,
         expectedPrice,
         contactInformation: {
-          firstName: businessName || 'Site',
+          // Vercel rejects contact strings with leading/trailing whitespace
+          // (NonEmptyTrimmedString), and profile names often carry a stray space.
+          firstName: businessName?.trim() || 'Site',
           lastName: 'Owner',
-          email,
+          email: email.trim(),
           phone: '+1.0000000000',
           address1: 'TBD',
           city: 'TBD',
