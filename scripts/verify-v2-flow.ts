@@ -18,7 +18,8 @@ async function main() {
   const ops = await import('../lib/v2/ops');
   const { loadDraftBundle, loadRelease, loadSiteRow } = await import('../lib/v2/store');
   const { renderPage, findPageByPath } = await import('../lib/v2/render');
-  const { verifyDraftToken } = await import('../lib/v2/preview-token');
+  const { verifyDraftToken, inspectDraftToken, createDraftToken } = await import('../lib/v2/preview-token');
+  const { draftLinkExtendedUntil, extendDraftLink } = await import('../lib/v2/draft-link-extensions');
   const { duplicateSite } = await import('../lib/sites/duplicate');
   const { fetchCollections, collectionsIn, pageSectionHtmls } = await import('../lib/v2/collections');
   const { PUBLISHED_ROOT } = await import('../lib/env/domain');
@@ -445,6 +446,17 @@ async function main() {
     const claims = await verifyDraftToken(token);
     assert.deepEqual(claims, { siteId, mode: 'preview' });
     assert.equal(await verifyDraftToken(token.slice(0, -2) + 'xx'), null);
+  });
+
+  await step('owners can extend an expired preview link', async () => {
+    const expired = await createDraftToken(siteId, 'preview', -60);
+    assert.equal(await verifyDraftToken(expired), null);
+    assert.deepEqual(await inspectDraftToken(expired), { status: 'expired', siteId, mode: 'preview' });
+    assert.equal(await inspectDraftToken(expired.slice(0, -2) + 'xx'), null);
+    assert.equal(await draftLinkExtendedUntil(db as never, expired, siteId), null);
+    await extendDraftLink(db as never, expired, siteId, OWNER);
+    const until = await draftLinkExtendedUntil(db as never, expired, siteId);
+    assert.ok(until && until.getTime() > Date.now() + 6 * 24 * 3600 * 1000);
   });
 
   await step('duplicate copies an agent-built site with its design and content', async () => {
