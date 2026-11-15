@@ -3,6 +3,15 @@ import { createClient } from '@/lib/db/supabase-server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { FREE_DOMAIN_MAX_USD } from '@/lib/domains/pricing';
 import { CUSTOM_DOMAIN_CNAME_TARGET } from '@/lib/env/domain';
+import {
+  REGISTRANT_COLUMNS,
+  registrantFromColumns,
+  registrantToColumns,
+  toVercelContactInformation,
+  tldOf,
+  type RegistrantContact,
+} from '@/lib/domains/registrant';
+import { checkRegistrant, getRegistrantSchema } from '@/lib/domains/registrant-server';
 
 const VERCEL_API_TOKEN = process.env.VERCEL_API_TOKEN;
 const VERCEL_TEAM_ID = process.env.VERCEL_TEAM_ID;
@@ -54,6 +63,23 @@ async function addDomainToProject(domain: string): Promise<{ success: boolean; e
 interface PurchaseRequest {
   siteId: string;
   domain: string;
+  contact?: RegistrantContact;
+}
+
+/** Placeholder details for flows that don't collect a registrant yet (launch service). */
+function legacyPlaceholderContact(email: string, businessName: string | null): RegistrantContact {
+  return {
+    // Vercel rejects contact strings with leading/trailing whitespace.
+    firstName: businessName?.trim() || 'Site',
+    lastName: 'Owner',
+    email: email.trim(),
+    phone: '+1.0000000000',
+    address1: 'TBD',
+    city: 'TBD',
+    state: 'TBD',
+    zip: '00000',
+    country: 'CA',
+  };
 }
 
 /**
@@ -64,12 +90,10 @@ interface PurchaseRequest {
 async function buyDomainFromVercel(
   domain: string,
   siteId: string,
-  userId: string,
-  email: string,
-  businessName: string | null,
+  contact: RegistrantContact,
   supabase: Awaited<ReturnType<typeof createClient>> | ReturnType<typeof createAdminClient>,
   maxPriceUsd?: number,
-): Promise<{ success: boolean; orderId?: string; error?: string; status?: number }> {
+): Promise<{ success: boolean; orderId?: string; error?: string; code?: string; status?: number }> {
   const teamParam = VERCEL_TEAM_ID ? `?teamId=${VERCEL_TEAM_ID}` : '';
 
   // Get current price (required as expectedPrice for purchase)
@@ -114,19 +138,7 @@ async function buyDomainFromVercel(
         autoRenew: true,
         years: priceData.years || 1,
         expectedPrice,
-        contactInformation: {
-          // Vercel rejects contact strings with leading/trailing whitespace
-          // (NonEmptyTrimmedString), and profile names often carry a stray space.
-          firstName: businessName?.trim() || 'Site',
-          lastName: 'Owner',
-          email: email.trim(),
-          phone: '+1.0000000000',
-          address1: 'TBD',
-          city: 'TBD',
-          state: 'TBD',
-          zip: '00000',
-          country: 'CA',
-        },
+        contactInformation: toVercelContactInformation(contact, await getRegistrantSchema(domain)),
       }),
     }
   );
@@ -145,7 +157,19 @@ async function buyDomainFromVercel(
     if (code === 'tld_not_supported') {
       return { success: false, error: 'This domain extension is not supported for purchase.', status: 400 };
     }
-    return { success: false, error: 'Domain purchase failed.', status: 502 };
+    if (code === 'additional_contact_info_required' || code === 'invalid_additional_contact_info') {
+      const detail = typeof errorData?.message === 'string' ? ` (${errorData.message})` : '';
+      return {
+        success: false,
+        code: 'registrant_invalid',
+        error: `The .${tldOf(domain)} registry didn’t accept the owner details${detail}. Please review them and try again.`,
+        status: 400,
+      };
+    }
+    if (purchaseRes.status === 400 && typeof errorData?.message === 'string') {
+      return { success: false, error: `Domain purchase failed: ${errorData.message}`, status: 400 };
+    }
+    return { success: false, error: 'Domain purchase failed. Please try again or contact support.', status: 502 };
   }
 
   const purchaseData = await purchaseRes.json();
@@ -219,21 +243,26 @@ export async function completeDomainPurchase(
     }
   }
 
-  // Get user info
-  const { data: userProfile } = await supabase
-    .from('users')
-    .select('email, business_name')
-    .eq('id', userId)
-    .single();
+  // Registrant details are collected at checkout and stored on the purchase.
+  const { data: purchaseRow } = await supabase
+    .from('domain_purchases')
+    .select(REGISTRANT_COLUMNS)
+    .eq('id', purchaseId)
+    .maybeSingle();
 
-  const result = await buyDomainFromVercel(
-    domain,
-    siteId,
-    userId,
-    userProfile?.email || '',
-    userProfile?.business_name,
-    supabase
-  );
+  let contact = registrantFromColumns(purchaseRow as Record<string, unknown> | null);
+  if (!contact) {
+    // Launch-service purchases don't collect owner details yet.
+    console.warn(`completeDomainPurchase: no registrant stored for ${purchaseId}; using placeholder contact`);
+    const { data: userProfile } = await supabase
+      .from('users')
+      .select('email, business_name')
+      .eq('id', userId)
+      .single();
+    contact = legacyPlaceholderContact(userProfile?.email || '', userProfile?.business_name ?? null);
+  }
+
+  const result = await buyDomainFromVercel(domain, siteId, contact, supabase);
 
   if (result.success) {
     const expiresAt = new Date();
@@ -263,6 +292,7 @@ export async function completeDomainPurchase(
       .from('domain_purchases')
       .update({
         status: 'failed',
+        failure_reason: result.error ?? null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', purchaseId);
@@ -337,7 +367,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body: PurchaseRequest = await request.json();
-    const { siteId, domain } = body;
+    const { siteId, domain, contact } = body;
 
     if (!siteId || !domain) {
       return NextResponse.json(
@@ -367,27 +397,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get user profile
-    const { data: userProfile } = await supabase
-      .from('users')
-      .select('email, business_name')
-      .eq('id', user.id)
-      .single();
+    const registrant = await checkRegistrant(domain, contact);
+    if (!registrant.ok) {
+      return NextResponse.json(
+        { error: registrant.error, code: 'registrant_invalid', fieldErrors: registrant.fieldErrors },
+        { status: 400 }
+      );
+    }
 
     // Purchase from Vercel (free with Pro — enforce $20 max)
     const result = await buyDomainFromVercel(
       domain,
       siteId,
-      user.id,
-      userProfile?.email || user.email || '',
-      userProfile?.business_name,
+      registrant.contact,
       supabase,
       FREE_DOMAIN_MAX_USD,
     );
 
     if (!result.success) {
       return NextResponse.json(
-        { error: result.error || 'Domain purchase failed.' },
+        { error: result.error || 'Domain purchase failed.', code: result.code },
         { status: result.status || 502 }
       );
     }
@@ -409,6 +438,7 @@ export async function POST(request: NextRequest) {
       stripe_subscription_id: subscription?.stripe_subscription_id ?? null,
       expires_at: expiresAt.toISOString(),
       auto_renew: true,
+      ...registrantToColumns(registrant.contact),
     });
 
     // Flag the subscription so refund-review logic (webhook) knows a digital good was delivered.

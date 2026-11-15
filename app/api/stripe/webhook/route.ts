@@ -185,10 +185,35 @@ export async function POST(request: NextRequest) {
             isDomainSwitch === 'true',
           );
 
+          let refunded = false;
           if (result.success) {
             console.log(`✅ Domain ${domain} purchased and linked successfully`);
           } else {
             console.error(`❌ Domain purchase failed for ${domain}:`, result.error);
+
+            // The customer paid but no domain was registered: refund them.
+            const paymentIntentId = typeof session.payment_intent === 'string'
+              ? session.payment_intent
+              : session.payment_intent?.id;
+            if (paymentIntentId) {
+              try {
+                await getStripeClient().refunds.create(
+                  {
+                    payment_intent: paymentIntentId,
+                    metadata: { type: 'domain_purchase_failed', domainPurchaseId, domain },
+                  },
+                  { idempotencyKey: `domain-purchase-refund-${domainPurchaseId}` },
+                );
+                refunded = true;
+                await supabase
+                  .from('domain_purchases')
+                  .update({ refunded_at: new Date().toISOString() })
+                  .eq('id', domainPurchaseId);
+                console.log(`↩️ Refunded failed domain purchase ${domainPurchaseId}`);
+              } catch (refundErr) {
+                console.error(`Failed to refund domain purchase ${domainPurchaseId}:`, refundErr);
+              }
+            }
           }
 
           // Record domain purchase transaction
@@ -205,7 +230,7 @@ export async function POST(request: NextRequest) {
             status: result.success ? 'succeeded' : 'failed',
             invoice_url: checkoutUrls.invoice_url,
             invoice_pdf: checkoutUrls.invoice_pdf,
-            metadata: { domain, domainPurchaseId, siteId },
+            metadata: { domain, domainPurchaseId, siteId, ...(refunded ? { refunded: true } : {}) },
           });
 
           break;

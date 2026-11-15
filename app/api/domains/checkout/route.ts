@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
 import { calculateDomainSwitchPrice, priceToCents } from '@/lib/domains/pricing';
 import Stripe from 'stripe';
+import { registrantToColumns, type RegistrantContact } from '@/lib/domains/registrant';
+import { checkRegistrant } from '@/lib/domains/registrant-server';
 
 const VERCEL_API_TOKEN = process.env.VERCEL_API_TOKEN;
 const VERCEL_TEAM_ID = process.env.VERCEL_TEAM_ID;
@@ -17,6 +19,7 @@ const getStripeClient = () => {
 interface CheckoutRequest {
   siteId: string;
   domain: string;
+  contact?: RegistrantContact;
 }
 
 /**
@@ -69,7 +72,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body: CheckoutRequest = await request.json();
-    const { siteId, domain } = body;
+    const { siteId, domain, contact } = body;
 
     if (!siteId || !domain) {
       return NextResponse.json(
@@ -142,6 +145,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check owner details now — the domain is only bought after payment, so a
+    // registry rejection at that point would mean charging for nothing.
+    const registrant = await checkRegistrant(domain, contact);
+    if (!registrant.ok) {
+      return NextResponse.json(
+        { error: registrant.error, code: 'registrant_invalid', fieldErrors: registrant.fieldErrors },
+        { status: 400 }
+      );
+    }
+
     // Get current Vercel price
     const teamParam = VERCEL_TEAM_ID ? `?teamId=${VERCEL_TEAM_ID}` : '';
     const priceRes = await fetch(
@@ -183,6 +196,7 @@ export async function POST(request: NextRequest) {
         amount_cents: amountCents,
         is_free_with_pro: false,
         status: 'pending',
+        ...registrantToColumns(registrant.contact),
       })
       .select('id')
       .single();
