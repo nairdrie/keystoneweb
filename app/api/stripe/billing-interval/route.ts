@@ -9,16 +9,20 @@ import {
   intervalPricing,
   isBillingInterval,
   isLateStatus,
-  isMeteredItem,
   oppositeInterval,
   planKeyFor,
-  resolveAddonTargetPrice,
   resolveIntervalChangeStrategy,
   resolvePlanFromSubscription,
   yearlySavings,
   type BillingInterval,
 } from '@/lib/subscription/billing-interval';
 import type { PlanConfig } from '@/lib/plans';
+import {
+  buildAddonIntervalUpdates,
+  loadActiveAddons,
+  saveAddonPriceUpdates,
+  type ActiveAddon,
+} from '@/lib/subscription/addon-items';
 
 /**
  * Billing-cycle switching for the customer's own subscription.
@@ -43,15 +47,6 @@ const getStripeClient = () => {
 /** Stripe throws plain Errors and StripeErrors — both carry a usable message. */
 function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback;
-}
-
-interface ActiveAddon {
-  id: string;
-  addon_type: string;
-  quantity: number;
-  monthly_price: number;
-  yearly_price: number;
-  stripe_item_id: string;
 }
 
 interface SubscriptionContext {
@@ -124,28 +119,25 @@ async function loadContext(): Promise<SubscriptionContext | NextResponse> {
     );
   }
 
+  // A plan change scheduled for the end of the period (a Pro → Basic downgrade)
+  // runs through a subscription schedule, which would overwrite any item change
+  // made here when it kicks in. Switch cycle after it has taken effect instead.
+  if (subscription.schedule) {
+    return NextResponse.json(
+      {
+        available: false,
+        reason: 'scheduled_change',
+        error: 'You have a plan change scheduled. The billing cycle can be changed once it takes effect, or after you cancel it on the Pricing page.',
+      },
+      { status: 409 },
+    );
+  }
+
   // Add-ons are extra items on the same subscription and must follow the base
   // plan's interval, otherwise the customer pays monthly add-on rates on a
   // yearly plan. Read them up front so they're excluded from plan-item matching.
   const db = createAdminClient();
-  const { data: addonRows } = await db
-    .from('user_addons')
-    .select('id, addon_type, quantity, monthly_price, yearly_price, stripe_item_id')
-    .eq('user_id', user.id)
-    .eq('status', 'active')
-    .not('stripe_item_id', 'is', null);
-
-  const subscriptionItemIds = new Set((subscription.items?.data ?? []).map((item) => item.id));
-  const addons: ActiveAddon[] = (addonRows ?? [])
-    .filter((row) => row.stripe_item_id && subscriptionItemIds.has(row.stripe_item_id))
-    .map((row) => ({
-      id: row.id,
-      addon_type: row.addon_type,
-      quantity: row.quantity,
-      monthly_price: Number(row.monthly_price),
-      yearly_price: Number(row.yearly_price),
-      stripe_item_id: row.stripe_item_id as string,
-    }));
+  const addons: ActiveAddon[] = await loadActiveAddons(db, user.id, subscription);
 
   const plan = resolvePlanFromSubscription(subscription, subRow.subscription_plan);
   if (!plan) {
@@ -185,12 +177,8 @@ function priceIdFor(plan: PlanConfig, interval: BillingInterval): string {
 
 /**
  * Build the `items` payload that moves the plan (and its add-ons) to `interval`.
- *
- * Add-ons whose price an admin overrode need a per-user Stripe Price at the new
- * interval. In `'apply'` mode we mint one and remember it; in `'preview'` mode we
- * describe the same amount inline with `price_data` instead, so a preview never
- * leaves stray Price objects behind yet still totals up to exactly what the
- * customer will be charged.
+ * See lib/subscription/addon-items.ts for how add-on prices are resolved in
+ * `'preview'` vs `'apply'` mode.
  */
 async function buildItemUpdates(
   ctx: SubscriptionContext,
@@ -204,58 +192,21 @@ async function buildItemUpdates(
   const items: Stripe.SubscriptionUpdateParams.Item[] = [
     { id: ctx.planItem.id, price: priceIdFor(ctx.plan, interval), quantity: ctx.planItem.quantity ?? 1 },
   ];
-  const addonPriceUpdates: Array<{ addonId: string; priceId: string }> = [];
-  let skippedAddons = 0;
-
   const productId = typeof ctx.planItem.price?.product === 'string' ? ctx.planItem.price.product : null;
+  const addonUpdates = await buildAddonIntervalUpdates({
+    stripe: ctx.stripe,
+    subscription: ctx.subscription,
+    addons: ctx.addons,
+    productId,
+    interval,
+    mode,
+  });
 
-  for (const addon of ctx.addons) {
-    const item = ctx.subscription.items.data.find((i) => i.id === addon.stripe_item_id);
-    if (!item || isMeteredItem(item)) continue;
-    if (intervalOfItem(item) === interval) continue; // already on the target cycle
-
-    const target = resolveAddonTargetPrice(addon, interval);
-    if (!target) {
-      skippedAddons += 1;
-      continue;
-    }
-
-    if (!target.needsCustomPrice && target.priceId) {
-      items.push({ id: addon.stripe_item_id, price: target.priceId, quantity: addon.quantity });
-      continue;
-    }
-
-    if (!productId) {
-      skippedAddons += 1;
-      continue;
-    }
-
-    if (mode === 'preview') {
-      items.push({
-        id: addon.stripe_item_id,
-        quantity: addon.quantity,
-        price_data: {
-          currency: 'cad',
-          product: productId,
-          recurring: { interval },
-          unit_amount: target.unitAmountCents,
-        },
-      });
-      continue;
-    }
-
-    const customPrice = await ctx.stripe.prices.create({
-      product: productId,
-      unit_amount: target.unitAmountCents,
-      currency: 'cad',
-      recurring: { interval },
-      nickname: `Custom ${addon.addon_type} (${interval === 'year' ? 'yearly' : 'monthly'})`,
-    });
-    addonPriceUpdates.push({ addonId: addon.id, priceId: customPrice.id });
-    items.push({ id: addon.stripe_item_id, price: customPrice.id, quantity: addon.quantity });
-  }
-
-  return { items, addonPriceUpdates, skippedAddons };
+  return {
+    items: [...items, ...addonUpdates.items],
+    addonPriceUpdates: addonUpdates.addonPriceUpdates,
+    skippedAddons: addonUpdates.skippedAddons,
+  };
 }
 
 /** Summary of the invoice Stripe would raise for the switch, in cents. */
@@ -449,12 +400,7 @@ export async function POST(request: NextRequest) {
 
     // Keep the per-user add-on prices we just minted on the add-on rows so a
     // later switch back reuses them instead of creating another one.
-    for (const { addonId, priceId } of addonPriceUpdates) {
-      await db
-        .from('user_addons')
-        .update({ stripe_price_id: priceId, updated_at: new Date().toISOString() })
-        .eq('id', addonId);
-    }
+    await saveAddonPriceUpdates(db, addonPriceUpdates);
 
     const invoice = updated.latest_invoice && typeof updated.latest_invoice === 'object'
       ? updated.latest_invoice

@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Check, Loader2, ChevronDown, ArrowRight, Sparkles } from 'lucide-react';
 import Header from '../../components/Header';
 import MarketingFooter from '@/app/components/MarketingFooter';
+import PlanChangeModal from '@/app/components/billing/PlanChangeModal';
 
 const STRIPE_PRICES = {
   basic: {
@@ -28,70 +29,14 @@ interface CheckoutData {
   planName: string;
 }
 
-// Downgrade warning modal shown to Pro users before downgrading
-function DowngradeWarningModal({
-  publishedSiteCount,
-  hasCustomDomain,
-  onConfirm,
-  onCancel,
-  loading,
-}: {
-  publishedSiteCount: number;
-  hasCustomDomain: boolean;
-  onConfirm: () => void;
-  onCancel: () => void;
-  loading: boolean;
-}) {
-  return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[10000] p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 animate-in fade-in zoom-in-95">
-        <h2 className="text-xl font-black text-slate-900 mb-2">Before you downgrade</h2>
-        <p className="text-sm text-slate-600 mb-5 leading-relaxed">
-          Downgrading to Basic will take effect at the end of your current billing period. Here&apos;s what will change:
-        </p>
-        <ul className="space-y-3 mb-6">
-          <li className="flex gap-3 text-sm">
-            <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 font-bold text-xs mt-0.5">!</span>
-            <span className="text-slate-700">
-              <strong>Published site limit drops to 1.</strong>{' '}
-              {publishedSiteCount > 1
-                ? `You currently have ${publishedSiteCount} published sites. We'll keep your most recently published site live and unpublish the rest.`
-                : 'You currently have 1 published site — no change needed.'}
-            </span>
-          </li>
-          {hasCustomDomain && (
-            <li className="flex gap-3 text-sm">
-              <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 font-bold text-xs mt-0.5">!</span>
-              <span className="text-slate-700">
-                <strong>Your custom domain will be disconnected.</strong> It remains yours and parked until its renewal date. Custom domains require a Pro plan.
-              </span>
-            </li>
-          )}
-          <li className="flex gap-3 text-sm">
-            <span className="w-5 h-5 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center shrink-0 font-bold text-xs mt-0.5">i</span>
-            <span className="text-slate-500">All your site drafts and content are preserved — nothing is deleted.</span>
-          </li>
-        </ul>
-        <div className="flex gap-3">
-          <button
-            onClick={onCancel}
-            disabled={loading}
-            className="flex-1 py-3 px-4 rounded-xl border border-slate-200 text-slate-700 font-semibold text-sm hover:bg-slate-50 transition-colors"
-          >
-            Keep Pro
-          </button>
-          <button
-            onClick={onConfirm}
-            disabled={loading}
-            className="flex-1 py-3 px-4 rounded-xl bg-slate-900 text-white font-semibold text-sm hover:bg-slate-800 transition-colors flex items-center justify-center gap-2"
-          >
-            {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-            Downgrade to Basic
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+// Statuses where a Stripe subscription still exists — these change plan in-app
+// rather than through a new Checkout. Mirrors LIVE_STATUSES in lib/subscription/access.ts.
+const LIVE_STATUSES = new Set(['active', 'trialing', 'past_due', 'unpaid']);
+
+interface ScheduledChange {
+  toPlan: string | null;
+  toInterval: 'month' | 'year' | null;
+  effectiveAt: string | null;
 }
 
 function PricingContent() {
@@ -107,20 +52,36 @@ function PricingContent() {
   const [activePlan, setActivePlan] = useState<string | null>(null);
   const [isYearly, setIsYearly] = useState(true);
   const [faqOpen, setFaqOpen] = useState<string | null>(null);
-  const [showDowngradeWarning, setShowDowngradeWarning] = useState(false);
   const [publishedSiteCount, setPublishedSiteCount] = useState(0);
   const [hasCustomDomain, setHasCustomDomain] = useState(false);
-  const [pendingDowngradePriceId, setPendingDowngradePriceId] = useState<string | null>(null);
+  const [hasLiveSubscription, setHasLiveSubscription] = useState(false);
+  const [scheduledChange, setScheduledChange] = useState<ScheduledChange | null>(null);
+  const [planChangePriceId, setPlanChangePriceId] = useState<string | null>(null);
+  const [cancellingDowngrade, setCancellingDowngrade] = useState(false);
+
+  const loadSubscription = useCallback(async () => {
+    try {
+      const res = await fetch('/api/user/subscription', { credentials: 'include' });
+      const data = await res.json();
+      const status = data.subscription?.subscription_status;
+      const live = !!status && LIVE_STATUSES.has(status);
+      setHasLiveSubscription(live);
+      setActivePlan(live ? data.subscription.subscription_plan : null);
+
+      if (live) {
+        const planRes = await fetch('/api/stripe/plan-change', { credentials: 'include' });
+        const planData = planRes.ok ? await planRes.json() : null;
+        setScheduledChange(planData?.scheduledChange ?? null);
+      } else {
+        setScheduledChange(null);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
 
   useEffect(() => {
-    fetch('/api/user/subscription', { credentials: 'include' })
-      .then(res => res.json())
-      .then(data => {
-        if (data.subscription?.subscription_status === 'active') {
-          setActivePlan(data.subscription.subscription_plan);
-        }
-      })
-      .catch(console.error);
+    loadSubscription();
 
     // Fetch published site count for downgrade warning
     fetch('/api/user/sites', { credentials: 'include' })
@@ -132,20 +93,41 @@ function PricingContent() {
         setHasCustomDomain(sites.some((s: { customDomain?: string }) => s.customDomain));
       })
       .catch(console.error);
-  }, []);
+  }, [loadSubscription]);
 
   const isBasic = activePlan?.toLowerCase().includes('basic');
   const isPro = activePlan?.toLowerCase().includes('pro');
+  const basicScheduled = !!scheduledChange?.toPlan?.toLowerCase().includes('basic');
 
   const handleCheckout = async (planName: 'Basic' | 'Pro', priceId: string) => {
-    // If Pro user downgrading to Basic, show warning first
-    if (isPro && planName === 'Basic') {
-      setPendingDowngradePriceId(priceId);
-      setShowDowngradeWarning(true);
+    // Existing subscribers change plan in-app, with a confirmation step showing
+    // exactly what's charged (upgrade) or when it takes effect (downgrade).
+    if (hasLiveSubscription) {
+      setError(null);
+      setPlanChangePriceId(priceId);
       return;
     }
     await executeCheckout(planName, priceId);
   };
+
+  const cancelScheduledDowngrade = async () => {
+    setCancellingDowngrade(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/stripe/plan-change', { method: 'DELETE', credentials: 'include' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'Failed to cancel the downgrade');
+      await loadSubscription();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to cancel the downgrade');
+    } finally {
+      setCancellingDowngrade(false);
+    }
+  };
+
+  const publishContinueUrl = isPublishFlow && siteId
+    ? `/publish/plan-activated?siteId=${encodeURIComponent(siteId)}`
+    : undefined;
 
   const executeCheckout = async (planName: 'Basic' | 'Pro', priceId: string) => {
     setLoading(true);
@@ -178,8 +160,17 @@ function PricingContent() {
         throw new Error(errorData.error || 'Failed to create checkout session');
       }
 
-      const { url } = await res.json();
+      const data = await res.json();
 
+      // The server found a live subscription we didn't know about — confirm the
+      // plan change in-app instead of starting a second subscription.
+      if (data.planChange) {
+        setHasLiveSubscription(true);
+        setPlanChangePriceId(priceId);
+        return;
+      }
+
+      const { url } = data;
       if (!url) {
         throw new Error('No checkout URL returned from server');
       }
@@ -197,16 +188,13 @@ function PricingContent() {
 
   return (
     <section className="pt-40 pb-20 px-4 sm:px-6 lg:px-8 relative z-10">
-      {showDowngradeWarning && pendingDowngradePriceId && (
-        <DowngradeWarningModal
-          publishedSiteCount={publishedSiteCount}
-          hasCustomDomain={hasCustomDomain}
-          loading={loading}
-          onCancel={() => { setShowDowngradeWarning(false); setPendingDowngradePriceId(null); }}
-          onConfirm={() => {
-            setShowDowngradeWarning(false);
-            executeCheckout('Basic', pendingDowngradePriceId);
-          }}
+      {planChangePriceId && (
+        <PlanChangeModal
+          priceId={planChangePriceId}
+          continueUrl={publishContinueUrl}
+          downgradeContext={{ publishedSiteCount, hasCustomDomain }}
+          onClose={() => setPlanChangePriceId(null)}
+          onChanged={() => { loadSubscription(); }}
         />
       )}
 
@@ -256,6 +244,26 @@ function PricingContent() {
           )}
         </motion.div>
       </div>
+
+      {scheduledChange?.toPlan && (
+        <div className="mb-8 max-w-5xl mx-auto bg-slate-50 border border-slate-200 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <p className="text-sm text-slate-700">
+            Your plan switches to <strong>{scheduledChange.toPlan}</strong>
+            {scheduledChange.effectiveAt
+              ? ` on ${new Date(scheduledChange.effectiveAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}`
+              : ' at the end of your billing period'}
+            . You keep {activePlan || 'your current plan'} until then.
+          </p>
+          <button
+            onClick={cancelScheduledDowngrade}
+            disabled={cancellingDowngrade}
+            className="shrink-0 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 disabled:opacity-60 text-white text-sm font-semibold transition-colors"
+          >
+            {cancellingDowngrade && <Loader2 className="w-4 h-4 animate-spin" />}
+            Keep {activePlan?.toLowerCase().includes('pro') ? 'Pro' : 'my plan'}
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="mb-8 max-w-5xl mx-auto bg-red-50 border border-red-200 rounded-lg p-4">
@@ -326,13 +334,15 @@ function PricingContent() {
 
           <button
             onClick={() => handleCheckout('Basic', isYearly ? STRIPE_PRICES.basic.yearly : STRIPE_PRICES.basic.monthly)}
-            disabled={loading || isBasic}
+            disabled={loading || isBasic || basicScheduled}
             className="mt-auto block w-full py-4 px-6 rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-60 text-slate-900 font-bold text-center transition-colors flex items-center justify-center gap-2"
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
             {isBasic
               ? 'Current Plan'
-              : isPro
+              : basicScheduled
+                ? 'Downgrade Scheduled'
+                : isPro
                 ? 'Downgrade to Basic'
                 : loading
                   ? 'Redirecting...'

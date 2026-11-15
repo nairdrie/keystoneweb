@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth/context';
 import { Check, Loader2 } from 'lucide-react';
 import SignUpModal from '@/app/components/SignUpModal';
+import PlanChangeModal from '@/app/components/billing/PlanChangeModal';
 
 interface TransferDetails {
   transferId: string;
@@ -45,6 +46,7 @@ function PlanSelectionStep({
   const [isYearly, setIsYearly] = useState(true);
   const [loading, setLoading] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [planChangePriceId, setPlanChangePriceId] = useState<string | null>(null);
 
   const handleChoosePlan = async (planName: 'Basic' | 'Pro', priceId: string) => {
     setLoading(true);
@@ -60,8 +62,14 @@ function PlanSelectionStep({
         const data = await res.json();
         throw new Error(data.error || 'Failed to start checkout');
       }
-      const { url } = await res.json();
-      window.location.href = url;
+      const data = await res.json();
+      // Already subscribed — confirm the plan change in-app instead of a new Checkout.
+      if (data.planChange) {
+        setPlanChangePriceId(priceId);
+        setLoading(false);
+        return;
+      }
+      window.location.href = data.url;
     } catch (err) {
       setCheckoutError(err instanceof Error ? err.message : 'Something went wrong');
       setLoading(false);
@@ -75,6 +83,13 @@ function PlanSelectionStep({
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+      {planChangePriceId && (
+        <PlanChangeModal
+          priceId={planChangePriceId}
+          continueUrl={`/publish/plan-activated?siteId=${encodeURIComponent(acceptedSiteId)}`}
+          onClose={() => setPlanChangePriceId(null)}
+        />
+      )}
       <div className="w-full max-w-2xl">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-14 h-14 bg-green-100 rounded-full mb-4">

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
 import Stripe from 'stripe';
 import { hasLiveSubscription } from '@/lib/subscription/access';
-import { findPlanItem, resolvePlanFromSubscription } from '@/lib/subscription/billing-interval';
 
 // Initialize Stripe only when API key is available
 const getStripeClient = () => {
@@ -75,61 +74,25 @@ export async function POST(request: NextRequest) {
       siteName = site.site_slug || 'My Website';
     }
 
-    const stripe = getStripeClient();
-
-    // Check if the user already has a live subscription — if so, send them to the
-    // Stripe Customer Portal with a confirmation flow so they can review proration
-    // before paying.
+    // A customer who already has a live subscription changes plan in-app instead
+    // (preview → confirm → apply, see app/api/stripe/plan-change). The Stripe
+    // Customer Portal's update flow can't be used: it rejects any subscription
+    // with more than one item, and ours always carry the metered overage item.
     //
     // `past_due`/`unpaid` count as live: the subscription still exists in Stripe, so
     // running a fresh Checkout for a customer behind on payment would leave them with
     // two parallel subscriptions billing the same account.
     const { data: existingSubscription } = await supabase
       .from('user_subscriptions')
-      .select('stripe_subscription_id, stripe_customer_id, subscription_status, subscription_plan')
+      .select('stripe_subscription_id, subscription_status')
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
 
     if (
       existingSubscription?.stripe_subscription_id &&
-      existingSubscription?.stripe_customer_id &&
       hasLiveSubscription(existingSubscription.subscription_status)
     ) {
-      const stripeSub = await stripe.subscriptions.retrieve(
-        existingSubscription.stripe_subscription_id,
-        { expand: ['items.data.price'] },
-      );
-
-      // Target the base plan item specifically — subscriptions also carry the
-      // monthly metered overage item and any add-on items, and swapping the plan
-      // price onto one of those would wreck the customer's billing.
-      const currentPlan = resolvePlanFromSubscription(stripeSub, existingSubscription.subscription_plan);
-      const planItem = findPlanItem(stripeSub, currentPlan);
-      const itemId = planItem?.id;
-
-      if (!itemId) {
-        return NextResponse.json({ error: 'Could not find subscription item to update' }, { status: 500 });
-      }
-
-      const returnUrl = siteId
-        ? `${process.env.NEXT_PUBLIC_APP_URL}/publish/plan-activated?siteId=${siteId}`
-        : `${process.env.NEXT_PUBLIC_APP_URL}/settings`;
-
-      // Use the portal's subscription_update_confirm flow so the user sees a proration
-      // preview and confirms before any charge is made
-      const portalSession = await stripe.billingPortal.sessions.create({
-        customer: existingSubscription.stripe_customer_id,
-        return_url: returnUrl,
-        flow_data: {
-          type: 'subscription_update_confirm',
-          subscription_update_confirm: {
-            subscription: existingSubscription.stripe_subscription_id,
-            items: [{ id: itemId, price: priceId, quantity: 1 }],
-          },
-        },
-      });
-
-      return NextResponse.json({ url: portalSession.url });
+      return NextResponse.json({ planChange: true, priceId, planName });
     }
 
     // Metered overage price is added to the subscription after checkout via
@@ -145,6 +108,7 @@ export async function POST(request: NextRequest) {
       : '';
 
     // No existing subscription — create a new Stripe checkout session
+    const stripe = getStripeClient();
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [{ price: priceId, quantity: 1 }],

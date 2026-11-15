@@ -7,6 +7,7 @@ import { initiateVercelTransfer } from '@/app/api/domains/transfer/route';
 import { provisionLaunch } from '@/lib/launch-service/provision';
 import { getPlanByName } from '@/lib/plans';
 import { findPlanItem, resolvePlanFromSubscription } from '@/lib/subscription/billing-interval';
+import { downgradeScheduleHasTakenEffect } from '@/lib/subscription/plan-change';
 import Stripe from 'stripe';
 import { trackEvent } from '@/lib/analytics';
 
@@ -827,6 +828,28 @@ export async function POST(request: NextRequest) {
           // Subscription not tracked in our DB (e.g. created before this webhook was set up)
           console.warn(`Subscription ${subscription.id} not found in user_subscriptions; skipping sync.`);
           break;
+        }
+
+        // ── Finish a scheduled downgrade ───────────────────────────────────
+        // Pro → Basic downgrades run through a subscription schedule (see
+        // app/api/stripe/plan-change). Once the Basic phase has started the
+        // schedule has nothing left to do, and leaving it attached would block
+        // later changes like a billing-cycle switch — so release it.
+        if (event.type === 'customer.subscription.updated' && subscription.schedule) {
+          try {
+            const stripeClient = getStripeClient();
+            const scheduleId = typeof subscription.schedule === 'string'
+              ? subscription.schedule
+              : subscription.schedule.id;
+            const schedule = await stripeClient.subscriptionSchedules.retrieve(scheduleId);
+            if (downgradeScheduleHasTakenEffect(schedule)) {
+              await stripeClient.subscriptionSchedules.release(scheduleId);
+              console.log(`✅ Released completed downgrade schedule ${scheduleId} for ${subscription.id}`);
+            }
+          } catch (scheduleErr) {
+            // Non-blocking — the schedule releases itself at the end of its phase anyway.
+            console.error(`Failed to check/release schedule on ${subscription.id}:`, scheduleErr);
+          }
         }
 
         // Record subscription status change
