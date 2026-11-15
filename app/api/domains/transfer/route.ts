@@ -8,6 +8,11 @@ const VERCEL_API_TOKEN = process.env.VERCEL_API_TOKEN;
 const VERCEL_TEAM_ID = process.env.VERCEL_TEAM_ID;
 const VERCEL_API_BASE = 'https://api.vercel.com';
 
+/** Vercel rejects contact strings with leading/trailing whitespace. */
+function clean(value: string | null | undefined): string {
+  return (value ?? '').trim();
+}
+
 /**
  * Normalize a phone number to E.164 format (+19058579771).
  * Handles common formats: 905-857-9771, (905) 857-9771, +1 905 857 9771, etc.
@@ -75,15 +80,16 @@ export async function initiateVercelTransfer(
         autoRenew: true,
         expectedPrice: transferPrice,
         contactInformation: {
-          firstName: contact.firstName,
-          lastName: contact.lastName,
-          email: contact.email,
+          // Vercel requires trimmed, non-empty strings for contact fields.
+          firstName: clean(contact.firstName),
+          lastName: clean(contact.lastName),
+          email: clean(contact.email),
           phone: toE164(contact.phone),
-          address1: contact.address1,
-          city: contact.city,
-          state: contact.state,
-          zip: contact.zip,
-          country: contact.country,
+          address1: clean(contact.address1),
+          city: clean(contact.city),
+          state: clean(contact.state),
+          zip: clean(contact.zip),
+          country: clean(contact.country),
         },
       }),
     }
