@@ -29,6 +29,15 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
 import SiteLimitModal from '@/app/components/SiteLimitModal';
+import RegistrantForm, { summarizeRegistrant } from './RegistrantForm';
+import {
+  emptyRegistrant,
+  normalizeRegistrant,
+  validateRegistrant,
+  type RegistrantContact,
+  type RegistrantErrors,
+  type RegistrantSchema,
+} from '@/lib/domains/registrant';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -104,6 +113,8 @@ export interface DomainManagerProps {
   onSuccess?: (url: string) => void;
   /** Called when Cancel is clicked (standalone mode defaults to /editor) */
   onCancel?: () => void;
+  /** Stripe Checkout session id when returning from a paid domain purchase */
+  purchaseSessionId?: string | null;
 }
 
 // ─── URL → Root Domain Extraction ────────────────────────────────────────────
@@ -289,6 +300,7 @@ export function DomainManager({
   embedded = false,
   onSuccess,
   onCancel,
+  purchaseSessionId = null,
 }: DomainManagerProps) {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
@@ -382,6 +394,19 @@ export function DomainManager({
   const [transferring, setTransferring] = useState(false);
   const [transferInitiated, setTransferInitiated] = useState(transferInitiatedParam);
   const [verifyingTransfer, setVerifyingTransfer] = useState(false);
+
+  // Registrant (domain owner) details for purchases
+  const [registrant, setRegistrant] = useState<RegistrantContact>(() => emptyRegistrant());
+  const [registrantLoaded, setRegistrantLoaded] = useState(false);
+  const [registrantSchema, setRegistrantSchema] = useState<RegistrantSchema | null>(null);
+  const [registrantSchemaFor, setRegistrantSchemaFor] = useState<string | null>(null);
+  const [registrantErrors, setRegistrantErrors] = useState<RegistrantErrors>({});
+  const [editingRegistrant, setEditingRegistrant] = useState(false);
+
+  // Outcome of a paid purchase after returning from Stripe
+  const [paidPurchaseStatus, setPaidPurchaseStatus] = useState<
+    { state: 'checking' | 'completed' | 'failed' | 'pending'; domain?: string; error?: string | null; refunded?: boolean } | null
+  >(purchaseSessionId ? { state: 'checking' } : null);
 
   const isPro = userPlan?.toLowerCase().includes('pro');
 
@@ -489,6 +514,59 @@ export function DomainManager({
       .catch(console.error)
       .finally(() => setLoadingOwnedDomains(false));
   }, [user, authLoading]);
+
+  // Load the selected domain's registry requirements (+ saved owner details once)
+  useEffect(() => {
+    if (!selectedDomain || !user) return;
+    let cancelled = false;
+    setRegistrantErrors({});
+    fetch(`/api/domains/registrant?domain=${encodeURIComponent(selectedDomain)}`, { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .catch((err) => { console.error(err); return null; })
+      .then((data: { schema: RegistrantSchema | null; saved: RegistrantContact | null } | null) => {
+        if (cancelled) return;
+        // On lookup failure, fall back to the standard checks (server re-validates).
+        const schema = data?.schema ?? null;
+        setRegistrantSchema(schema);
+        setRegistrantSchemaFor(selectedDomain);
+        let current = registrant;
+        if (!registrantLoaded && data?.saved) {
+          current = data.saved;
+          setRegistrant(data.saved);
+          setRegistrantLoaded(true);
+        }
+        // Open the form if what we have doesn't meet this registry's rules
+        const errs = validateRegistrant(normalizeRegistrant(current, schema), schema);
+        if (Object.keys(errs).length > 0) setEditingRegistrant(true);
+      });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDomain, user]);
+
+  // After returning from Stripe, report how the paid registration went
+  useEffect(() => {
+    if (!purchaseSessionId || !user) return;
+    let cancelled = false;
+    let attempts = 0;
+    const check = async () => {
+      attempts++;
+      try {
+        const r = await fetch(`/api/domains/purchase-status?sessionId=${encodeURIComponent(purchaseSessionId)}`, { credentials: 'include' });
+        const data = r.ok ? await r.json() : null;
+        if (cancelled) return;
+        if (data?.status === 'completed' || data?.status === 'failed') {
+          setPaidPurchaseStatus({ state: data.status, domain: data.domain, error: data.error, refunded: data.refunded });
+          if (data.status === 'completed') fetchSiteStatus();
+          return;
+        }
+      } catch { /* retry */ }
+      if (cancelled) return;
+      if (attempts < 10) setTimeout(check, 2000);
+      else setPaidPurchaseStatus({ state: 'pending' });
+    };
+    check();
+    return () => { cancelled = true; };
+  }, [purchaseSessionId, user, fetchSiteStatus]);
 
   // Auth verification (skip redirect in embedded mode — parent handles auth)
   useEffect(() => {
@@ -714,11 +792,36 @@ export function DomainManager({
 
   // ─── Purchase Domain ────────────────────────────────────────────────────
 
+  /** Check owner details against the registry's rules; opens the form on problems. */
+  const checkRegistrantReady = (): boolean => {
+    const schema = registrantSchemaFor === selectedDomain ? registrantSchema : null;
+    const normalized = normalizeRegistrant(registrant, schema);
+    const errs = validateRegistrant(normalized, schema);
+    setRegistrantErrors(errs);
+    if (Object.keys(errs).length > 0) {
+      setEditingRegistrant(true);
+      setError('Please complete the domain owner details below.');
+      return false;
+    }
+    setRegistrant(normalized);
+    return true;
+  };
+
+  /** Handle a registrant problem reported by the API (our checks or the registry's). */
+  const applyRegistrantError = (errorData: { code?: string; fieldErrors?: RegistrantErrors }) => {
+    if (errorData.code !== 'registrant_invalid') return;
+    setRegistrantErrors(errorData.fieldErrors ?? {});
+    setEditingRegistrant(true);
+  };
+
   const handlePurchaseDomain = async () => {
     if (!selectedDomain || !siteId) return;
+    if (!checkRegistrantReady()) return;
 
     setPurchasing(true);
     setError(null);
+
+    const contact = normalizeRegistrant(registrant, registrantSchemaFor === selectedDomain ? registrantSchema : null);
 
     try {
       if (freeDomainUsed) {
@@ -727,11 +830,12 @@ export function DomainManager({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ siteId, domain: selectedDomain }),
+          body: JSON.stringify({ siteId, domain: selectedDomain, contact }),
         });
 
         if (!res.ok) {
           const errorData = await res.json();
+          applyRegistrantError(errorData);
           throw new Error(errorData.error || 'Failed to create checkout');
         }
 
@@ -746,11 +850,12 @@ export function DomainManager({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ siteId, domain: selectedDomain }),
+          body: JSON.stringify({ siteId, domain: selectedDomain, contact }),
         });
 
         if (!res.ok) {
           const errorData = await res.json();
+          applyRegistrantError(errorData);
           throw new Error(errorData.error || 'Failed to purchase domain');
         }
 
@@ -1093,6 +1198,40 @@ export function DomainManager({
             <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
             <p className="text-sm text-red-700">{error}</p>
           </div>
+        )}
+
+        {/* ─── Paid purchase outcome (after Stripe) ──────────────────── */}
+        {paidPurchaseStatus && (
+          paidPurchaseStatus.state === 'failed' ? (
+            <div className="p-3 rounded-lg bg-red-50 border border-red-200 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-red-700">
+                <p className="font-semibold">We couldn&apos;t register {paidPurchaseStatus.domain ?? 'your domain'}.</p>
+                {paidPurchaseStatus.error && <p>{paidPurchaseStatus.error}</p>}
+                <p className="mt-1">
+                  {paidPurchaseStatus.refunded
+                    ? 'Your payment has been refunded in full. It can take 5–10 days to appear on your statement.'
+                    : 'Contact support and we’ll refund your payment.'}
+                </p>
+              </div>
+            </div>
+          ) : paidPurchaseStatus.state === 'completed' ? (
+            <div className="p-3 rounded-lg bg-green-50 border border-green-200 flex items-start gap-2">
+              <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-green-800">
+                <strong>{paidPurchaseStatus.domain}</strong> is registered and connected to your site.
+              </p>
+            </div>
+          ) : (
+            <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 flex items-start gap-2">
+              <Loader2 className={`w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5 ${paidPurchaseStatus.state === 'checking' ? 'animate-spin' : ''}`} />
+              <p className="text-sm text-slate-700">
+                {paidPurchaseStatus.state === 'checking'
+                  ? 'Payment received — registering your domain…'
+                  : 'Payment received. Your domain is still being registered; refresh this page in a minute to check.'}
+              </p>
+            </div>
+          )
         )}
 
         {/* ═══════════════════════════════════════════════════════════ */}
@@ -1701,6 +1840,39 @@ export function DomainManager({
                             </div>
                           )}
 
+                          {!switchRateLimited && (
+                            editingRegistrant || registrantSchemaFor !== selectedDomain ? (
+                              <RegistrantForm
+                                domain={selectedDomain}
+                                value={registrant}
+                                onChange={(next) => {
+                                  setRegistrant(next);
+                                  if (Object.keys(registrantErrors).length) setRegistrantErrors({});
+                                }}
+                                schema={registrantSchemaFor === selectedDomain ? registrantSchema : null}
+                                errors={registrantErrors}
+                                loading={registrantSchemaFor !== selectedDomain}
+                              />
+                            ) : (
+                              <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-slate-200 bg-slate-50">
+                                <div className="min-w-0">
+                                  <p className="text-xs font-semibold text-slate-600">Registered to</p>
+                                  <p className="text-sm text-slate-900 truncate">{summarizeRegistrant(registrant)}</p>
+                                </div>
+                                <button
+                                  onClick={() => setEditingRegistrant(true)}
+                                  className="text-xs font-semibold text-red-600 hover:underline shrink-0"
+                                >
+                                  Edit
+                                </button>
+                              </div>
+                            )
+                          )}
+
+                          {error && !switchRateLimited && (
+                            <p className="text-xs text-red-600">{error}</p>
+                          )}
+
                           {switchRateLimited ? (
                             <div className="p-3 bg-slate-100 rounded-lg text-center">
                               <p className="text-xs text-slate-600">
@@ -1710,13 +1882,15 @@ export function DomainManager({
                           ) : (
                             <button
                               onClick={() => {
+                                if (!checkRegistrantReady()) return;
+                                setError(null);
                                 if (freeDomainUsed && otherSiteWithDomain) {
                                   setShowDomainSwitchWarningModal(true);
                                 } else {
                                   handlePurchaseDomain();
                                 }
                               }}
-                              disabled={purchasing}
+                              disabled={purchasing || registrantSchemaFor !== selectedDomain}
                               className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                             >
                               {purchasing ? (
@@ -2423,11 +2597,13 @@ function DomainSelectContent() {
   const searchParams = useSearchParams();
   const siteId = searchParams.get('siteId');
   const transferInitiated = searchParams.get('transferInitiated') === 'true';
+  const purchaseSessionId = searchParams.get('domain_purchased') === 'true' ? searchParams.get('session_id') : null;
 
   return (
     <DomainManager
       siteId={siteId}
       transferInitiated={transferInitiated}
+      purchaseSessionId={purchaseSessionId}
     />
   );
 }
