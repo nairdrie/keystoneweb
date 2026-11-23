@@ -7,8 +7,13 @@
  *   Env vars: ARACHNID_SHIELD_USERNAME, ARACHNID_SHIELD_PASSWORD
  *
  * Layer 2: Google Cloud Vision SafeSearch
- *   AI classifier for adult/violent content beyond known hashes.
- *   Catches novel/AI-generated CSAEM where no hash exists yet.
+ *   AI classifier for sexually explicit content beyond known hashes.
+ *   Only the `adult` (nudity / sexual content) score decides anything:
+ *     VERY_LIKELY → blocked
+ *     LIKELY      → allowed, but logged to the ops moderation queue
+ *   The `racy` score is ignored on purpose. Google's "racy" covers swimwear,
+ *   skimpy clothing and suggestive poses, which is legitimate content for many
+ *   businesses (swimwear shops, print-on-demand designs, fitness, salons).
  *   Env var: GOOGLE_SERVICE_ACCOUNT_JSON (paste the full service account JSON as a string)
  *
  * If either API is unconfigured, that layer is skipped (fail-open with a warning).
@@ -17,7 +22,12 @@
 
 import { SignJWT, importPKCS8 } from 'jose';
 
+/** What an upload route tells the person when an image is blocked. */
+export const BLOCKED_IMAGE_MESSAGE =
+  'This image looks sexually explicit, so it can’t be uploaded. Swimwear and suggestive images are fine; nudity and sexual content are not.';
+
 export type ImageModerationResult = {
+  /** true = do not store. When false with severity 'review', store it and call logFlaggedImage(). */
   blocked: boolean;
   severity: 'csaem' | 'adult' | 'review' | 'clean';
   method: 'arachnid_hash' | 'vision_classifier' | 'clean';
@@ -223,13 +233,15 @@ async function checkVisionSafeSearch(buffer: Buffer): Promise<ImageModerationRes
 
   const annotation = data.responses?.[0]?.safeSearchAnnotation;
   if (!annotation) return null;
+  return classifySafeSearch(annotation);
+}
 
-  const adultRank = LIKELIHOOD_RANK[annotation.adult] ?? 0;
-  const racyRank = LIKELIHOOD_RANK[annotation.racy] ?? 0;
-  const maxRank = Math.max(adultRank, racyRank);
+/** Turn a SafeSearch annotation into a decision. null = clean. Exported for tests. */
+export function classifySafeSearch(annotation: { adult?: string; racy?: string; violence?: string; medical?: string }): ImageModerationResult | null {
+  const adultRank = LIKELIHOOD_RANK[annotation.adult ?? 'UNKNOWN'] ?? 0;
 
-  if (maxRank >= LIKELIHOOD_RANK.VERY_LIKELY) {
-    // High confidence — block immediately
+  if (adultRank >= LIKELIHOOD_RANK.VERY_LIKELY) {
+    // Explicit nudity / sexual content — block
     return {
       blocked: true,
       severity: 'adult',
@@ -239,10 +251,10 @@ async function checkVisionSafeSearch(buffer: Buffer): Promise<ImageModerationRes
     };
   }
 
-  if (maxRank >= LIKELIHOOD_RANK.LIKELY) {
-    // Moderate confidence — queue for ops review
+  if (adultRank >= LIKELIHOOD_RANK.LIKELY) {
+    // Borderline — let it through, but put it in the ops queue for a look
     return {
-      blocked: true,
+      blocked: false,
       severity: 'review',
       method: 'vision_classifier',
       reportable: false,
@@ -250,7 +262,7 @@ async function checkVisionSafeSearch(buffer: Buffer): Promise<ImageModerationRes
     };
   }
 
-  return null; // clean
+  return null; // clean (racy alone never blocks)
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────

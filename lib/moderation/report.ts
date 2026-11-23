@@ -32,7 +32,7 @@ export type ModerationIncident = {
   contentHash: string | null;        // perceptual hash from Arachnid Shield
   detectionMethod: 'arachnid_hash' | 'vision_classifier' | 'text_classifier';
   severity: 'csaem' | 'adult' | 'review';
-  actionTaken: 'blocked' | 'quarantined' | 'reported';
+  actionTaken: 'blocked' | 'quarantined' | 'reported' | 'allowed';
   rawResponse?: unknown;
 };
 
@@ -186,4 +186,29 @@ export async function handleModerationResult(
     contentRef:       fullIncident.contentRef,
     cybertipReportId: cybertipId,
   }).catch((err) => console.error('[moderation] Alert email failed:', err));
+}
+
+/**
+ * Log a borderline image that was let through (scanImage returned
+ * blocked: false, severity: 'review') so ops can look at it in the moderation
+ * queue. No alert email: these are usually fine. Never throws, so it can't
+ * fail an upload that already succeeded.
+ */
+export async function logFlaggedImage(
+  result: ImageModerationResult,
+  incident: Omit<ModerationIncident, 'severity' | 'detectionMethod' | 'actionTaken' | 'contentType'>,
+): Promise<void> {
+  if (result.blocked || result.severity !== 'review') return;
+  try {
+    await logModerationEvent({
+      ...incident,
+      contentType: 'image',
+      severity: 'review',
+      detectionMethod: 'vision_classifier',
+      actionTaken: 'allowed',
+      rawResponse: result.rawResponse,
+    });
+  } catch (err) {
+    console.error('[moderation] Failed to log flagged image:', err);
+  }
 }

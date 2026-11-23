@@ -16,7 +16,7 @@ export type ModerationEvent = {
   content_ref: string | null;
   detection_method: 'arachnid_hash' | 'vision_classifier' | 'text_classifier';
   severity: 'csaem' | 'adult' | 'review';
-  action_taken: 'blocked' | 'quarantined' | 'reported';
+  action_taken: 'blocked' | 'quarantined' | 'reported' | 'allowed';
   cybertip_report_id: string | null;
   reviewed_by: string | null;
   reviewed_at: string | null;

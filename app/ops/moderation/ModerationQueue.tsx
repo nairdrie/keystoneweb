@@ -49,6 +49,9 @@ function EventRow({
       {/* Severity */}
       <td className="px-4 py-3 whitespace-nowrap">
         <SeverityBadge severity={event.severity} />
+        {event.action_taken === 'allowed' && (
+          <div className="text-xs text-gray-500 mt-1">allowed, live on site</div>
+        )}
       </td>
 
       {/* Type / Method */}

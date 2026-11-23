@@ -4,8 +4,8 @@
  * the library, and search stock photos.
  */
 import sharp from 'sharp';
-import { scanImage } from '@/lib/moderation/image-scan';
-import { handleModerationResult } from '@/lib/moderation/report';
+import { BLOCKED_IMAGE_MESSAGE, scanImage } from '@/lib/moderation/image-scan';
+import { handleModerationResult, logFlaggedImage } from '@/lib/moderation/report';
 import { OpError } from './ops';
 import type { Db } from './store';
 
@@ -57,13 +57,14 @@ async function storeSiteImage(
       contentRef: null,
       contentHash: null,
     });
-    throw new OpError('Content policy violation', 422);
+    throw new OpError(BLOCKED_IMAGE_MESSAGE, 422);
   }
 
   const path = `${input.siteId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${fileName}`;
   const { data, error } = await db.storage.from('site-assets').upload(path, buffer, { contentType, cacheControl: '31536000', upsert: false });
   if (error || !data) throw new OpError(`Upload failed: ${error?.message || 'unknown error'}`, 500);
   const { data: { publicUrl } } = db.storage.from('site-assets').getPublicUrl(data.path);
+  await logFlaggedImage(scan, { siteId: input.siteId, userId: input.ownerUserId, ipAddress: null, contentRef: data.path, contentHash: null });
 
   await db.from('site_media').upsert({
     site_id: input.siteId,
