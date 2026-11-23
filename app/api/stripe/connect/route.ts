@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
 import Stripe from 'stripe';
+import {
+    ensureConnectAccount,
+    getConnectStatus,
+    isConnectCountry,
+    publicBusinessProfile,
+    resolveConnectCountry,
+} from '@/lib/payments/stripe-connect';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
     apiVersion: '2026-02-25.clover' as any,
@@ -22,7 +29,7 @@ export async function GET(request: NextRequest) {
 
         const { data: site } = await supabase
             .from('sites')
-            .select('stripe_account_id')
+            .select('stripe_account_id, business_profile')
             .eq('id', siteId)
             .eq('user_id', user.id)
             .single();
@@ -31,8 +38,13 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
+        const status = await getConnectStatus(stripe, site.stripe_account_id);
         return NextResponse.json({
             connected: !!site.stripe_account_id,
+            // false until the owner finishes Stripe's onboarding form
+            onboarded: status.onboarded,
+            // the account's (fixed) country, or our best guess before one exists
+            country: status.country || resolveConnectCountry(null, site.business_profile),
             stripeAccountId: site.stripe_account_id || null,
         });
     } catch (error: any) {
@@ -45,7 +57,8 @@ export async function GET(request: NextRequest) {
  * POST /api/stripe/connect
  *
  * Generates an onboarding link for a business owner to connect their Stripe account.
- * Creates an Express account if one doesn't exist.
+ * Creates an Express account if one doesn't exist (in the country the owner
+ * picked), and replaces an unfinished one if the owner picked a different country.
  */
 export async function POST(request: NextRequest) {
     try {
@@ -57,7 +70,7 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { siteId, returnUrl } = body;
+        const { siteId, returnUrl, country } = body;
 
         if (!siteId || !returnUrl) {
             return NextResponse.json({ error: 'Missing siteId or returnUrl' }, { status: 400 });
@@ -66,7 +79,7 @@ export async function POST(request: NextRequest) {
         // Verify ownership
         const { data: site } = await supabase
             .from('sites')
-            .select('user_id, stripe_account_id, site_slug, published_domain')
+            .select('user_id, stripe_account_id, site_slug, published_domain, custom_domain, design_data, business_profile')
             .eq('id', siteId)
             .single();
 
@@ -74,28 +87,16 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
-        let stripeAccountId = site.stripe_account_id;
+        const { accountId: stripeAccountId } = await ensureConnectAccount(stripe, {
+            existingAccountId: site.stripe_account_id,
+            requestedCountry: isConnectCountry(country) ? country : null,
+            fallbackCountry: resolveConnectCountry(null, site.business_profile),
+            email: user.email,
+            businessProfile: publicBusinessProfile(site),
+            metadata: { siteId, userId: user.id },
+        });
 
-        // Create a new connected account if it doesn't exist
-        if (!stripeAccountId) {
-            const account = await stripe.accounts.create({
-                type: 'express',
-                country: 'US', // Might want to make this dynamic later
-                email: user.email,
-                capabilities: {
-                    card_payments: { requested: true },
-                    transfers: { requested: true },
-                },
-                business_type: 'individual',
-                metadata: {
-                    siteId,
-                    userId: user.id
-                }
-            });
-
-            stripeAccountId = account.id;
-
-            // Save to DB
+        if (stripeAccountId !== site.stripe_account_id) {
             await supabase
                 .from('sites')
                 .update({ stripe_account_id: stripeAccountId })

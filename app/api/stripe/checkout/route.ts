@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
 import Stripe from 'stripe';
+import { getPlatformCountry } from '@/lib/payments/stripe-connect';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
     apiVersion: '2026-02-25.clover' as any,
@@ -100,6 +101,23 @@ export async function POST(request: NextRequest) {
 
         const taxEnabled = ecomSettings?.tax_enabled === true;
 
+        // Make the connected business the merchant of record, so customers see its
+        // name/branding on Checkout, receipts and their card statement rather than
+        // Keystone's. Stripe only allows this when the account settles in the
+        // platform's country, so cross-border accounts keep the plain transfer.
+        let onBehalfOf: string | undefined;
+        try {
+            const [account, platformCountry] = await Promise.all([
+                stripe.accounts.retrieve(stripeAccountId),
+                getPlatformCountry(stripe),
+            ]);
+            if (platformCountry && account.country === platformCountry && account.capabilities?.card_payments === 'active') {
+                onBehalfOf = stripeAccountId;
+            }
+        } catch (err) {
+            console.warn('Could not check connected account for on_behalf_of:', err);
+        }
+
         // 0% platform fee - everything goes to the connected account (minus Stripe fees)
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ['card'],
@@ -115,6 +133,7 @@ export async function POST(request: NextRequest) {
                 type: 'ecommerce_order'
             },
             payment_intent_data: {
+                ...(onBehalfOf && { on_behalf_of: onBehalfOf }),
                 transfer_data: {
                     destination: stripeAccountId,
                 },

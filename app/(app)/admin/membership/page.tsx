@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAdminContext } from '../admin-context';
+import { StripeCountrySelect, useStripeConnectStatus } from '@/app/components/payments/StripeConnectCountry';
 import {
   Users, Package, Settings, Mail, Search, Plus, Trash2, Loader2, Download,
   MoreVertical, Check, X, Edit2, Send, Calendar, CreditCard, AlertTriangle,
@@ -636,6 +637,7 @@ function PackagesTab({ siteId }: { siteId: string }) {
   const [packages, setPackages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [stripeConnected, setStripeConnected] = useState(false);
+  const stripeStatus = useStripeConnectStatus(siteId);
   const [stripeLoading, setStripeLoading] = useState(true);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<string | null>(null);
@@ -657,7 +659,8 @@ function PackagesTab({ siteId }: { siteId: string }) {
     // Check Stripe connection status
     fetch(`/api/stripe/connect?siteId=${siteId}`)
       .then(r => r.json())
-      .then(d => setStripeConnected(!!d.connected))
+      // Only treat it as connected once Stripe's onboarding form is finished.
+      .then(d => setStripeConnected(!!d.connected && !!d.onboarded))
       .catch(() => {})
       .finally(() => setStripeLoading(false));
   }, [fetchPackages, siteId]);
@@ -667,7 +670,7 @@ function PackagesTab({ siteId }: { siteId: string }) {
     const res = await fetch('/api/stripe/connect', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ siteId, returnUrl }),
+      body: JSON.stringify({ siteId, returnUrl, country: stripeStatus.country }),
     });
     const data = await res.json();
     if (data.url) window.location.href = data.url;
@@ -726,12 +729,13 @@ function PackagesTab({ siteId }: { siteId: string }) {
         ) : (
           <div>
             <p className="text-sm text-slate-500 mb-3">Connect your Stripe account to accept paid memberships. Your Stripe products will be imported as packages automatically.</p>
+            <StripeCountrySelect value={stripeStatus.country} onChange={stripeStatus.setCountry} />
             <button
               onClick={handleStripeConnect}
               className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700"
             >
               <CreditCard className="w-4 h-4" />
-              Connect Stripe
+              {stripeStatus.connected ? 'Finish Stripe Setup' : 'Connect Stripe'}
             </button>
           </div>
         )}
