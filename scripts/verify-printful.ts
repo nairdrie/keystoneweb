@@ -82,6 +82,7 @@ async function main() {
   const { saveConnection } = await import('../lib/printful/connect');
   const { publicConnection, loadConnection } = await import('../lib/printful/client');
   const fulfillment = await import('../lib/printful/fulfillment');
+  const { APP_URL } = await import('../lib/env/domain');
 
   const db = new FakeSupabase();
   const OWNER = '11111111-1111-1111-1111-111111111111';
@@ -203,7 +204,7 @@ async function main() {
     assert.ok(!JSON.stringify(row).includes(WEBHOOK_SECRET), 'webhook secret not stored in plaintext');
     assert.ok(row.webhook_configured_at);
     const hook = calls.find((c) => c.url.pathname === '/v2/webhooks')!;
-    assert.equal(hook.body.default_url, `https://keystoneweb.ca/api/printful/webhook?site=${siteId}`);
+    assert.equal(hook.body.default_url, `${APP_URL}/api/printful/webhook?site=${siteId}`);
     assert.ok(hook.body.events.some((e: { type: string }) => e.type === 'shipment_sent'));
     const pub = JSON.stringify(publicConnection(await loadConnection(db as never, siteId)));
     assert.ok(!/token_enc|secret|Bearer/.test(pub));
