@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { importImageBuffer, MAX_IMAGE_BYTES } from '@/lib/v2/media';
+import { BLOCKED_IMAGE_MESSAGE } from '@/lib/moderation/image-scan';
 import { OpError } from '@/lib/v2/ops';
 import { escapeHtml } from '@/lib/v2/sanitize';
 import { loadSiteRow } from '@/lib/v2/store';
@@ -97,7 +98,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ token:
       errors.push({ name: file.name, error: message });
     }
   }
-  const status = images.length ? 200 : errors.some((e) => e.error === 'Content policy violation') ? 422 : 400;
+  const status = images.length ? 200 : errors.some((e) => e.error === BLOCKED_IMAGE_MESSAGE) ? 422 : 400;
   return NextResponse.json({ images, errors }, { status });
 }
 

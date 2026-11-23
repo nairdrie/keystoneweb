@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
-import { scanImage } from '@/lib/moderation/image-scan';
-import { handleModerationResult } from '@/lib/moderation/report';
+import { BLOCKED_IMAGE_MESSAGE, scanImage } from '@/lib/moderation/image-scan';
+import { handleModerationResult, logFlaggedImage } from '@/lib/moderation/report';
 import { requireSiteAccess, siteAccessErrorResponse } from '@/lib/auth/site-access';
 
 /**
@@ -180,7 +180,7 @@ export async function POST(request: NextRequest) {
         contentRef:  null,    // not yet stored
         contentHash: null,
       });
-      return NextResponse.json({ error: 'Content policy violation' }, { status: 422 });
+      return NextResponse.json({ error: BLOCKED_IMAGE_MESSAGE }, { status: 422 });
     }
 
     // Generate unique filename
@@ -209,6 +209,7 @@ export async function POST(request: NextRequest) {
     const { data: { publicUrl } } = supabase.storage
       .from('site-assets')
       .getPublicUrl(data.path);
+    await logFlaggedImage(scanResult, { siteId, userId: targetUserId, ipAddress: null, contentRef: data.path, contentHash: null });
 
     // Track in site_media so it shows up in the media library.
     // Use upsert to silently handle any duplicate path (e.g. retries).

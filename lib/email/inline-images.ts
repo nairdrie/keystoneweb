@@ -11,8 +11,8 @@
 
 import sharp from 'sharp';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { scanImage } from '@/lib/moderation/image-scan';
-import { handleModerationResult } from '@/lib/moderation/report';
+import { BLOCKED_IMAGE_MESSAGE, scanImage } from '@/lib/moderation/image-scan';
+import { handleModerationResult, logFlaggedImage } from '@/lib/moderation/report';
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;       // 5 MB per inline image (raw input)
 const MAX_TOTAL_INLINE_BYTES = 20 * 1024 * 1024; // 20 MB total per email
@@ -113,7 +113,7 @@ export async function uploadInlineImagesInHtml(
           contentRef: null,
           contentHash: null,
         });
-        throw new InlineImageError('Content policy violation in pasted image.', 422);
+        throw new InlineImageError(`Pasted image: ${BLOCKED_IMAGE_MESSAGE}`, 422);
       }
 
       const filename = `${opts.siteId}/email-inline/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
@@ -129,6 +129,7 @@ export async function uploadInlineImagesInHtml(
         throw new InlineImageError('Failed to upload inline image.', 500);
       }
       uploadedPaths.push(uploaded.path);
+      await logFlaggedImage(scanResult, { siteId: opts.siteId, userId: opts.userId, ipAddress: null, contentRef: uploaded.path, contentHash: null });
 
       const { data: { publicUrl } } = opts.supabase.storage.from('site-assets').getPublicUrl(uploaded.path);
 
