@@ -8,6 +8,7 @@ import {
     sendVendorOrderNotification,
 } from '@/lib/email';
 import { buildSiteOrigin } from '@/lib/email/order-tracking-url';
+import { queuePrintfulFulfillment } from '@/lib/printful/queue';
 
 /**
  * POST /api/converge/verify
@@ -89,6 +90,8 @@ export async function POST(request: NextRequest) {
         .eq('id', orderId)
         .select()
         .single();
+
+    queuePrintfulFulfillment(orderId);
 
     // Fire-and-forget emails
     await sendConvergeOrderEmails(supabase, updated || order, vendor || null).catch(e => console.error('Converge email failure:', e));

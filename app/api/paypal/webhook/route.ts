@@ -1,3 +1,4 @@
+import { queuePrintfulFulfillment } from '@/lib/printful/queue';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import {
@@ -90,6 +91,7 @@ export async function POST(request: NextRequest) {
               updated_at: new Date().toISOString(),
             })
             .eq('id', order.id);
+          queuePrintfulFulfillment(order.id);
         }
 
         // Also try bookings (bookings store custom_id = booking.id once created,

@@ -10,6 +10,7 @@ import { findPlanItem, resolvePlanFromSubscription } from '@/lib/subscription/bi
 import { downgradeScheduleHasTakenEffect } from '@/lib/subscription/plan-change';
 import Stripe from 'stripe';
 import { trackEvent } from '@/lib/analytics';
+import { queuePrintfulFulfillment } from '@/lib/printful/queue';
 
 // Initialize Stripe only when API key is available
 const getStripeClient = () => {
@@ -501,6 +502,9 @@ export async function POST(request: NextRequest) {
             console.error('Failed to update order status:', error);
             return NextResponse.json({ error: 'Failed to update order' }, { status: 500 });
           }
+
+          // Printful-linked lines go to Printful (no-op otherwise; idempotent on retries).
+          queuePrintfulFulfillment(order.id);
 
           // Fetch site name + logo for customer emails
           const { data: webhookSiteInfo } = await supabase

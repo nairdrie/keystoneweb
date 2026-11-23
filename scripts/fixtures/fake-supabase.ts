@@ -16,6 +16,8 @@ const PRIMARY_KEYS: Record<string, string[]> = {
   oauth_clients: ['client_id'],
   oauth_codes: ['code_hash'],
   oauth_refresh_tokens: ['token_hash'],
+  printful_connections: ['site_id'],
+  printful_product_links: ['product_id'],
 };
 
 const DEFAULTS: Record<string, () => Row> = {
@@ -42,6 +44,8 @@ const UNIQUE: Record<string, string[][]> = {
   products: [['site_id', 'slug']],
   v2_sections: [['site_id', 'key']],
   api_tokens: [['token_hash']],
+  printful_orders: [['order_id']],
+  printful_product_links: [['site_id', 'sync_product_id']],
 };
 
 export class FakeSupabase {
@@ -119,6 +123,7 @@ class Query implements PromiseLike<{ data: unknown; error: { message: string; co
   in(col: string, values: unknown[]) { this.filters.push((r) => values.includes(r[col])); return this; }
   is(col: string, value: unknown) { this.filters.push((r) => (r[col] ?? null) === value); return this; }
   gt(col: string, value: unknown) { this.filters.push((r) => String(r[col] ?? '') > String(value)); return this; }
+  lt(col: string, value: unknown) { this.filters.push((r) => String(r[col] ?? '') < String(value)); return this; }
   ilike(col: string, pattern: string) {
     const re = new RegExp(`^${pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/%/g, '.*').replace(/_/g, '.')}$`, 'i');
     this.filters.push((r) => re.test(String(r[col] ?? '')));

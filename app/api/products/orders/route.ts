@@ -10,6 +10,8 @@ import { generatePackingPlans, planToShippoParcels, type PackerItem } from '@/li
 import { getCurrentMemberFromRequest } from '@/lib/membership/current-member';
 import { resolveProductAccess, parseProductOptions, resolveOptionPriceModifierCents } from '@/lib/ecommerce/resolve-price';
 import Stripe from 'stripe';
+import { queuePrintfulFulfillment } from '@/lib/printful/queue';
+import { findVariantLink, lineSelection, type VariantLink } from '@/lib/printful/mapping';
 
 /**
  * Look up or create a member row for this customer when they tick "Save my
@@ -238,12 +240,27 @@ export async function POST(request: NextRequest) {
     const productIds = Array.from(new Set(items.map((i: any) => i.productId as string)));
     const { data: productRows, error: productFetchError } = await supabase
         .from('products')
-        .select('id, site_id, name, price_cents, currency, tier_prices, allowed_package_ids, options, is_active, vendor_id, weight_grams, length_mm, width_mm, height_mm, ships_alone')
+        .select('id, site_id, name, price_cents, currency, tier_prices, allowed_package_ids, options, is_active, vendor_id, fulfillment_provider, weight_grams, length_mm, width_mm, height_mm, ships_alone')
         .in('id', productIds as string[]);
     if (productFetchError) {
         return NextResponse.json({ error: 'Failed to validate items' }, { status: 500 });
     }
     const productById = new Map((productRows || []).map((p: any) => [p.id, p]));
+
+    // Printful items must match a Printful variant, or the paid order couldn't be fulfilled.
+    const printfulIds = (productRows || []).filter((p: { fulfillment_provider?: string | null; site_id: string }) => p.fulfillment_provider === 'printful' && p.site_id === siteId).map((p: { id: string }) => p.id);
+    if (printfulIds.length) {
+        const { data: pfLinks } = await createAdminClient().from('printful_product_links').select('product_id, variants').in('product_id', printfulIds);
+        const linksByProduct = new Map((pfLinks || []).map((l: { product_id: string; variants: VariantLink[] | null }) => [l.product_id, l.variants || []]));
+        for (const rawItem of items) {
+            const product = productById.get(rawItem.productId);
+            if (!product || product.fulfillment_provider !== 'printful') continue;
+            const sel = lineSelection(rawItem, parseProductOptions(product.options));
+            if (!findVariantLink(linksByProduct.get(product.id) || [], sel)) {
+                return NextResponse.json({ error: `"${product.name}" isn't available in that choice (${Object.values(sel).join(', ') || 'none'}). Pick another option.`, productId: product.id }, { status: 400 });
+            }
+        }
+    }
 
     const resolvedItems: any[] = [];
     for (const rawItem of items) {
@@ -394,7 +411,8 @@ export async function POST(request: NextRequest) {
     // resolution — no second round-trip needed.
     const productVendorMap: Record<string, string | null> = {};
     for (const p of (productRows || []) as any[]) {
-        productVendorMap[p.id] = p.vendor_id || defaultVendorId;
+        // Printful items are paid to the owner like self-fulfilled ones (Printful bills the owner).
+        productVendorMap[p.id] = p.fulfillment_provider === 'printful' ? null : (p.vendor_id || defaultVendorId);
     }
 
     // Group resolved items by vendor (self = self-fulfilled if no default; otherwise default vendor)
@@ -548,6 +566,7 @@ export async function POST(request: NextRequest) {
         }
 
         childOrders.push({ ...childOrder, vendor });
+        if (orderPaymentStatus === 'paid') queuePrintfulFulfillment(childOrder.id);
 
         if (!isSelf && orderPaymentMethod === 'stripe') stripeOrders.push({ order: childOrder, vendor });
         if (!isSelf && orderPaymentMethod === 'converge') convergeOrders.push({ order: childOrder, vendor });
@@ -847,6 +866,8 @@ async function createSingleOrder(supabase: any, params: {
         return NextResponse.json({ error: 'Failed to create order' }, { status: 500 });
     }
 
+    if (paymentStatus === 'paid') queuePrintfulFulfillment(order.id);
+
     // Decrement inventory for purchased products
     for (const item of items) {
         if (item.productId) {
@@ -1092,6 +1113,11 @@ export async function PUT(request: NextRequest) {
 
     if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // The owner marked it paid (e-Transfer, cash…): Printful lines can now go out.
+    if (payment_status === 'paid' && existingOrder.payment_status !== 'paid' && status !== 'cancelled') {
+        queuePrintfulFulfillment(existingOrder.id);
     }
 
     // Send payment confirmed email for e-transfer orders when marked as paid

@@ -10,6 +10,7 @@ import {
     sendOwnerNotification,
 } from '@/lib/email';
 import { buildSiteOrigin } from '@/lib/email/order-tracking-url';
+import { queuePrintfulFulfillment } from '@/lib/printful/queue';
 
 /**
  * POST /api/clover/webhook
@@ -119,6 +120,7 @@ export async function POST(request: NextRequest) {
             await sendCloverBookingEmails(supabase, updated || record).catch(e => console.error(e));
         } else {
             await sendCloverOrderEmails(supabase, updated || record, vendor || null).catch(e => console.error(e));
+            queuePrintfulFulfillment(record.id);
         }
         return NextResponse.json({ received: true, marked: 'paid' });
     } else {
