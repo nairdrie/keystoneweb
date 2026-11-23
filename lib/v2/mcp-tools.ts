@@ -129,6 +129,19 @@ function decodeBase64Image(raw: string): Buffer {
   return Buffer.from(body, 'base64');
 }
 
+function slugifyProduct(text: string): string {
+  return text.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 80) || 'product';
+}
+
+/** A value for products.slug (NOT NULL, unique per site): the wanted slug, or it with -2, -3… */
+async function uniqueProductSlug(db: Db, siteId: string, wanted: string, exceptId?: string): Promise<string> {
+  const base = slugifyProduct(wanted);
+  const { data } = await db.from('products').select('id, slug').eq('site_id', siteId).ilike('slug', `${base}%`);
+  const taken = new Set((data || []).filter((r: { id: string }) => r.id !== exceptId).map((r: { slug: string }) => r.slug));
+  if (!taken.has(base)) return base;
+  for (let n = 2; ; n++) if (!taken.has(`${base}-${n}`)) return `${base}-${n}`;
+}
+
 // ── tools ───────────────────────────────────────────────────────────────────
 
 export const TOOLS: ToolDef[] = [
@@ -779,6 +792,7 @@ export const TOOLS: ToolDef[] = [
               featured: { type: 'boolean' },
               inventory_count: { type: 'number', description: 'Omit for untracked stock.' },
               sort_order: { type: 'number' },
+              slug: str('Optional URL-safe handle (default: from the name). Made unique per site; the product page is /product/<id>.'),
             },
             required: ['name', 'price_cents'],
           },
@@ -808,14 +822,18 @@ export const TOOLS: ToolDef[] = [
         };
         if (p.inventory_count !== undefined) row.inventory_count = Math.max(0, Math.round(Number(p.inventory_count) || 0));
         if (!row.name) throw new OpError(`products[${i}].name is required`);
+        // products.slug is NOT NULL and unique per site: always set it on create, and on update when passed.
+        if (!p.id || p.slug) {
+          row.slug = await uniqueProductSlug(ctx.db, ops.siteId, String(p.slug || row.name), p.id ? String(p.id) : undefined);
+        }
         if (p.id) {
-          const { data, error } = await ctx.db.from('products').update(row).eq('id', String(p.id)).eq('site_id', ops.siteId).select('id').maybeSingle();
+          const { data, error } = await ctx.db.from('products').update(row).eq('id', String(p.id)).eq('site_id', ops.siteId).select('id, slug').maybeSingle();
           if (error || !data) throw new OpError(`Could not update product ${p.id}: ${error?.message || 'not found'}`);
-          results.push({ id: data.id, updated: true });
+          results.push({ id: data.id, slug: data.slug, url: `/product/${data.id}`, updated: true });
         } else {
-          const { data, error } = await ctx.db.from('products').insert(row).select('id').single();
+          const { data, error } = await ctx.db.from('products').insert(row).select('id, slug').single();
           if (error) throw new OpError(`Could not create product "${row.name}": ${error.message}`, 500);
-          results.push({ id: data.id, created: true });
+          results.push({ id: data.id, slug: data.slug, url: `/product/${data.id}`, created: true });
         }
       }
       return { products: results };

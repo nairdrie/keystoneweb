@@ -370,6 +370,15 @@ async function main() {
     ] });
     const productId = products.products[0].id;
     assert.deepEqual(db.table('products').find((p) => p.id === productId)?.images, ['https://cdn.example.com/vent.jpg']);
+    assert.equal(db.table('products').find((p) => p.id === productId)?.slug, 'ridge-vent', 'products.slug is NOT NULL: generated from the name');
+    const more = await ok(tokens['owner-agent'], 'upsert_products', { site_id: siteId, products: [
+      { name: 'Ridge Vent', price_cents: 5900 },
+      { name: 'Logo Tee', price_cents: 2500, slug: 'Logo Tee (Black)' },
+    ] });
+    assert.deepEqual(more.products.map((p: { slug: string }) => p.slug), ['ridge-vent-2', 'logo-tee-black'], 'slugs are unique per site; a passed slug is used');
+    const renamed = await ok(tokens['owner-agent'], 'upsert_products', { site_id: siteId, products: [{ id: more.products[1].id, name: 'Logo Tee', price_cents: 2500, slug: 'ridge-vent' }] });
+    assert.equal(renamed.products[0].slug, 'ridge-vent-3');
+    for (const p of more.products) db.tables.products = db.table('products').filter((r) => r.id !== p.id);
     const data = await ok(tokens['owner-agent'], 'get_business_data', { site_id: siteId });
     assert.equal(data.services.length, 2);
     assert.ok(data.bindableFields.products.price);
