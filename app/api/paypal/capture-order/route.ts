@@ -8,6 +8,7 @@ import {
 } from '@/lib/paypal';
 import { sendOrderConfirmation, sendOrderNotification } from '@/lib/email';
 import { buildSiteOrigin } from '@/lib/email/order-tracking-url';
+import { queuePrintfulFulfillment } from '@/lib/printful/queue';
 
 /**
  * POST /api/paypal/capture-order
@@ -93,6 +94,8 @@ export async function POST(request: NextRequest) {
       .eq('id', order.id)
       .select()
       .single();
+
+    queuePrintfulFulfillment(order.id);
 
     // Confirmation emails (fire-and-forget, matches Stripe webhook behaviour)
     const siteName = order.sites?.site_slug || undefined;

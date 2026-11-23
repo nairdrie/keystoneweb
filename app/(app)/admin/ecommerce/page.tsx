@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAdminContext } from '../admin-context';
 import StoreSettingsPanel from '@/app/components/ecommerce/StoreSettingsPanel';
 import ShippingPanel from '@/app/components/ecommerce/ShippingPanel';
@@ -9,14 +10,18 @@ import LowStockPanel from '@/app/components/ecommerce/LowStockPanel';
 import SalesAnalyticsPanel from '@/app/components/ecommerce/SalesAnalyticsPanel';
 import AutomatedEmailsPanel from '@/app/components/ecommerce/AutomatedEmailsPanel';
 import CouponCodesPanel from '@/app/components/ecommerce/CouponCodesPanel';
+import FulfillmentPanel from '@/app/components/ecommerce/FulfillmentPanel';
 import { ProductManager } from '@/app/components/blocks/ProductGridBlock';
-import { ShoppingBag, Package, ClipboardList, CreditCard, Truck, BarChart3, Mail, Tag } from 'lucide-react';
+import { ShoppingBag, Package, ClipboardList, CreditCard, Truck, BarChart3, Mail, Tag, PackageCheck } from 'lucide-react';
 
-type TabId = 'analytics' | 'products' | 'orders' | 'payments' | 'shipping' | 'emails' | 'coupons';
+type TabId = 'analytics' | 'products' | 'orders' | 'payments' | 'shipping' | 'fulfillment' | 'emails' | 'coupons';
+const TAB_IDS: TabId[] = ['analytics', 'products', 'orders', 'payments', 'shipping', 'fulfillment', 'emails', 'coupons'];
 
 export default function AdminEcommercePage() {
   const { siteId, palette, siteBlockTypes, confirmNavigation } = useAdminContext();
-  const [activeTab, setActiveTab] = useState<TabId>('products');
+  // ?tab= deep links (from get_store_readiness, owner emails and the Printful sign-in redirect).
+  const requestedTab = useSearchParams().get('tab') as TabId | null;
+  const [activeTab, setActiveTab] = useState<TabId>(requestedTab && TAB_IDS.includes(requestedTab) ? requestedTab : 'products');
   const [shippingRequired, setShippingRequired] = useState(true);
   const [siteLogoUrl, setSiteLogoUrl] = useState<string | undefined>(undefined);
 
@@ -86,6 +91,7 @@ export default function AdminEcommercePage() {
     { id: 'orders', label: 'Orders', icon: ClipboardList },
     { id: 'payments', label: 'Payments', icon: CreditCard },
     { id: 'shipping', label: 'Shipping', icon: Truck },
+    { id: 'fulfillment', label: 'Fulfillment', icon: PackageCheck },
     { id: 'emails', label: 'Emails', icon: Mail },
     { id: 'coupons', label: 'Coupon Codes', icon: Tag },
   ];
@@ -138,6 +144,9 @@ export default function AdminEcommercePage() {
             shippingRequired={shippingRequired}
             onShippingRequiredChange={handleShippingRequiredChange}
           />
+        )}
+        {activeTab === 'fulfillment' && (
+          <FulfillmentPanel siteId={siteId} />
         )}
         {activeTab === 'emails' && (
           <AutomatedEmailsPanel siteId={siteId} logoUrl={siteLogoUrl} />

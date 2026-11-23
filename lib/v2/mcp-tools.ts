@@ -34,11 +34,12 @@ import { checkPublishEligibility, publishV2Site, resolveSubdomain } from './publ
 import { importFavicon, importImageBuffer, importImageFromUrl, listSiteImages, searchStockPhotos } from './media';
 import { createUploadToken, uploadUrl, UPLOAD_TTL_DEFAULT, UPLOAD_TTL_MAX } from './upload-token';
 import { exportLegacySite } from './legacy';
-import { escapeHtml, safeSrc, toPlainText } from './sanitize';
+import { escapeHtml, toPlainText } from './sanitize';
 import { captureScreenshots, type ViewportName } from './screenshot';
 import { COLLECTION_FIELDS } from './collections';
 import { listPosts, opUpsertPosts, type PostInput } from './posts';
 import { articleTemplate, postIndexPage } from './articles';
+import { listPrintfulProducts, storeReadiness, upsertProducts } from './store-setup';
 import { opConfigureMembership, opGetMembership, opUpsertMembershipPackages, type MembershipSettingsInput, type PackageInput } from './membership';
 
 type Json = Record<string, unknown>;
@@ -671,7 +672,7 @@ export const TOOLS: ToolDef[] = [
     run: async (args, ctx) => {
       const { ops } = await siteContext(args, ctx);
       const [products, services, settings, posts, bundle] = await Promise.all([
-        ctx.db.from('products').select('id, name, price_cents, currency, category, status, is_active, is_featured, images').eq('site_id', ops.siteId).eq('is_archived', false).order('sort_order').limit(200),
+        ctx.db.from('products').select('id, name, price_cents, currency, category, status, is_active, is_featured, images, variants, options, vendor_id, fulfillment_provider').eq('site_id', ops.siteId).eq('is_archived', false).order('sort_order').limit(200),
         ctx.db.from('booking_services').select('id, name, price_cents, duration_minutes, status, is_active, is_featured').eq('site_id', ops.siteId).eq('is_archived', false).order('sort_order').limit(200),
         ctx.db.from('booking_settings').select('site_id').eq('site_id', ops.siteId).maybeSingle(),
         listPosts(ops),
@@ -758,7 +759,7 @@ export const TOOLS: ToolDef[] = [
   {
     name: 'upsert_products',
     title: 'Add or update products',
-    description: 'Create or update store products (name, description, price, images, category). Pass id to update. Import images with import_media first. Variants, shipping, taxes and payments are managed by the owner in Admin → Ecommerce.',
+    description: 'Create or update store products: name, description, price, images, category, variants (same-price choices such as colour), options (required choices that can add to the price, such as a 2XL that costs $3 more) and fulfillment (who ships it). New products are published at /product/<id>. Pass id to update: only the fields you pass change. Import images with import_media first. Before creating products, ask the owner how they will fulfill orders (they ship themselves, a vendor ships, or Printful prints and ships); for Printful, the owner connects it first (get_store_readiness gives the link), then create each product from list_printful_products with fulfillment { provider: "printful", printful_product_id }: Keystone reads its variants, prices and mockups from Printful (leave price_cents, variants, options and images out). Shipping zones, taxes and payments are the owner\'s, in Admin → Ecommerce; finish with get_store_readiness.',
     scope: 'sites:write',
     inputSchema: {
       type: 'object',
@@ -769,56 +770,90 @@ export const TOOLS: ToolDef[] = [
           items: {
             type: 'object',
             properties: {
-              id: str('Existing product id to update.'),
-              name: { type: 'string' },
+              id: str('Existing product id to update (omit to create).'),
+              name: str('Required for new products (Printful products default to their Printful name).'),
               description: { type: 'string' },
-              price_cents: { type: 'number' },
+              price_cents: { type: 'number', description: 'Base price: the cheapest choice. Required for new non-Printful products.' },
               compare_at_cents: { type: 'number', description: 'Original price, to show a sale.' },
+              currency: str('ISO code, default CAD.'),
               images: { type: 'array', items: { type: 'string' } },
               category: { type: 'string' },
               featured: { type: 'boolean' },
-              inventory_count: { type: 'number', description: 'Omit for untracked stock.' },
+              inventory_count: { type: ['number', 'null'], description: 'Omit (or null) for untracked stock.' },
+              weight_grams: { type: 'number', description: 'Needed when the owner uses carrier-calculated shipping.' },
               sort_order: { type: 'number' },
+              variants: {
+                type: 'array',
+                description: 'Same-price choices the shopper picks, e.g. [{ "name": "Colour", "options": ["Black", "White"] }].',
+                items: { type: 'object', properties: { name: { type: 'string' }, options: { type: 'array', items: { type: 'string' } } }, required: ['name', 'options'] },
+              },
+              options: {
+                type: 'array',
+                description: 'Required choices that can change the price, e.g. [{ "name": "Size", "values": [{ "label": "M", "priceModifierCents": 0 }, { "label": "2XL", "priceModifierCents": 300 }], "defaultIndex": 0 }]. Modifiers are added to price_cents and cannot be negative.',
+                items: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string' },
+                    values: { type: 'array', items: { type: 'object', properties: { label: { type: 'string' }, priceModifierCents: { type: 'number' } }, required: ['label'] } },
+                    defaultIndex: { type: 'number' },
+                  },
+                  required: ['name', 'values'],
+                },
+              },
+              fulfillment: {
+                type: 'object',
+                description: 'Who fulfills it. "self": the owner ships (default). "vendor": one of the site\'s vendors (vendor_id). "printful": Printful prints and ships it automatically when an order is paid (printful_product_id from list_printful_products; needs the owner\'s Printful connection). Linking an existing product to Printful replaces its price, variants and options with Printful\'s.',
+                properties: {
+                  provider: { type: 'string', enum: ['self', 'vendor', 'printful'] },
+                  vendor_id: { type: 'string' },
+                  printful_product_id: { type: 'number' },
+                },
+                required: ['provider'],
+              },
             },
-            required: ['name', 'price_cents'],
           },
         },
       },
       required: ['site_id', 'products'],
     },
     run: async (args, ctx) => {
-      const { ops } = await siteContext(args, ctx);
+      const { site } = await siteContext(args, ctx);
       const list = Array.isArray(args.products) ? (args.products as Json[]).slice(0, 100) : [];
       if (!list.length) throw new OpError('products is required');
-      const results = [];
-      for (const [i, p] of list.entries()) {
-        const images = (Array.isArray(p.images) ? p.images : []).map((u) => safeSrc(u)).filter(Boolean).slice(0, 10);
-        const row: Json = {
-          site_id: ops.siteId,
-          name: toPlainText(String(p.name || '')).slice(0, 160),
-          description: toPlainText(String(p.description || '')).slice(0, 5000) || null,
-          price_cents: Math.max(0, Math.round(Number(p.price_cents) || 0)),
-          compare_at_cents: p.compare_at_cents ? Math.max(0, Math.round(Number(p.compare_at_cents))) : null,
-          images,
-          category: p.category ? toPlainText(String(p.category)).slice(0, 80) : null,
-          is_featured: !!p.featured,
-          sort_order: Number.isFinite(Number(p.sort_order)) ? Number(p.sort_order) : i,
-          is_active: true,
-          status: 'published',
-        };
-        if (p.inventory_count !== undefined) row.inventory_count = Math.max(0, Math.round(Number(p.inventory_count) || 0));
-        if (!row.name) throw new OpError(`products[${i}].name is required`);
-        if (p.id) {
-          const { data, error } = await ctx.db.from('products').update(row).eq('id', String(p.id)).eq('site_id', ops.siteId).select('id').maybeSingle();
-          if (error || !data) throw new OpError(`Could not update product ${p.id}: ${error?.message || 'not found'}`);
-          results.push({ id: data.id, updated: true });
-        } else {
-          const { data, error } = await ctx.db.from('products').insert(row).select('id').single();
-          if (error) throw new OpError(`Could not create product "${row.name}": ${error.message}`, 500);
-          results.push({ id: data.id, created: true });
-        }
-      }
-      return { products: results };
+      return upsertProducts(ctx.db, site, ctx.auth.userId, list);
+    },
+  },
+  {
+    name: 'list_printful_products',
+    title: 'List Printful products',
+    description: 'The products in the site\'s connected Printful store (the owner designs them in Printful): Printful product id, name, choices (colours, sizes), retail price range and mockup image URLs, and which Keystone product each is already linked to. Use the ids with upsert_products fulfillment { provider: "printful", printful_product_id }. Needs the owner\'s Printful connection (Admin → Ecommerce → Fulfillment).',
+    scope: 'sites:read',
+    readOnly: true,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        ...siteIdProp,
+        offset: { type: 'number' },
+        limit: { type: 'number', description: 'Default 20 (max 20 with details, 100 without).' },
+        details: { type: 'boolean', description: 'Default true: include choices, prices and mockups (one Printful request per product).' },
+      },
+      required: ['site_id'],
+    },
+    run: async (args, ctx) => {
+      const { site } = await siteContext(args, ctx, { requireV2: false });
+      return listPrintfulProducts(ctx.db, site.id, { offset: Number(args.offset) || 0, limit: Number(args.limit) || 20, details: args.details !== false });
+    },
+  },
+  {
+    name: 'get_store_readiness',
+    title: 'Check what the store still needs',
+    description: 'A checklist of what the store needs before it can sell, each step with its status and a link into Keystone Admin: payments connected and on, shipping zones, sales tax, products published, fulfillment for every product (owner / vendor / Printful) with Printful connection and order problems, order emails, and whether the design shows the products. Use it after setting up products and tell the owner the remaining steps with their links. Payment onboarding is always the owner\'s: give them the link, never try to complete it.',
+    scope: 'sites:read',
+    readOnly: true,
+    inputSchema: { type: 'object', properties: siteIdProp, required: ['site_id'] },
+    run: async (args, ctx) => {
+      const { site } = await siteContext(args, ctx, { requireV2: false });
+      return storeReadiness(ctx.db, site.id);
     },
   },
   {

@@ -214,7 +214,28 @@ Seed reviews from research_business (real Google review snippets, quoted accurat
 get_business_data shows what exists. upsert_services / upsert_products / upsert_posts add records (import images
 first). Moving a business off an old site? Import its articles with upsert_posts, keeping their original
 published_at dates, and link to /blog/<slug> — not to the old site's URLs, which stop working once the domain moves.
-The owner manages payments, hours, shipping and taxes in Admin; tell them what's left to configure.`;
+The owner manages payments, hours, shipping and taxes in Admin; tell them what's left to configure.
+
+## Setting up a store, start to finish
+1. **Ask how they'll fulfill orders before creating any product**: do they pack and ship themselves, does a vendor
+   ship (vendors are set up in Admin → Ecommerce), or should **Printful** print and ship on demand (t-shirts, mugs,
+   posters…)? A mix is fine; ask per product line.
+2. **Printful**: the owner connects their Printful store first (Admin → Ecommerce → Fulfillment; get_store_readiness
+   gives the link). Then list_printful_products shows their Printful products (choices, prices, mockups), and
+   upsert_products with \`fulfillment: { provider: "printful", printful_product_id }\` creates each Keystone product
+   from it: Keystone reads the sizes, colours, retail prices and mockup images from Printful itself and links every
+   variant, so leave price_cents, variants, options and images out (add a description, category, featured). Pass
+   \`id\` too to link a product that already exists. Prices are set in Printful; link again to refresh. Paid orders
+   then go to Printful automatically (as drafts unless the owner turns on auto-confirm), and Printful's tracking is
+   emailed to the customer. Printful designs are made in Printful, not here.
+3. **Products they ship themselves (or a vendor ships)**: upsert_products with \`variants\` for same-price choices
+   (\`[{ "name": "Colour", "options": ["Black", "Sand"] }]\`) and \`options\` for choices that change the price
+   (\`[{ "name": "Size", "values": [{ "label": "M", "priceModifierCents": 0 }, { "label": "2XL", "priceModifierCents": 300 }] }]\`,
+   price_cents = the cheapest). \`fulfillment: { provider: "vendor", vendor_id }\` assigns a vendor.
+4. **Design the store** (products collection, product links, cart) as above.
+5. **Finish with get_store_readiness** and tell the owner, in plain words with each link, what is left: connecting
+   payments (Stripe identity and bank checks are always theirs — never try to do them), shipping zones and rates,
+   sales tax, and any fulfillment problems it lists.`;
 
 const forms = `# Forms
 
@@ -265,6 +286,8 @@ const workflow = `# Workflow
    (sideways scrolling, invisible text, broken images, JS errors). Repeat per page (about, services, contact…).
    Products, services or a blog/news section? Use live data (topic "business") so the owner can keep them up to date
    in Admin — never hard-code a list of articles or products as static content.
+   Selling products? Ask how orders will be fulfilled before creating any (topic "business", "Setting up a store"),
+   and end with get_store_readiness so the owner knows what is left.
 7. validate → fix errors.
 8. publish (if your token has sites:publish and the owner has a plan) or request_approval to send the owner the preview.
 Every write returns issues and a preview link — read them before the next step.`;

@@ -10,6 +10,7 @@ import {
     sendOwnerNotification,
 } from '@/lib/email';
 import { buildSiteOrigin } from '@/lib/email/order-tracking-url';
+import { queuePrintfulFulfillment } from '@/lib/printful/queue';
 
 /**
  * POST /api/clover/charge
@@ -81,6 +82,7 @@ export async function POST(request: NextRequest) {
                 .single();
 
             sendCloverOrderEmails(supabase, updated || order, vendor || null).catch(e => console.error(e));
+            queuePrintfulFulfillment(orderId);
 
             return NextResponse.json({ success: true, chargeId: charge.chargeId });
         } catch (err: any) {

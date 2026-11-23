@@ -67,6 +67,54 @@ Agents design how business data looks; Keystone runs the logic (`get_guide topic
 - **Agent tools**: `get_business_data`, `upsert_services`, `upsert_products`, `upsert_posts`.
 - **Admin**: the Booking and Ecommerce tabs appear for v2 sites whose design uses those features.
 
+## Store setup over MCP, with Printful fulfillment
+
+An agent can set up a whole store: it asks the owner how orders will be fulfilled, creates the products, and
+finishes with a checklist of what only the owner can do. There is no product-import screen in Admin.
+
+- **`upsert_products`** (`lib/v2/store-setup.ts`): name, description, price, images, category, `variants`
+  (`[{name, options[]}]`, same price, 006) and `options` (`[{name, values[{label, priceModifierCents}], defaultIndex}]`,
+  065), plus `fulfillment: { provider: 'self' | 'vendor' | 'printful', vendor_id?, printful_product_id? }`. New
+  products get a unique `slug` (the column is NOT NULL; the old insert didn't set it) and are published at
+  `/product/<id>`. Updates change only the fields passed.
+- **`get_store_readiness`**: read-only checklist, each step with a deep link (`/admin/ecommerce?siteId=…&tab=…`):
+  payments connected *and* turned on (same checks as `app/api/products/settings`), shipping zones (and
+  "shipping required" when Printful is used), sales tax, products published, fulfillment per product
+  (owner / vendor / Printful) with Printful connection problems, failed Printful orders, order emails, and whether
+  the v2 design shows products. The MCP never starts or completes payment onboarding: it returns the link.
+- **Printful connection** (Admin → Ecommerce → **Fulfillment**, `app/components/ecommerce/FulfillmentPanel.tsx`,
+  `app/api/printful/*`): "Connect Printful" uses OAuth when `PRINTFUL_CLIENT_ID`/`PRINTFUL_CLIENT_SECRET` are set
+  (a Printful public app; access tokens last ~1 hour and the refresh token rotates on each refresh), and a pasted
+  private token always works. Tokens and the webhook secret are AES-256-GCM encrypted (`lib/crypto/secret-box.ts`,
+  `CREDENTIALS_ENCRYPTION_KEY`) in tables with RLS on and no policies; they are never returned to the browser or MCP.
+- **`list_printful_products`** + `upsert_products … fulfillment: { provider: 'printful', printful_product_id }`:
+  the server reads the sync product from Printful with the site's own credentials (so only that store's products
+  resolve), maps it (`lib/printful/mapping.ts`: a dimension that explains every price difference — e.g. Size for a
+  pricier 2XL — becomes an option with modifiers, the rest become variants; if prices depend on the combination, one
+  "Style" option carries exact prices), re-hosts the mockups through `importImageFromUrl`, and stores the
+  Keystone-selection → `sync_variant_id` map in `printful_product_links`. Model-supplied variant ids, prices,
+  variants and options are rejected for Printful products. Pass `id` to link an existing product.
+- **Automated fulfillment** (`lib/printful/fulfillment.ts`, `queue.ts`): every place an order becomes paid (Stripe
+  webhook, PayPal capture + webhook, Clover charge + webhook, Converge verify, "no payment" orders, the owner marking
+  an order paid) calls `queuePrintfulFulfillment`, which runs after the response. Printful lines become one Printful
+  order (`external_id` = the Keystone order id without dashes, 32 chars), a draft unless the site turned on
+  auto-confirm. `printful_orders.order_id` is unique, so retries never double-order. Checkout rejects a Printful item
+  whose choice matches no Printful variant, and Printful items never fall into the default vendor's split order.
+- **Why not a vendor?** Vendors (061) are paid separately at checkout. With Printful the customer pays the owner as
+  usual and Printful bills the owner, so Printful only changes who ships.
+- **Webhooks** (`app/api/printful/webhook?site=<id>`): registered on connect through Printful's v2 webhooks
+  (signed: `x-pf-webhook-signature`, hex HMAC-SHA256 of the raw body with the hex-decoded secret). The payload is
+  only a trigger: the order is re-read from Printful before tracking is saved and the existing shipped email
+  (`sendOrderShipped`) goes to the customer. All-Printful orders are marked shipped.
+- **Failures** (no connection, unmatched choice, no address, Printful rejecting the order, Printful on hold / failed /
+  cancelled) are saved on `printful_orders`, emailed to the owner, listed in Fulfillment with Retry / Confirm /
+  Refresh, and reported by `get_store_readiness`.
+
+Setup: apply `migrations/099_printful_fulfillment.sql`; set `CREDENTIALS_ENCRYPTION_KEY` (32 bytes, hex or base64:
+`openssl rand -hex 32`); optionally create a Printful public app with redirect URL
+`<APP_URL>/api/printful/oauth/callback` and scopes orders, sync_products, webhooks, and set `PRINTFUL_CLIENT_ID`
+/ `PRINTFUL_CLIENT_SECRET`. Out of scope: live Printful shipping rates at checkout, the Mockup Generator.
+
 ## Membership (accounts, sign-in, members-only pages)
 
 Same split as the business features: Keystone runs accounts and payments, the agent designs around them
@@ -168,11 +216,13 @@ concurrent edits never lose each other.
 | `app/api/v2/editor/route.ts` | Owner editor API |
 | `app/(app)/design/v2/*` | Owner editor UI |
 | `lib/v2/archie.ts`, `app/api/v2/archie/route.ts` | Archie v2 (in-editor AI over the MCP tools) |
+| `lib/v2/store-setup.ts` | upsert_products, list_printful_products, get_store_readiness |
+| `lib/printful/*`, `app/api/printful/*` | Printful client, variant mapping, fulfillment, connect/OAuth/webhook routes |
 
 ## Tests
 
 - `npm run test:v2` — compiler/renderer unit tests + a full agent/owner flow against an in-memory DB
-  (runs in `prebuild`).
+  (runs in `prebuild`). `scripts/verify-printful.ts` covers store setup and Printful against a mocked Printful API.
 - `npm run test:v2:e2e` — real Next dev server + Chromium, with Supabase emulated over HTTP.
   Set `E2E_SCREENSHOTS=<dir>` for screenshots.
 
