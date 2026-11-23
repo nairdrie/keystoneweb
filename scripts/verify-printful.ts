@@ -165,6 +165,9 @@ async function main() {
     const [a, b] = created.products.map((p: { id: string }) => db.table('products').find((r) => r.id === p.id)!);
     assert.equal(a.slug, 'work-jacket');
     assert.equal(b.slug, 'work-jacket-2', 'slugs are unique per site');
+    const named = await ok('upsert_products', { site_id: siteId, products: [{ name: 'Cap', price_cents: 1500, slug: 'Work Jacket' }] });
+    assert.equal(named.products[0].slug, 'work-jacket-3', 'a passed slug is used, made unique');
+    db.tables.products = db.table('products').filter((r) => r.id !== named.products[0].id);
     assert.equal(a.status, 'published');
     assert.deepEqual(a.variants, [{ name: 'Colour', options: ['Navy', 'Olive'] }]);
     assert.deepEqual(a.options, [{ name: 'Size', defaultIndex: 0, values: [{ label: 'M', priceModifierCents: 0 }, { label: '2XL', priceModifierCents: 500 }] }]);

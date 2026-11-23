@@ -35,10 +35,15 @@ const DEFAULTS: Record<string, () => Row> = {
   api_tokens: () => ({ scopes: ['sites:read', 'sites:write'], revoked_at: null, expires_at: null, last_used_at: null }),
 };
 
+/** NOT NULL columns without a default, as Postgres enforces them. */
+const REQUIRED: Record<string, string[]> = {
+  products: ['site_id', 'name', 'slug'],
+};
+
 const UNIQUE: Record<string, string[][]> = {
+  products: [['site_id', 'slug']],
   v2_sections: [['site_id', 'key']],
   api_tokens: [['token_hash']],
-  products: [['site_id', 'slug']],
   printful_orders: [['order_id']],
   printful_product_links: [['site_id', 'sync_product_id']],
 };
@@ -180,6 +185,8 @@ class Query implements PromiseLike<{ data: unknown; error: { message: string; co
           if (!PRIMARY_KEYS[this.name] && row.id === undefined) row.id = randomUUID();
           const pk = PRIMARY_KEYS[this.name] || ['id'];
           if (table.some((r) => this.keyOf(r, pk) === this.keyOf(row, pk))) return { data: null, error: { message: 'duplicate key value violates primary key', code: '23505' } };
+          const missing = (REQUIRED[this.name] || []).find((c) => row[c] === undefined || row[c] === null);
+          if (missing) return { data: null, error: { message: `null value in column "${missing}" of relation "${this.name}" violates not-null constraint`, code: '23502' } };
           const uniqueErr = this.checkUnique(table, row);
           if (uniqueErr) return { data: null, error: uniqueErr };
           table.push(row);

@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import type { NextRequest } from 'next/server';
-import { scanImage } from '@/lib/moderation/image-scan';
-import { handleModerationResult } from '@/lib/moderation/report';
+import { BLOCKED_IMAGE_MESSAGE, scanImage } from '@/lib/moderation/image-scan';
+import { handleModerationResult, logFlaggedImage } from '@/lib/moderation/report';
 import { ShopRuleError, type ShopAccess } from './access';
 
 /** Private bucket for job photos, voice notes, supplier invoices and signatures. */
@@ -44,8 +44,9 @@ export async function storeShopFile(
   if (buffer.length === 0) throw new ShopRuleError('The file is empty.', undefined, 400);
   if (buffer.length > MAX_UPLOAD_BYTES) throw new ShopRuleError('That file is too large (20 MB max).', undefined, 413);
 
+  let scan: Awaited<ReturnType<typeof scanImage>> | null = null;
   if (mime.startsWith('image/')) {
-    const scan = await scanImage(buffer);
+    scan = await scanImage(buffer);
     if (scan.blocked) {
       await handleModerationResult(scan, {
         siteId: access.siteId,
@@ -55,13 +56,14 @@ export async function storeShopFile(
         contentRef: null,
         contentHash: null,
       });
-      throw new ShopRuleError('That image can’t be uploaded.', undefined, 422);
+      throw new ShopRuleError(BLOCKED_IMAGE_MESSAGE, undefined, 422);
     }
   }
 
   const path = `${access.siteId}/${folder}/${randomUUID()}.${EXT[mime] || 'bin'}`;
   const { error } = await access.db.storage.from(SHOP_BUCKET).upload(path, buffer, { contentType: mime, upsert: false });
   if (error) throw new Error(`Upload failed: ${error.message}`);
+  if (scan) await logFlaggedImage(scan, { siteId: access.siteId, userId: access.userId, ipAddress: clientIp(request), contentRef: `${SHOP_BUCKET}/${path}`, contentHash: null });
   return path;
 }
 

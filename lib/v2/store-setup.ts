@@ -200,7 +200,9 @@ export async function upsertProducts(db: Db, site: { id: string; user_id: string
     }
 
     const finalName = String(row.name ?? existing?.name ?? '');
-    if (!existing || (row.name !== undefined && row.name !== existing.name)) row.slug = await uniqueSlug(db, site.id, finalName, existing?.id as string | undefined);
+    // products.slug is NOT NULL and unique per site: a passed slug wins, else it follows the name.
+    if (typeof p.slug === 'string' && p.slug.trim()) row.slug = await uniqueSlug(db, site.id, p.slug, existing?.id as string | undefined);
+    else if (!existing || (row.name !== undefined && row.name !== existing.name)) row.slug = await uniqueSlug(db, site.id, finalName, existing?.id as string | undefined);
     row.updated_at = new Date().toISOString();
 
     let id: string;
@@ -230,6 +232,7 @@ export async function upsertProducts(db: Db, site: { id: string; user_id: string
     results.push({
       id,
       ...(existing ? { updated: true } : { created: true }),
+      slug: row.slug ?? existing?.slug,
       url: `/product/${id}`,
       fulfillment,
       ...(mapped ? {

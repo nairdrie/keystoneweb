@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
 import { createClient } from '@/lib/db/supabase-server';
-import { scanImage } from '@/lib/moderation/image-scan';
-import { handleModerationResult } from '@/lib/moderation/report';
+import { BLOCKED_IMAGE_MESSAGE, scanImage } from '@/lib/moderation/image-scan';
+import { handleModerationResult, logFlaggedImage } from '@/lib/moderation/report';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const ALLOWED = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
       contentRef: null,
       contentHash: null,
     });
-    return NextResponse.json({ error: 'Content policy violation' }, { status: 422 });
+    return NextResponse.json({ error: BLOCKED_IMAGE_MESSAGE }, { status: 422 });
   }
 
   const storagePath = `${siteId}/email-inline/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
@@ -100,6 +100,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { data: { publicUrl } } = supabase.storage.from('site-assets').getPublicUrl(uploaded.path);
+  await logFlaggedImage(scan, { siteId, userId: user.id, ipAddress: null, contentRef: uploaded.path, contentHash: null });
 
   await supabase.from('site_media').upsert({
     site_id: siteId,

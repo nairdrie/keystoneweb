@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/db/supabase-server';
 import { NextRequest, NextResponse } from 'next/server';
-import { scanImage } from '@/lib/moderation/image-scan';
-import { handleModerationResult } from '@/lib/moderation/report';
+import { BLOCKED_IMAGE_MESSAGE, scanImage } from '@/lib/moderation/image-scan';
+import { handleModerationResult, logFlaggedImage } from '@/lib/moderation/report';
 
 /**
  * POST /api/menu/upload
@@ -48,8 +48,9 @@ export async function POST(request: NextRequest) {
   const buffer = Buffer.from(await file.arrayBuffer());
 
   // Scan images for illegal content / CSAEM (PDFs are text-only, skip image scan)
+  let scanResult: Awaited<ReturnType<typeof scanImage>> | null = null;
   if (file.type !== 'application/pdf') {
-    const scanResult = await scanImage(buffer);
+    scanResult = await scanImage(buffer);
     if (scanResult.blocked) {
       const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
         ?? request.headers.get('x-real-ip')
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
         contentRef:  null,
         contentHash: null,
       });
-      return NextResponse.json({ error: 'Content policy violation' }, { status: 422 });
+      return NextResponse.json({ error: BLOCKED_IMAGE_MESSAGE }, { status: 422 });
     }
   }
 
@@ -80,6 +81,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { data: { publicUrl } } = supabase.storage.from('site-assets').getPublicUrl(data.path);
+  if (scanResult) await logFlaggedImage(scanResult, { siteId, userId: user.id, ipAddress: null, contentRef: data.path, contentHash: null });
 
   return NextResponse.json({ fileUrl: publicUrl });
 }

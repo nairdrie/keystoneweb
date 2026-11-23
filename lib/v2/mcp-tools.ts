@@ -782,6 +782,7 @@ export const TOOLS: ToolDef[] = [
               inventory_count: { type: ['number', 'null'], description: 'Omit (or null) for untracked stock.' },
               weight_grams: { type: 'number', description: 'Needed when the owner uses carrier-calculated shipping.' },
               sort_order: { type: 'number' },
+              slug: str('Optional URL-safe handle (default: from the name). Made unique per site; the product page is /product/<id>.'),
               variants: {
                 type: 'array',
                 description: 'Same-price choices the shopper picks, e.g. [{ "name": "Colour", "options": ["Black", "White"] }].',
