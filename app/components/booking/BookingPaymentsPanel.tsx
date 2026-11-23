@@ -8,6 +8,7 @@ import {
 import CloverSetupInstructions from '@/app/components/ecommerce/CloverSetupInstructions';
 import PayPalSetupInstructions from '@/app/components/ecommerce/PayPalSetupInstructions';
 import { useAdminContext } from '@/app/(app)/admin/admin-context';
+import { StripeCountrySelect, useStripeConnectStatus } from '@/app/components/payments/StripeConnectCountry';
 
 type PaymentMethodKey = 'none' | 'etransfer' | 'stripe' | 'paypal' | 'converge' | 'clover';
 
@@ -78,6 +79,9 @@ export default function BookingPaymentsPanel({ siteId }: BookingPaymentsPanelPro
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
     const [connectingStripe, setConnectingStripe] = useState(false);
+    const stripeStatus = useStripeConnectStatus(siteId);
+    // An account that hasn't finished Stripe's onboarding isn't really connected yet.
+    const stripeReady = stripeConnected && (!stripeStatus.loaded || stripeStatus.onboarded);
 
     const { setHasUnsavedChanges } = useAdminContext();
     const baselineRef = useRef<string>('');
@@ -227,7 +231,7 @@ export default function BookingPaymentsPanel({ siteId }: BookingPaymentsPanelPro
             const res = await fetch('/api/stripe/connect', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ siteId, returnUrl: window.location.href }),
+                body: JSON.stringify({ siteId, returnUrl: window.location.href, country: stripeStatus.country }),
             });
             const data = await res.json();
             if (data.url) window.open(data.url, '_blank');
@@ -313,7 +317,7 @@ export default function BookingPaymentsPanel({ siteId }: BookingPaymentsPanelPro
                             <Link2 className="w-4 h-4 text-violet-600" />
                             Stripe Account
                         </label>
-                        {stripeConnected ? (
+                        {stripeReady ? (
                             <div className="flex items-center gap-2 px-3 py-2.5 bg-green-50 border border-green-200 rounded-lg">
                                 <Check className="w-4 h-4 text-green-600" />
                                 <span className="text-sm text-green-700 font-medium">Stripe account connected</span>
@@ -326,6 +330,11 @@ export default function BookingPaymentsPanel({ siteId }: BookingPaymentsPanelPro
                             </div>
                         ) : (
                             <div>
+                                <StripeCountrySelect
+                                    value={stripeStatus.country}
+                                    onChange={stripeStatus.setCountry}
+                                    disabled={connectingStripe}
+                                />
                                 <button
                                     onClick={handleConnectStripe}
                                     disabled={connectingStripe}
@@ -336,14 +345,14 @@ export default function BookingPaymentsPanel({ siteId }: BookingPaymentsPanelPro
                                     ) : (
                                         <ExternalLink className="w-4 h-4" />
                                     )}
-                                    Connect Stripe Account
+                                    {stripeConnected ? 'Finish Stripe Setup' : 'Connect Stripe Account'}
                                 </button>
                                 <p className="text-xs text-slate-400 mt-1.5">
                                     You'll be redirected to Stripe to connect or create an account. Funds go directly to your account.
                                 </p>
                             </div>
                         )}
-                        {!stripeConnected && (
+                        {!stripeReady && (
                             <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
                                 <AlertCircle className="w-3 h-3" /> Connect Stripe to accept card payments
                             </p>

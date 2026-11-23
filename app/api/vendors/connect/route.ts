@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
 import Stripe from 'stripe';
+import { ensureConnectAccount, isConnectCountry, resolveConnectCountry } from '@/lib/payments/stripe-connect';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
     apiVersion: '2026-02-25.clover' as any,
@@ -66,7 +67,7 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { vendorId, returnUrl } = body;
+        const { vendorId, returnUrl, country } = body;
 
         if (!vendorId || !returnUrl) {
             return NextResponse.json({ error: 'Missing vendorId or returnUrl' }, { status: 400 });
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest) {
         // Verify site ownership
         const { data: site } = await supabase
             .from('sites')
-            .select('user_id')
+            .select('user_id, business_profile')
             .eq('id', vendor.site_id)
             .single();
 
@@ -94,27 +95,17 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
-        let stripeAccountId = vendor.stripe_account_id;
+        // Vendors default to the store's country; a different one can be passed explicitly.
+        const { accountId: stripeAccountId } = await ensureConnectAccount(stripe, {
+            existingAccountId: vendor.stripe_account_id,
+            requestedCountry: isConnectCountry(country) ? country : null,
+            fallbackCountry: resolveConnectCountry(null, site.business_profile),
+            email: vendor.contact_email,
+            businessProfile: vendor.name ? { name: String(vendor.name).slice(0, 100) } : undefined,
+            metadata: { vendorId: vendor.id, siteId: vendor.site_id },
+        });
 
-        // Create a new connected account if it doesn't exist
-        if (!stripeAccountId) {
-            const account = await stripe.accounts.create({
-                type: 'express',
-                country: 'US',
-                email: vendor.contact_email,
-                capabilities: {
-                    card_payments: { requested: true },
-                    transfers: { requested: true },
-                },
-                business_type: 'company',
-                metadata: {
-                    vendorId: vendor.id,
-                    siteId: vendor.site_id,
-                },
-            });
-
-            stripeAccountId = account.id;
-
+        if (stripeAccountId !== vendor.stripe_account_id) {
             await supabase
                 .from('vendors')
                 .update({ stripe_account_id: stripeAccountId, payment_mode: 'stripe' })
